@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.30.0",
+  "version": "0.30.1",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Cofre local, Ajustes reorganizados e atalho de investimento em Hoje."
+  "notes": "Pasta de backup cifrada e exclusão com confirmação por senha."
 }
