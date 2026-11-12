@@ -1,7 +1,7 @@
 [Setup]
 AppId=ReservaSimples.Windows
 AppName=Reserva Simples
-AppVersion=0.1.5
+AppVersion=0.1.6
 DefaultDirName={localappdata}\Programs\Reserva Simples
 DefaultGroupName=Reserva Simples
 PrivilegesRequired=lowest

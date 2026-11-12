@@ -6,6 +6,9 @@
       <TextBlock Text="Reserva Simples" Margin="18,25" Foreground="White" FontSize="19" FontWeight="Bold"/>
       <Button Content="Hoje" Margin="14,0,14,8" Padding="12" Click="ShowToday"/>
       <Button Content="Lançamentos" Margin="14,0,14,8" Padding="12" Click="ShowEntries"/>
+      <Button Content="Metas" Margin="14,0,14,8" Padding="12" Click="ShowGoals"/>
+      <Button Content="Investimentos" Margin="14,0,14,8" Padding="12" Click="ShowPortfolio"/>
+      <Button Content="Insights e PDF" Margin="14,0,14,8" Padding="12" Click="ShowInsights"/>
     </StackPanel>
     <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
       <StackPanel Margin="28">

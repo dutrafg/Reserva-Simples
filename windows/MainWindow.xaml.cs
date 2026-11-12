@@ -246,7 +246,7 @@ public partial class MainWindow : Window
         Entries.ItemsSource = rows;
         Income.Text = Money(income);
         Expenses.Text = Money(expenses);
-        Balance.Text = Money(income - expenses);
+        Balance.Text = Money(income - expenses + PortfolioCash(month));
         RefreshGroceryBudget(rows);
     }
 
@@ -300,6 +300,7 @@ public partial class MainWindow : Window
             VerifyLocalRestore();
             VerifyPortfolioMigration();
             VerifyGroceryBudget();
+            VerifyPlanningFlows();
             if (IsPlainSqlite(databasePath) || IsPlainSqlite(copyPath)) throw new InvalidOperationException("Banco ou backup sem cifra.");
             Application.Current.Shutdown(0);
         }
