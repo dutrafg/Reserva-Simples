@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.33.2",
+  "version": "0.33.3",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Cálculo mensal compartilhado e integração dos investimentos na projeção de caixa."
+  "notes": "Cartões compactos e remoção do painel duplicado de vencimentos em Hoje."
 }

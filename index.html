@@ -345,6 +345,27 @@ body:has(#vaultDialog[data-mode="folder"][open]) .shell,body:has(#vaultDialog[da
  .page :is(.stats,.overview-grid,.today-stats){--tile-width:145px}
  .page .goal-grid,.page .settings-grid{--tile-width:100%}
 }
+
+/* Compact cards grow across each row without stretching their height. */
+.page.active{gap:14px}
+.page :is(.stats,.overview-grid,.goal-grid,.settings-grid,.today-stats,.insight-grid){gap:12px}
+.page :is(.overview-grid,.goal-grid,.settings-grid,.insight-grid){align-items:flex-start}
+.page :is(.stat,.overview-card,.today-stat,.settings-card,.insights-portfolio,.today-reserve,.insights-details){padding:clamp(12px,1.15vw,17px)}
+.page .overview-card p{min-height:0;margin-block:6px 10px}
+.page :is(.settings-card,.today-reserve) .card-head{margin-bottom:10px}
+.page :is(.settings-card,.today-reserve,.today-lower) .empty-inline{padding:10px 12px}
+.page .settings-grid{--tile-width:390px}
+.page .goal-grid{--tile-width:380px}
+.page .today-lower{align-items:start}
+.page .today-top-grid{align-items:start}
+.page .today-top-grid>.today-card,.page .today-top-grid>.card{padding:14px}
+#page-investments .overview-grid>.card{padding:14px}
+#page-investments .overview-grid>.card h3{margin:0 0 8px}
+#page-investments .overview-grid>.card p{margin:5px 0}
+#page-investments .overview-grid>.card .actions{margin-top:10px}
+#page-analysis .insights-portfolio{gap:8px}
+#page-transactions .transaction-row{padding-block:8px}
+@media(max-width:760px){.page .settings-grid,.page .goal-grid{--tile-width:100%}}
 </style>
 </head>
 <body>
