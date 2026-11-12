@@ -7,7 +7,7 @@ const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Ago
 const CATS=['Água','Luz','Internet','Faculdade','Farmácia','Cartões','Telefone','Mercado','Comida / Marmita','Moradia','Transporte','Saúde','Lazer','Assinaturas','Outros'];
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['settings','Ajustes','settings']];
-const APP_VERSION='0.34.8';
+const APP_VERSION='0.34.9';
 const updateInfo={lastCheck:localStorage.getItem('reserva.update.checkedAt')||'',latest:APP_VERSION,available:false,status:'Aguardando verificação',state:'waiting',notes:''};
 let updateRegistration=null;
 const $=(q)=>document.querySelector(q);
@@ -44,7 +44,7 @@ function verify(src){if(!src||![2,3,4].includes(src.version)||!Array.isArray(src
    clean.investments.push({id:x.id,name:x.name,institution:x.institution,product:x.product,cost:x.cost,balance:x.balance,date:x.date,checked:x.checked,redemptions:redemptions.map(r=>({date:r.date,amount:r.amount})),existing:x.existing===true,goalId:clean.jars.some(j=>j.id===x.goalId)?x.goalId:null});
  }
  const marketBudget=src.prefs?.marketBudget;
- clean.prefs.marketBudget=Number.isSafeInteger(marketBudget)&&marketBudget>0&&marketBudget<=10000000000?marketBudget:70000;
+ clean.prefs.marketBudget=Number.isSafeInteger(marketBudget)&&marketBudget>0&&marketBudget<=10000000000?marketBudget:null;
  clean.prefs.palette=['blue','petrol','plum'].includes(src.prefs?.palette)?src.prefs.palette:'blue';
  clean.prefs.budgetSound=src.prefs?.budgetSound===true;
  return clean;
@@ -188,7 +188,8 @@ function playBudgetSound(critical=false){
 function groceryAlertLevel(){
   const period=isoToday().slice(0,7);
   const spent=sum(db.records.filter(r=>r.kind==='expense'&&r.category==='Mercado'&&r.date.startsWith(period)).map(r=>r.amount));
-  const cap=db.prefs.marketBudget??70000;
+  const cap=db.prefs.marketBudget;
+  if(!cap)return 0;
   return spent>=cap?2:spent*4>=cap*3?1:0;
 }
 document.addEventListener('pointerdown',()=>{if(db.prefs.budgetSound)unlockBudgetAudio()});
@@ -388,19 +389,23 @@ function upcomingBills() {
     `<p>${dateBR(t.due)} · ${esc(t.note || t.category)} · ${money(t.amount)}${t.due<today?' · vencida':''} <button class="btn small" data-edit-recurring="${esc(t.id)}">Editar previsão</button></p>`).join('') : '<p>Sem contas recorrentes pendentes.</p>'}</article>`;
 }
 function marketBudgetCard(monthData) {
-  const budget=db.prefs.marketBudget??70000;
+  const budget=db.prefs.marketBudget;
   const spent=sum(monthData.records.filter(r=>r.kind==='expense'&&r.category==='Mercado').map(r=>r.amount));
-  const milestone=[100,75,50,25].find(level=>spent*100>=budget*level);
+  const milestone=budget?[100,75,50,25].find(level=>spent*100>=budget*level):undefined;
   const warning=milestone>=75;
-  const message=spent>budget?'Cota ultrapassada':spent===budget?'Cota atingida':milestone?`Você atingiu ${milestone}% da cota${warning?' · Gasto alto':''}`:'Abaixo de 25% da cota';
+  const message=!budget?'Sem cota definida':spent>budget?'Cota ultrapassada':spent===budget?'Cota atingida':milestone?`Você atingiu ${milestone}% da cota${warning?' · Gasto alto':''}`:'Abaixo de 25% da cota';
   return `<article class="card market-budget ${warning?'market-warning':''}"><h2>Cota de Mercado</h2>
-  <p><strong>${message}</strong></p><p>${money(spent)} gastos de ${money(budget)} em ${esc(monthLabel())}.</p>
-  <p>${spent>budget?'Acima da cota':'Disponível na cota'}: ${money(Math.abs(budget-spent))}</p>
-  <form data-market-budget-form><label class="field">Cota mensal (R$)<input name="budget" type="number" min="0.01" max="100000000" step="0.01" required value="${hideValues?'':(budget/100).toFixed(2)}"></label><button class="btn" type="submit">Salvar cota</button></form></article>`;
+  <p><strong>${message}</strong></p><p>${money(spent)} gastos${budget?' de '+money(budget):''} em ${esc(monthLabel())}.</p>
+  ${budget?`<p>${spent>budget?'Acima da cota':'Disponível na cota'}: ${money(Math.abs(budget-spent))}</p>`:''}
+  <form data-market-budget-form><label class="field">Cota mensal (R$)<input name="budget" type="number" min="0.01" max="100000000" step="0.01" placeholder="Sem limite" value="${hideValues||!budget?'':(budget/100).toFixed(2)}"></label><button class="btn" type="submit">Salvar cota</button>${budget?'<button class="btn" type="submit" value="clear">Remover cota</button>':''}</form></article>`;
 }
 document.addEventListener('submit',async event=>{
   if(!event.target.matches('[data-market-budget-form]'))return;
   event.preventDefault();
+  if(event.submitter?.value==='clear'){
+    if(await mutate(()=>{db.prefs.marketBudget=null}))notify('Cota de Mercado removida.');
+    return;
+  }
   const budget=toCents(event.target.elements.namedItem('budget').value);
   if(!Number.isSafeInteger(budget)||budget<=0||budget>10000000000)return notify('Informe uma cota mensal válida.');
   if(await mutate(()=>{db.prefs.marketBudget=budget}))notify('Cota mensal de Mercado atualizada.');
@@ -621,7 +626,7 @@ function settings(){
 <section class="backup-group backup-report"><h3>Relatório financeiro</h3><p>Escolha o período para imprimir ou salvar em PDF.</p><div class="backup-pdf-controls"><label class="field" for="globalPdfScope">Período do relatório<select id="globalPdfScope"><option value="month">${esc(monthLabel())}</option><option value="year">Ano de ${state.year}</option><option value="all">Histórico completo</option></select></label><button class="btn primary" id="globalPdfBtn">Gerar PDF</button></div></section>
 <section class="backup-group"><h3>Planilha de lançamentos</h3><p>Exporte o histórico em CSV.</p><div class="setting-actions"><button class="btn" id="csvBtn">Exportar CSV</button></div></section></div></article>
  <article class="card settings-card settings-danger"><div class="settings-card-head"><span class="settings-icon">${icon('expense')}</span><div><h2>Apagar dados</h2><p>Remove ${total} movimentações e ${db.jars.length} cofrinhos salvos neste navegador.</p></div></div><div class="setting-actions"><button class="btn negative" id="clearBtn">Apagar todos os dados</button></div></article>
- </div><div class="notice">Versão 0.34.8. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
+ </div><div class="notice">Versão 0.34.9. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
 }
 function setUpdateStatus(status,state='waiting'){updateInfo.status=status;updateInfo.state=state;const el=$('#updateState');if(el){el.textContent=status;el.dataset.state=state}const button=$('#applyUpdateBtn');if(button)button.hidden=!updateInfo.available;const latest=$('#updateLatest');if(latest)latest.textContent='v'+updateInfo.latest;const checked=$('#updateLastCheck');if(checked)checked.textContent=updateInfo.lastCheck?new Date(updateInfo.lastCheck).toLocaleString('pt-BR'):'Ainda não consultado';const notes=$('#updateNotes');if(notes)notes.textContent=updateInfo.notes||'O app preserva o banco local. A atualização do PWA requer conexão com o endereço publicado.'}
 function compareVersions(a,b){const x=String(a).split('.').map(Number),y=String(b).split('.').map(Number);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return d}return 0}
