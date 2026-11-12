@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.33.5",
+  "version": "0.33.6",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Movimentações em Metas inclui operações da carteira e aplicações existentes sem débito."
+  "notes": "Relatório geral de todos os períodos, com impressão e salvamento em PDF."
 }
