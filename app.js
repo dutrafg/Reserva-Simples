@@ -325,10 +325,10 @@ function marketBudgetCard(monthData) {
   return `<article class="card market-budget ${warning?'market-warning':''}"><h2>Cota de Mercado</h2>
   <p><strong>${message}</strong></p><p>${money(spent)} gastos de ${money(budget)} em ${esc(monthLabel())}.</p>
   <p>${spent>budget?'Acima da cota':'Disponível na cota'}: ${money(Math.abs(budget-spent))}</p>
-  <form id="marketBudgetForm"><label class="field">Cota mensal (R$)<input name="budget" type="number" min="0.01" max="100000000" step="0.01" required value="${hideValues?'':(budget/100).toFixed(2)}"></label><button class="btn" type="submit">Salvar cota</button></form></article>`;
+  <form data-market-budget-form><label class="field">Cota mensal (R$)<input name="budget" type="number" min="0.01" max="100000000" step="0.01" required value="${hideValues?'':(budget/100).toFixed(2)}"></label><button class="btn" type="submit">Salvar cota</button></form></article>`;
 }
 document.addEventListener('submit',async event=>{
-  if(event.target.id!=='marketBudgetForm')return;
+  if(!event.target.matches('[data-market-budget-form]'))return;
   event.preventDefault();
   const budget=toCents(event.target.elements.namedItem('budget').value);
   if(!Number.isSafeInteger(budget)||budget<=0||budget>10000000000)return notify('Informe uma cota mensal válida.');
