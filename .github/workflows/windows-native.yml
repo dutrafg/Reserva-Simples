@@ -73,7 +73,10 @@ jobs:
           if-no-files-found: error
 
   publish-beta:
-    if: github.event_name == 'workflow_dispatch' && inputs.publish_beta && github.ref == 'refs/heads/windows-native'
+    if: >-
+      github.ref == 'refs/heads/windows-native' &&
+      ((github.event_name == 'workflow_dispatch' && inputs.publish_beta) ||
+       (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Publish Windows beta ')))
     needs: build
     runs-on: ubuntu-latest
     permissions:
