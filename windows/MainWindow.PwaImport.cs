@@ -40,11 +40,12 @@ public partial class MainWindow
                     $"Importar {entries.Count} receitas e despesas? Esta etapa não importa metas, cofrinhos ou investimentos. O banco Windows ainda não é cifrado.",
                     "Importar lançamentos", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
                 if (answer != MessageBoxResult.Yes) return;
+                var snapshot = CreateRecoverySnapshot("antes-de-importar");
                 var count = WritePwaEntries(entries);
                 var latest = DateTime.ParseExact(entries.Max(x => x.Day)!, "yyyy-MM-dd", CultureInfo.InvariantCulture);
                 selectedMonth = new DateTime(latest.Year, latest.Month, 1);
                 Refresh();
-                StatusText.Text = $"Importados: {count}. Já importados: {entries.Count - count}.";
+                StatusText.Text = $"Importados: {count}. Já importados: {entries.Count - count}. Cópia anterior: {snapshot}";
             }
             finally { decrypted?.Dispose(); }
         }
@@ -154,6 +155,7 @@ public partial class MainWindow
             """;
         using var original = JsonDocument.Parse(fixture);
         var rows = ReadPwaEntries(original.RootElement);
+        var snapshot = CreateRecoverySnapshot("antes-de-importar");
         if (WritePwaEntries(rows) != 1 || WritePwaEntries(rows) != 0)
             throw new InvalidOperationException("Importação simples duplicou ou perdeu lançamentos.");
 
@@ -181,6 +183,11 @@ public partial class MainWindow
         var decryptedRows = ReadPwaEntries(decoded.RootElement);
         if (WritePwaEntries(decryptedRows) != 1 || WritePwaEntries(decryptedRows) != 0)
             throw new InvalidOperationException("Importação cifrada não preservou os lançamentos.");
+        using var preserved = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = snapshot, Mode = SqliteOpenMode.ReadOnly }.ToString());
+        preserved.Open();
+        using var prior = preserved.CreateCommand();
+        prior.CommandText = "SELECT COUNT(*) FROM entries WHERE note='Importado'";
+        if (Convert.ToInt64(prior.ExecuteScalar()) != 0) throw new InvalidOperationException("A cópia anterior foi alterada.");
         using var db = Open();
         using var cmd = db.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM entries WHERE note='Importado' AND cents=12345 AND day='2026-11-03'";

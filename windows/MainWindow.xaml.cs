@@ -178,6 +178,7 @@ public partial class MainWindow : Window
     {
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
+            InitialDirectory = BackupDirectory,
             FileName = $"ReservaSimples-backup-{DateTime.Now:yyyyMMdd-HHmmss}.db",
             Filter = "Banco SQLite (*.db)|*.db",
             OverwritePrompt = true

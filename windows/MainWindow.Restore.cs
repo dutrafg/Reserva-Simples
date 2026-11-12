@@ -10,7 +10,7 @@ public partial class MainWindow
 {
     private void RestoreDatabase(object sender, RoutedEventArgs e)
     {
-        var picker = new OpenFileDialog { Filter = "Backup SQLite (*.db)|*.db" };
+        var picker = new OpenFileDialog { Filter = "Backup SQLite (*.db)|*.db", InitialDirectory = BackupDirectory };
         if (picker.ShowDialog(this) != true) return;
         if (MessageBox.Show(this, "Restaurar este backup? Uma cópia do banco atual será guardada antes da troca.",
             "Restaurar banco local", MessageBoxButton.YesNo, MessageBoxImage.Warning,
@@ -52,13 +52,29 @@ public partial class MainWindow
             }
         }
 
-        var folder = Path.Combine(Path.GetDirectoryName(databasePath)!, "backups");
-        Directory.CreateDirectory(folder);
-        var snapshot = Path.Combine(folder, $"antes-de-restaurar-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.db");
-        CopyDatabase(snapshot + ".tmp", snapshot);
+        var snapshot = CreateRecoverySnapshot("antes-de-restaurar");
         using var destination = Open();
         source.BackupDatabase(destination);
         return snapshot;
+    }
+
+    private string BackupDirectory => Path.Combine(Path.GetDirectoryName(databasePath)!, "backups");
+
+    private string CreateRecoverySnapshot(string reason)
+    {
+        Directory.CreateDirectory(BackupDirectory);
+        var snapshot = Path.Combine(BackupDirectory, $"{reason}-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.db");
+        var temporary = snapshot + ".tmp";
+        try
+        {
+            CopyDatabase(temporary, snapshot);
+            return snapshot;
+        }
+        catch
+        {
+            try { File.Delete(temporary); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            throw;
+        }
     }
 
     private void VerifyLocalRestore()
