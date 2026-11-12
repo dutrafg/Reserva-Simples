@@ -7,7 +7,7 @@ const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Ago
 const CATS=['Água','Luz','Internet','Faculdade','Farmácia','Cartões','Telefone','Mercado','Moradia','Transporte','Saúde','Lazer','Assinaturas','Outros'];
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['goals','Metas','target'],['analysis','Insights','chart'],['settings','Ajustes','settings']];
-const APP_VERSION='0.30.1';
+const APP_VERSION='0.30.2';
 const updateInfo={lastCheck:localStorage.getItem('reserva.update.checkedAt')||'',latest:APP_VERSION,available:false,status:'Aguardando verificação',state:'waiting',notes:''};
 let updateRegistration=null;
 const $=(q)=>document.querySelector(q);
@@ -66,6 +66,7 @@ function showVaultDialog(mode) {
   $('#vaultConfirm').value = '';
   $('#vaultConfirmField').hidden = mode!=='setup';
   $('#vaultConfirm').required = mode==='setup';
+  $('#vaultHelp').textContent = mode==='setup'?'Use pelo menos 12 caracteres e repita a senha no segundo campo.':'';
   $('#vaultError').textContent = '';
   if (!dialog.open) dialog.showModal();
 }
@@ -121,8 +122,8 @@ async function submitVault(event) {
     vaultKey = key;
     dialog.close();
     render();
-  } catch {
-    $('#vaultError').textContent = dialog.dataset.mode==='folder'?'Senha incorreta, confirmação diferente ou falha de acesso à pasta.':setup?'Não foi possível ativar o cofre.':'Senha incorreta ou cofre inválido.';
+  } catch(error) {
+    $('#vaultError').textContent = dialog.dataset.mode==='folder'?(error.userMessage || 'Não foi possível abrir ou gravar o backup. Verifique a senha e as permissões da pasta.'):setup?'Não foi possível ativar o cofre.':'Senha incorreta ou cofre inválido.';
   } finally { vaultBusy=false; }
 }
 function load(){let raw=null;try{raw=localStorage.getItem(STORE);if(!raw)return empty();const parsed=JSON.parse(raw);if(parsed?.format==='reserva-vault-1'){vault=parsed;return empty()}const clean=verify(parsed);if(clean)return clean;storageRecoveryRaw=raw}catch(e){try{raw=localStorage.getItem(STORE)}catch(ignore){}}if(raw){storageRecoveryRaw=raw;try{recoveryArchived=false;for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key?.startsWith(`${STORE}-corrompido-`)&&localStorage.getItem(key)===raw){recoveryArchived=true;break}}if(!recoveryArchived){localStorage.setItem(`${STORE}-corrompido-${Date.now()}`,raw);recoveryArchived=true}}catch(e){recoveryArchived=false}}return empty()}
@@ -152,6 +153,8 @@ function requestFolderPassword(title, confirmPassword, action) {
   $('#vaultTitle').textContent = title;
   $('#vaultConfirmField').hidden = !confirmPassword;
   $('#vaultConfirm').required = confirmPassword;
+  $('#vaultPassword').autocomplete = confirmPassword ? 'new-password' : 'current-password';
+  $('#vaultHelp').textContent = confirmPassword ? 'Use pelo menos 12 caracteres e repita a senha no segundo campo.' : 'Digite a senha definida para este backup.';
   folderPasswordAction = action;
 }
 async function readEncryptedFolder(handle = backupDirectory) {
@@ -202,15 +205,19 @@ async function chooseBackupFolder() {
     let envelope;
     try { envelope=await readEncryptedFolder(handle); } catch(error) { if(error.name!=='NotFoundError')throw error; }
     requestFolderPassword(envelope?'Senha do backup da pasta':'Criar senha do backup',!envelope,async(password,confirmation)=>{
-      if(!envelope&&(password.length<12||password!==confirmation))throw Error('Senha inválida');
+      if(!envelope && password.length<12) throw Object.assign(Error(),{userMessage:'A senha precisa ter pelo menos 12 caracteres.'});
+      if(!envelope && password!==confirmation) throw Object.assign(Error(),{userMessage:'As senhas digitadas são diferentes.'});
+      if(!globalThis.crypto?.subtle) throw Object.assign(Error(),{userMessage:'Abra o aplicativo pelo endereço HTTPS para criar o backup cifrado.'});
+      if(await handle.requestPermission({mode:'readwrite'})!=='granted') throw Object.assign(Error(),{userMessage:'Autorize a gravação ou escolha outra pasta.'});
       const salt=envelope?.salt||bytesTo64(crypto.getRandomValues(new Uint8Array(16)));
       const key=await deriveVaultKey(password,from64(salt));
       const previous=envelope?await openVault(envelope,key):null;
       if(!envelope)await writeEncryptedFolder(handle,ENCRYPTED_FOLDER_FILE,key,salt);
-      await storeBackupHandle(handle);
+      let remembered=true;
+      try { await storeBackupHandle(handle); } catch { remembered=false; }
       backupDirectory=handle;folderKey=key;folderSalt=salt;
       backupConflict=!!previous&&canonicalData(previous)!==canonicalData(db);
-      updateFolderStatus(backupConflict?'Backup diferente dos dados atuais. Restaure ou salve manualmente.':'Pasta de backup cifrado conectada.');
+      updateFolderStatus(backupConflict?'Backup diferente dos dados atuais. Restaure ou salve manualmente.':(remembered?'Pasta de backup cifrado conectada.':'Backup criado. Selecione a pasta novamente ao reabrir o aplicativo.'));
     });
   } catch(error) { if(error.name!=='AbortError')notify('Não foi possível conectar a pasta.'); }
 }
@@ -378,7 +385,7 @@ function settings(){
  <article class="card settings-card update-card"><div class="settings-card-head"><span class="settings-icon">${icon('refresh')}</span><div><h2>Atualizações</h2><p>Consulte a versão publicada e atualize o aplicativo sem apagar seus registros.</p></div></div><div id="updateState" class="update-status" data-state="${esc(updateInfo.state)}" role="status" aria-live="polite">${esc(updateInfo.status)}</div><div class="update-metrics"><div class="update-metric"><span>VERSÃO INSTALADA</span><strong>v${APP_VERSION}</strong></div><div class="update-metric"><span>VERSÃO PUBLICADA</span><strong id="updateLatest">v${esc(updateInfo.latest)}</strong></div><div class="update-metric"><span>ÚLTIMA CONSULTA</span><strong id="updateLastCheck">${updateInfo.lastCheck?esc(new Date(updateInfo.lastCheck).toLocaleString('pt-BR')):'Ainda não consultado'}</strong></div></div><div class="setting-actions"><button class="btn" id="checkUpdatesBtn">Verificar agora</button><button class="btn primary" id="applyUpdateBtn" ${updateInfo.available?'':'hidden'}>Atualizar agora</button></div><p class="update-help" id="updateNotes">${esc(updateInfo.notes||'O app preserva o banco local. A atualização do PWA requer conexão com o endereço publicado.')}</p></article>
  <article class="card settings-card"><div class="settings-card-head"><span class="settings-icon">${icon('wallet')}</span><div><h2>Backup e exportação</h2><p>Guarde uma cópia dos dados em uma pasta do aparelho ou exporte para outros formatos.</p></div></div><div class="setting-actions"><button class="btn primary" id="chooseBackupFolderBtn">Escolher pasta de backup</button><button class="btn" id="reconnectBackupFolderBtn" hidden>Reconectar pasta</button><button class="btn" id="saveFolderBackupBtn" ${backupDirectory?'':'disabled'}>Salvar backup agora</button><button class="btn" id="restoreFolderBackupBtn" ${backupDirectory?'':'disabled'}>Restaurar da pasta</button><button class="btn" id="exportBtn">Baixar backup</button><button class="btn" id="importBtn">Restaurar arquivo</button><button class="btn" id="csvBtn">Exportar CSV</button><input id="importFile" type="file" accept=".json,application/json" hidden></div><p class="settings-note" id="folderBackupStatus" role="status">${folderStatusText()}</p><p class="settings-note">O navegador continua guardando os dados principais. A pasta recebe uma cópia JSON automática após cada alteração. O backup inclui rendas, despesas, cofrinhos e todas as movimentações registradas.</p></article>
  <article class="card settings-card settings-danger"><div class="settings-card-head"><span class="settings-icon">${icon('expense')}</span><div><h2>Apagar dados</h2><p>Remove ${total} movimentações e ${db.jars.length} cofrinhos salvos neste navegador.</p></div></div><div class="setting-actions"><button class="btn negative" id="clearBtn">Apagar todos os dados</button></div></article>
- </div><div class="notice">Versão 0.30.1. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
+ </div><div class="notice">Versão 0.30.2. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
 }
 function setUpdateStatus(status,state='waiting'){updateInfo.status=status;updateInfo.state=state;const el=$('#updateState');if(el){el.textContent=status;el.dataset.state=state}const button=$('#applyUpdateBtn');if(button)button.hidden=!updateInfo.available;const latest=$('#updateLatest');if(latest)latest.textContent='v'+updateInfo.latest;const checked=$('#updateLastCheck');if(checked)checked.textContent=updateInfo.lastCheck?new Date(updateInfo.lastCheck).toLocaleString('pt-BR'):'Ainda não consultado';const notes=$('#updateNotes');if(notes)notes.textContent=updateInfo.notes||'O app preserva o banco local. A atualização do PWA requer conexão com o endereço publicado.'}
 function compareVersions(a,b){const x=String(a).split('.').map(Number),y=String(b).split('.').map(Number);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return d}return 0}

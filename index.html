@@ -288,6 +288,15 @@ body:has(#vaultDialog[open]) .shell,body:has(#vaultDialog[open]) #mobileNav{visi
 #vaultDialog::backdrop{background:var(--bg)}
 #vaultDialog form{display:grid;gap:12px}
 @media(max-width:760px){.settings-grid{grid-template-columns:1fr}}
+#vaultDialog{box-shadow:0 24px 72px #0006;padding:clamp(16px,4vw,26px)}
+#vaultDialog h2,#vaultDialog p{margin:0}
+#vaultDialog p:empty,#vaultDialog [hidden]{display:none}
+#vaultDialog #vaultHelp{color:var(--muted);font-size:14px}
+#vaultDialog #vaultError{color:var(--danger);font-size:14px}
+#vaultDialog .field{display:grid;gap:6px}
+#vaultDialog input{width:100%;min-height:44px;border-radius:10px}
+#vaultDialog::backdrop{background:#081221a8}
+body:has(#vaultDialog[data-mode="folder"][open]) .shell,body:has(#vaultDialog[data-mode="folder"][open]) #mobileNav{visibility:visible}
 </style>
 </head>
 <body>
@@ -314,7 +323,7 @@ body:has(#vaultDialog[open]) .shell,body:has(#vaultDialog[open]) #mobileNav{visi
 <nav id="mobileNav" class="floating-nav" aria-label="Menu de módulos"></nav>
 <div id="modal" class="modal" aria-hidden="true"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="dialog-title"><h2 id="modalTitle">Novo registro</h2><button id="closeModal" aria-label="Fechar">×</button></div><div id="modalContent"></div></div></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
-<dialog id="vaultDialog" aria-labelledby="vaultTitle"><form id="vaultForm"><h2 id="vaultTitle">Cofre local</h2><label for="vaultPassword">Senha</label><input id="vaultPassword" type="password" required><div id="vaultConfirmField" hidden><label for="vaultConfirm">Confirme a senha</label><input id="vaultConfirm" type="password"></div><p id="vaultError" role="alert"></p><button class="btn primary" type="submit">Continuar</button><button class="btn" type="button" id="vaultCancel">Cancelar</button></form></dialog>
+<dialog id="vaultDialog" aria-labelledby="vaultTitle"><form id="vaultForm"><h2 id="vaultTitle">Cofre local</h2><p id="vaultHelp"></p><div class="field"><label for="vaultPassword">Senha</label><input id="vaultPassword" type="password" required aria-describedby="vaultHelp"></div><div class="field" id="vaultConfirmField" hidden><label for="vaultConfirm">Confirme a senha</label><input id="vaultConfirm" type="password" autocomplete="new-password"></div><p id="vaultError" role="alert"></p><button class="btn primary" type="submit">Continuar</button><button class="btn" type="button" id="vaultCancel">Cancelar</button></form></dialog>
 <script src="./engines.js"></script>
 <script src="./app.js"></script>
 </body>
