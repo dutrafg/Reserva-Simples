@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.31.1",
+  "version": "0.31.2",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Cota mensal editável de Mercado e alertas de gasto alto."
+  "notes": "Alertas da cota de Mercado em 25%, 50%, 75% e 100%."
 }
