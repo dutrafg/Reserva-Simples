@@ -1,0 +1,149 @@
+using System.Globalization;
+using System.IO;
+using System.Security.Cryptography;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using Microsoft.Data.Sqlite;
+using Microsoft.Win32;
+
+namespace ReservaSimples;
+
+public partial class MainWindow
+{
+    private async void ImportPwa(object sender, RoutedEventArgs e)
+    {
+        var button = (Button)sender;
+        var picker = new OpenFileDialog { Filter = "Backup JSON (*.json)|*.json" };
+        if (picker.ShowDialog(this) != true) return;
+        button.IsEnabled = false;
+        try
+        {
+            await using var stream = File.OpenRead(picker.FileName);
+            if (stream.Length > 32 * 1024 * 1024) throw new InvalidDataException("Arquivo acima de 32 MB.");
+            using var outer = await JsonDocument.ParseAsync(stream);
+            var root = outer.RootElement;
+            JsonDocument? decrypted = null;
+            try
+            {
+                if (root.TryGetProperty("format", out var format) && format.GetString() == "reserva-vault-1")
+                {
+                    var password = AskBackupPassword();
+                    if (password is null) return;
+                    var envelope = root;
+                    decrypted = await Task.Run(() => DecryptPwa(envelope, password));
+                    root = decrypted.RootElement;
+                }
+                var entries = ReadPwaEntries(root);
+                if (entries.Count == 0) { StatusText.Text = "O backup não contém receitas ou despesas."; return; }
+                var answer = MessageBox.Show(this,
+                    $"Importar {entries.Count} receitas e despesas? Esta etapa não importa metas, cofrinhos ou investimentos. O banco Windows ainda não é cifrado.",
+                    "Importar lançamentos", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+                if (answer != MessageBoxResult.Yes) return;
+                var count = WritePwaEntries(entries);
+                var latest = DateTime.ParseExact(entries.Max(x => x.Day)!, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+                selectedMonth = new DateTime(latest.Year, latest.Month, 1);
+                Refresh();
+                StatusText.Text = $"Importados: {count}. Já importados: {entries.Count - count}.";
+            }
+            finally { decrypted?.Dispose(); }
+        }
+        catch (CryptographicException) { StatusText.Text = "Senha incorreta ou backup cifrado inválido."; }
+        catch (Exception ex) { StatusText.Text = $"Falha na importação: {ex.Message}"; }
+        finally { button.IsEnabled = true; }
+    }
+
+    private string? AskBackupPassword()
+    {
+        var password = new PasswordBox { Margin = new Thickness(0, 8, 0, 12) };
+        var dialog = new Window { Owner = this, Title = "Senha do backup", Width = 370,
+            SizeToContent = SizeToContent.Height, WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ResizeMode = ResizeMode.NoResize };
+        var panel = new StackPanel { Margin = new Thickness(16) };
+        panel.Children.Add(new TextBlock { Text = "Informe a senha usada ao criar o backup." });
+        panel.Children.Add(password);
+        var actions = new WrapPanel();
+        var open = new Button { Content = "Abrir backup", IsDefault = true, Padding = new Thickness(10, 5, 10, 5) };
+        open.Click += (_, _) => dialog.DialogResult = true;
+        actions.Children.Add(open);
+        actions.Children.Add(new Button { Content = "Cancelar", IsCancel = true, Margin = new Thickness(8, 0, 0, 0) });
+        panel.Children.Add(actions);
+        dialog.Content = panel;
+        dialog.Loaded += (_, _) => password.Focus();
+        return dialog.ShowDialog() == true ? password.Password : null;
+    }
+
+    private static JsonDocument DecryptPwa(JsonElement envelope, string password)
+    {
+        var salt = envelope.GetProperty("salt").GetBytesFromBase64();
+        var nonce = envelope.GetProperty("iv").GetBytesFromBase64();
+        var payload = envelope.GetProperty("data").GetBytesFromBase64();
+        if (salt.Length != 16 || nonce.Length != 12 || payload.Length <= 16) throw new CryptographicException();
+        var key = Rfc2898DeriveBytes.Pbkdf2(password, salt, 600000, HashAlgorithmName.SHA256, 32);
+        var plain = new byte[payload.Length - 16];
+        try
+        {
+            using var aes = new AesGcm(key, 16);
+            aes.Decrypt(nonce, payload.AsSpan(0, plain.Length), payload.AsSpan(plain.Length), plain);
+            using var source = new MemoryStream(plain, writable: false);
+            return JsonDocument.Parse(source);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(key);
+            CryptographicOperations.ZeroMemory(plain);
+        }
+    }
+
+    private sealed record ImportedEntry(string Id, string Day, string Kind, string Note, long Cents);
+
+    private static List<ImportedEntry> ReadPwaEntries(JsonElement root)
+    {
+        if (!root.TryGetProperty("records", out var records) || records.ValueKind != JsonValueKind.Array ||
+            records.GetArrayLength() > 50000) throw new InvalidDataException("Estrutura de backup incompatível.");
+        var result = new List<ImportedEntry>();
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var row in records.EnumerateArray())
+        {
+            var id = row.GetProperty("id").GetString();
+            var day = row.GetProperty("date").GetString();
+            var kind = row.GetProperty("kind").GetString();
+            var cents = row.GetProperty("amount").GetInt64();
+            if (string.IsNullOrWhiteSpace(id) || id.Length > 120 || !ids.Add(id) ||
+                !DateOnly.TryParseExact(day, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _) ||
+                kind is not ("income" or "expense") || cents is <= 0 or > 10000000000L)
+                throw new InvalidDataException("O backup contém um lançamento inválido.");
+            var note = row.TryGetProperty("note", out var n) ? n.GetString() : null;
+            var category = row.TryGetProperty("category", out var c) ? c.GetString() : null;
+            result.Add(new(id, day!, kind, string.IsNullOrWhiteSpace(note) ? category ?? "" : note, cents));
+        }
+        return result;
+    }
+
+    private int WritePwaEntries(List<ImportedEntry> entries)
+    {
+        using var db = Open();
+        using var tx = db.BeginTransaction();
+        using var cmd = db.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "CREATE TABLE IF NOT EXISTS pwa_imports (source_id TEXT PRIMARY KEY NOT NULL)";
+        cmd.ExecuteNonQuery();
+        var count = 0;
+        foreach (var entry in entries)
+        {
+            cmd.Parameters.Clear();
+            cmd.CommandText = "INSERT INTO pwa_imports(source_id) VALUES ($id) ON CONFLICT(source_id) DO NOTHING";
+            cmd.Parameters.AddWithValue("$id", entry.Id);
+            if (cmd.ExecuteNonQuery() == 0) continue;
+            cmd.Parameters.Clear();
+            cmd.CommandText = "INSERT INTO entries(day,kind,note,cents) VALUES($day,$kind,$note,$cents)";
+            cmd.Parameters.AddWithValue("$day", entry.Day);
+            cmd.Parameters.AddWithValue("$kind", entry.Kind);
+            cmd.Parameters.AddWithValue("$note", entry.Note);
+            cmd.Parameters.AddWithValue("$cents", entry.Cents);
+            count += cmd.ExecuteNonQuery();
+        }
+        tx.Commit();
+        return count;
+    }
+}
