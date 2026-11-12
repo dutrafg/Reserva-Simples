@@ -297,7 +297,7 @@ body:has(#vaultDialog[open]) .shell,body:has(#vaultDialog[open]) #mobileNav{visi
 #vaultDialog input{width:100%;min-height:44px;border-radius:10px}
 #vaultDialog::backdrop{background:#081221a8}
 body:has(#vaultDialog[data-mode="folder"][open]) .shell,body:has(#vaultDialog[data-mode="folder"][open]) #mobileNav{visibility:visible}
-</style>
+#investmentDialog{width:min(560px,calc(100% - 24px));max-height:90dvh;overflow:auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:20px}#investmentDialog::backdrop{background:#081221a8}</style>
 </head>
 <body>
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
@@ -317,14 +317,14 @@ body:has(#vaultDialog[data-mode="folder"][open]) .shell,body:has(#vaultDialog[da
 <div class="shell">
  
  <aside id="desktopSidebar" aria-label="Menu lateral"><button id="sidebarToggle" class="btn" type="button" aria-controls="desktopNav">‹</button><nav id="desktopNav" aria-label="Módulos"></nav></aside><main class="main"><header class="header"><div class="header-intro"><div><p class="subtitle">SEU PLANEJAMENTO FINANCEIRO</p><h1 id="pageTitle">Início</h1></div><button type="button" id="headerSettings" class="header-settings" data-page="settings" aria-label="Abrir Ajustes" title="Ajustes"><svg aria-hidden="true"><use href="#settings"></use></svg><span>Ajustes</span></button></div><div class="header-right"><button id="privacyToggle" type="button" class="btn small" aria-pressed="false">Ocultar valores</button><div class="month-picker"><button id="prevMonth" title="Mês anterior" aria-label="Mês anterior">‹</button><button id="monthTitle" class="month-title-button" aria-label="Escolher mês" title="Toque para escolher mês"><span id="monthTitleLabel">Janeiro de 2027</span><svg class="month-chevron" aria-hidden="true" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button><button id="nextMonth" title="Mês seguinte" aria-label="Mês seguinte">›</button><button id="todayBtn" class="btn small today-button" hidden>Hoje</button></div></div></header>
- <section id="page-home" class="page active"></section><section id="page-transactions" class="page"></section><section id="page-goals" class="page"></section><section id="page-analysis" class="page"></section><section id="page-settings" class="page"></section>
+ <section id="page-home" class="page active"></section><section id="page-transactions" class="page"></section><section id="page-goals" class="page"></section><section id="page-investments" class="page"></section><section id="page-analysis" class="page"></section><section id="page-settings" class="page"></section>
  </main>
 </div>
 <nav id="mobileNav" class="floating-nav" aria-label="Menu de módulos"></nav>
 <div id="modal" class="modal" aria-hidden="true"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="dialog-title"><h2 id="modalTitle">Novo registro</h2><button id="closeModal" aria-label="Fechar">×</button></div><div id="modalContent"></div></div></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <dialog id="vaultDialog" aria-labelledby="vaultTitle"><form id="vaultForm"><h2 id="vaultTitle">Cofre local</h2><p id="vaultHelp"></p><div class="field"><label for="vaultPassword">Senha</label><input id="vaultPassword" type="password" required aria-describedby="vaultHelp"></div><div class="field" id="vaultConfirmField" hidden><label for="vaultConfirm">Confirme a senha</label><input id="vaultConfirm" type="password" autocomplete="new-password"></div><p id="vaultError" role="alert"></p><button class="btn primary" type="submit">Continuar</button><button class="btn" type="button" id="vaultCancel">Cancelar</button></form></dialog>
-<script src="./engines.js"></script>
+<dialog id="investmentDialog" aria-labelledby="investmentTitle"><h2 id="investmentTitle">Aplicação existente</h2><form id="investmentForm" class="form-grid"><label class="field">Nome da aplicação<input name="name" type="text" required maxlength="80"></label><label class="field">Instituição<input name="institution" type="text" required maxlength="80"></label><label class="field">Tipo de investimento<input name="product" type="text" required maxlength="80"></label><label class="field">Data da aplicação<input name="date" type="date" required></label><label class="field">Valor aplicado (R$)<input name="cost" type="number" required min="0" max="100000000" step="0.01"></label><label class="field">Data da conferência<input name="checked" type="date" required></label><label class="field">Saldo atual (R$)<input name="balance" type="number" required min="0" max="100000000" step="0.01"></label><div class="actions"><button class="btn primary" type="submit">Salvar aplicação</button><button class="btn" type="button" id="investmentCancel">Cancelar</button></div></form></dialog><script src="./engines.js"></script>
 <script src="./app.js"></script>
 </body>
 </html>
