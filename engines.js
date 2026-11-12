@@ -26,8 +26,9 @@
     const expenses = sum(rows.filter(x => x.kind === 'expense').map(x => x.amount));
     const salary = sum(rows.filter(x => x.kind === 'income' && x.source === 'salary').map(x => x.amount));
     const allocations=(db.allocations||[]).filter(x=>asPeriod(x.date)===key);const deposits=sum(allocations.filter(x=>x.amount>0).map(x=>x.amount));const withdrawals=sum(allocations.filter(x=>x.amount<0).map(x=>x.netReceived??-x.amount));const saved=deposits-withdrawals;
-    return { key, year: y, month: m, income, expenses, salary, complement: income - salary,
-      deposits, withdrawals, saved, minimum: Math.round(income * 0.1), available: income - expenses - saved,
+    const invested = sum((db.investments || []).filter(x => asPeriod(x.date) === key).map(x => x.cost));
+    return { invested, key, year: y, month: m, income, expenses, salary, complement: income - salary,
+      deposits, withdrawals, saved, minimum: Math.round(income * 0.1), available: income - expenses - saved - invested,
       recordedIncome: rows.some(x => x.kind === 'income'), recordedExpenses: rows.some(x => x.kind === 'expense') };
   };
   const history = (db, y, m, count = 6) => Array.from({ length: count }, (_, i) => {

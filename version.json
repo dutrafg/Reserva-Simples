@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.31.3",
+  "version": "0.31.4",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Categoria Comida / Marmita nas despesas."
+  "notes": "Valor aplicado descontado do saldo disponível no mês da aplicação."
 }
