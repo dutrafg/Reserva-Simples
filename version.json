@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.33.9",
+  "version": "0.34.0",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Atalho Registrar com opções de despesa, renda e investimento."
+  "notes": "Opção para desativar o cofre local com confirmação por senha."
 }
