@@ -286,6 +286,7 @@ public partial class MainWindow : Window
             if (Convert.ToInt64(cmd.ExecuteScalar()) != 1) throw new InvalidOperationException("Backup não preservou o lançamento.");
             VerifyPwaImport();
             VerifyLocalRestore();
+            VerifyPortfolioMigration();
             Application.Current.Shutdown(0);
         }
         catch (Exception ex)

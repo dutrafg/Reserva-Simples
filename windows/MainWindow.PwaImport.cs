@@ -35,17 +35,21 @@ public partial class MainWindow
                     root = decrypted.RootElement;
                 }
                 var entries = ReadPwaEntries(root);
-                if (entries.Count == 0) { StatusText.Text = "O backup não contém receitas ou despesas."; return; }
+                var portfolio = ReadPwaPortfolio(root);
+                if (entries.Count == 0 && portfolio.Count == 0) { StatusText.Text = "O backup está vazio."; return; }
                 var answer = MessageBox.Show(this,
-                    $"Importar {entries.Count} receitas e despesas? Esta etapa não importa metas, cofrinhos ou investimentos. O banco Windows ainda não é cifrado.",
+                    $"Importar {entries.Count} lançamentos e {portfolio.Count} itens de metas e carteira? O banco Windows ainda não é cifrado.",
                     "Importar lançamentos", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
                 if (answer != MessageBoxResult.Yes) return;
                 var snapshot = CreateRecoverySnapshot("antes-de-importar");
-                var count = WritePwaEntries(entries);
+                var count = WritePwaEntries(entries, portfolio);
+                if (entries.Count > 0)
+                {
                 var latest = DateTime.ParseExact(entries.Max(x => x.Day)!, "yyyy-MM-dd", CultureInfo.InvariantCulture);
                 selectedMonth = new DateTime(latest.Year, latest.Month, 1);
+                }
                 Refresh();
-                StatusText.Text = $"Importados: {count}. Já importados: {entries.Count - count}. Cópia anterior: {snapshot}";
+                StatusText.Text = $"Importados ou atualizados: {count}. Cópia anterior: {snapshot}";
             }
             finally { decrypted?.Dispose(); }
         }
@@ -121,7 +125,7 @@ public partial class MainWindow
         return result;
     }
 
-    private int WritePwaEntries(List<ImportedEntry> entries)
+    private int WritePwaEntries(List<ImportedEntry> entries, List<ImportedPortfolio>? portfolio = null)
     {
         using var db = Open();
         using var tx = db.BeginTransaction();
@@ -144,6 +148,7 @@ public partial class MainWindow
             cmd.Parameters.AddWithValue("$cents", entry.Cents);
             count += cmd.ExecuteNonQuery();
         }
+        count += WritePwaPortfolio(db, tx, portfolio ?? []);
         tx.Commit();
         return count;
     }
