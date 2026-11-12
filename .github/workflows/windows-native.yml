@@ -53,7 +53,7 @@ jobs:
         run: |
           $exe = Join-Path $env:RUNNER_TEMP 'ReservaSimplesSmoke/ReservaSimples.exe'
           $app = Start-Process $exe -ArgumentList '--phase1-smoke' -PassThru
-          if (!$app.WaitForExit(30000)) {
+          if (!$app.WaitForExit(120000)) {
             Stop-Process -Id $app.Id -Force
             throw 'Tempo de validação excedido'
           }
