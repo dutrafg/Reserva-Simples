@@ -7,7 +7,7 @@ const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Ago
 const CATS=['Água','Luz','Internet','Faculdade','Farmácia','Cartões','Telefone','Mercado','Comida / Marmita','Moradia','Transporte','Saúde','Lazer','Assinaturas','Outros'];
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['settings','Ajustes','settings']];
-const APP_VERSION='0.34.4';
+const APP_VERSION='0.34.5';
 const updateInfo={lastCheck:localStorage.getItem('reserva.update.checkedAt')||'',latest:APP_VERSION,available:false,status:'Aguardando verificação',state:'waiting',notes:''};
 let updateRegistration=null;
 const $=(q)=>document.querySelector(q);
@@ -621,7 +621,7 @@ function settings(){
 <section class="backup-group backup-report"><h3>Relatório financeiro</h3><p>Escolha o período para imprimir ou salvar em PDF.</p><div class="backup-pdf-controls"><label class="field" for="globalPdfScope">Período do relatório<select id="globalPdfScope"><option value="month">${esc(monthLabel())}</option><option value="year">Ano de ${state.year}</option><option value="all">Histórico completo</option></select></label><button class="btn primary" id="globalPdfBtn">Gerar PDF</button></div></section>
 <section class="backup-group"><h3>Planilha de lançamentos</h3><p>Exporte o histórico em CSV.</p><div class="setting-actions"><button class="btn" id="csvBtn">Exportar CSV</button></div></section></div></article>
  <article class="card settings-card settings-danger"><div class="settings-card-head"><span class="settings-icon">${icon('expense')}</span><div><h2>Apagar dados</h2><p>Remove ${total} movimentações e ${db.jars.length} cofrinhos salvos neste navegador.</p></div></div><div class="setting-actions"><button class="btn negative" id="clearBtn">Apagar todos os dados</button></div></article>
- </div><div class="notice">Versão 0.34.4. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
+ </div><div class="notice">Versão 0.34.5. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
 }
 function setUpdateStatus(status,state='waiting'){updateInfo.status=status;updateInfo.state=state;const el=$('#updateState');if(el){el.textContent=status;el.dataset.state=state}const button=$('#applyUpdateBtn');if(button)button.hidden=!updateInfo.available;const latest=$('#updateLatest');if(latest)latest.textContent='v'+updateInfo.latest;const checked=$('#updateLastCheck');if(checked)checked.textContent=updateInfo.lastCheck?new Date(updateInfo.lastCheck).toLocaleString('pt-BR'):'Ainda não consultado';const notes=$('#updateNotes');if(notes)notes.textContent=updateInfo.notes||'O app preserva o banco local. A atualização do PWA requer conexão com o endereço publicado.'}
 function compareVersions(a,b){const x=String(a).split('.').map(Number),y=String(b).split('.').map(Number);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return d}return 0}
