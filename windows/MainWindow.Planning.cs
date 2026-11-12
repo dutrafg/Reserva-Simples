@@ -293,7 +293,7 @@ public partial class MainWindow
             Refresh();
             var rows = ((IEnumerable<EntryRow>)Entries.ItemsSource).ToList();
             var period = selectedMonth.ToString("MMMM yyyy", Br);
-            var document = new FlowDocument { FontFamily = new FontFamily("Segoe UI"), FontSize = 13, PagePadding = new Thickness(36), ColumnWidth = double.PositiveInfinity };
+            var document = new FlowDocument { FontFamily = new FontFamily("Segoe UI"), FontSize = 13, PagePadding = new Thickness(36), ColumnWidth = 900 };
             void Line(string text, bool title = false) => document.Blocks.Add(new Paragraph(new Run(text))
                 { FontSize = title ? 20 : 13, FontWeight = title ? FontWeights.Bold : FontWeights.Normal, Foreground = title ? Brushes.MidnightBlue : Brushes.Black });
             Line("Reserva Simples · " + period, true);
