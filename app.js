@@ -7,7 +7,7 @@ const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Ago
 const CATS=['Água','Luz','Internet','Faculdade','Farmácia','Cartões','Telefone','Mercado','Moradia','Transporte','Saúde','Lazer','Assinaturas','Outros'];
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['goals','Metas','target'],['analysis','Insights','chart'],['settings','Ajustes','settings']];
-const APP_VERSION='0.29.0';
+const APP_VERSION='0.29.1';
 const updateInfo={lastCheck:localStorage.getItem('reserva.update.checkedAt')||'',latest:APP_VERSION,available:false,status:'Aguardando verificação',state:'waiting',notes:''};
 let updateRegistration=null;
 const $=(q)=>document.querySelector(q);
@@ -223,7 +223,7 @@ function settings(){
  <article class="card settings-card"><div class="settings-card-head"><span class="settings-icon">${icon('piggy')}</span><div><h2>Dados neste aparelho</h2><p>Seus registros ficam salvos neste navegador.</p></div></div><div class="privacy-status"><span class="tag">Armazenamento local</span><p id="storagePersistenceStatus">${persistenceStatus}</p><p>Esta versão não envia os dados para servidores, não sincroniza entre aparelhos e ainda não usa criptografia. Os dados ficam vinculados ao navegador e ao endereço do app; mover/renomear o HTML aberto como arquivo pode fazê-los parecer ausentes. Exporte um backup para guardar uma cópia.</p></div></article>
  <article class="card settings-card"><div class="settings-card-head"><span class="settings-icon">${icon('chart')}</span><div><h2>Dados de exemplo</h2><p>Carregue lançamentos fictícios para conhecer os gráficos e módulos.</p></div></div><div class="setting-actions"><button class="btn" id="demoBtn">Carregar exemplo de 2027</button></div><p class="settings-note">A ação substitui os dados atuais deste navegador.</p></article>
  <article class="card settings-card settings-danger"><div class="settings-card-head"><span class="settings-icon">${icon('expense')}</span><div><h2>Apagar dados</h2><p>Remove ${total} movimentações e ${db.jars.length} cofrinhos salvos neste navegador.</p></div></div><div class="setting-actions"><button class="btn negative" id="clearBtn">Apagar todos os dados</button></div></article>
- </div><div class="notice">Versão 0.29.0. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
+ </div><div class="notice">Versão 0.29.1. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
 }
 function setUpdateStatus(status,state='waiting'){updateInfo.status=status;updateInfo.state=state;const el=$('#updateState');if(el){el.textContent=status;el.dataset.state=state}const button=$('#applyUpdateBtn');if(button)button.hidden=!updateInfo.available;const latest=$('#updateLatest');if(latest)latest.textContent='v'+updateInfo.latest;const checked=$('#updateLastCheck');if(checked)checked.textContent=updateInfo.lastCheck?new Date(updateInfo.lastCheck).toLocaleString('pt-BR'):'Ainda não consultado';const notes=$('#updateNotes');if(notes)notes.textContent=updateInfo.notes||'O app preserva o banco local. A atualização do PWA requer conexão com o endereço publicado.'}
 function compareVersions(a,b){const x=String(a).split('.').map(Number),y=String(b).split('.').map(Number);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return d}return 0}
