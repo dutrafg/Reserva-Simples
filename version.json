@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.33.8",
+  "version": "0.33.9",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "PDF com seleção de período e identidade visual do Reserva Simples."
+  "notes": "Atalho Registrar com opções de despesa, renda e investimento."
 }
