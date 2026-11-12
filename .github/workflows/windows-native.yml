@@ -1,6 +1,9 @@
 name: Reserva Simples Windows
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths: ['windows/**', '.github/workflows/windows-native.yml']
   push:
     branches: [windows-native]
     paths: ['windows/**', '.github/workflows/windows-native.yml']
@@ -26,6 +29,25 @@ jobs:
           }
           & $iscc windows/installer/ReservaSimples.iss
           exit $LASTEXITCODE
+      - name: Validar instalação e abertura no Windows x64
+        shell: pwsh
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP 'ReservaSimplesSmoke'
+          $setup = (Resolve-Path 'artifacts/installer/Reserva-Simples-Setup-x64.exe').Path
+          $install = Start-Process $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',('/DIR="{0}"' -f $target) -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "Falha na instalação: $($install.ExitCode)" }
+          $exe = Join-Path $target 'ReservaSimples.exe'
+          if (!(Test-Path $exe)) { throw 'Executável ausente após instalação' }
+          $app = Start-Process $exe -PassThru
+          try {
+            Start-Sleep -Seconds 5
+            $app.Refresh()
+            if ($app.HasExited) { throw "Aplicativo encerrou ao iniciar: $($app.ExitCode)" }
+            $db = Join-Path $env:LOCALAPPDATA 'ReservaSimples/reserva.db'
+            if (!(Test-Path $db)) { throw 'Banco local não foi criado' }
+          } finally {
+            if (!$app.HasExited) { Stop-Process -Id $app.Id }
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: Reserva-Simples-Instalador-x64
