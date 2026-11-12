@@ -76,7 +76,7 @@ jobs:
     if: >-
       github.ref == 'refs/heads/windows-native' &&
       ((github.event_name == 'workflow_dispatch' && inputs.publish_beta) ||
-       (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Publish Windows beta ')))
+       github.event_name == 'push')
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -95,6 +95,7 @@ jobs:
           version=$(python3 -c 'import xml.etree.ElementTree as ET; print(ET.parse("windows/ReservaSimples.csproj").findtext(".//Version") or "")')
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           tag="windows-v${version}-beta"
+          if gh release view "$tag" >/dev/null 2>&1; then exit 0; fi
           shopt -s nullglob
           files=(installer/*.exe)
           [[ "${#files[@]}" -eq 1 ]]
