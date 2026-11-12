@@ -1,5 +1,13 @@
 # Histórico de alterações
 
+## v0.38.0
+
+- Adicionado orçamento mensal configurável por categoria, com acompanhamento no mês selecionado e alertas ao atingir 75% ou ultrapassar o limite.
+- Expandido o controle pecuário para registrar gastos individuais por data e categoria; cada gasto também entra nas despesas e nos limites de orçamento.
+- Incluídas vendas parciais e totais de lotes, com quantidade vendida, custo proporcional, saldo remanescente e resultado realizado.
+- Preservados os registros e lotes existentes durante a migração dos dados.
+
+
 ## v0.37.0
 
 - Adicionado o ativo de pecuária à carteira, com categoria do gado, quantidade, compra, custos de manejo e valor de mercado estimado.

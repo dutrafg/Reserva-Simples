@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.37.0",
+  "version": "0.38.0",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Carteira de pecuária para compra de gado, com quantidade de animais, custos de manejo, avaliação e venda do lote."
+  "notes": "Orçamento mensal por categoria e controle pecuário com despesas detalhadas, vendas parciais/totais e resultado realizado."
 }

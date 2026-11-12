@@ -4,10 +4,10 @@ const IOF_PERCENT = [0,96,93,90,86,83,80,76,73,70,66,63,60,56,53,50,46,43,40,36,
 const STORE='reserva-simples-v2';
 const Engines=window.ReservaEngines;
 const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-const CATS=['Água','Luz','Internet','Faculdade','Farmácia','Cartões','Telefone','Mercado','Comida / Marmita','Moradia','Transporte','Saúde','Lazer','Assinaturas','Outros'];
-const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9'];
+const CATS=['Água','Luz','Internet','Faculdade','Farmácia','Cartões','Telefone','Mercado','Comida / Marmita','Moradia','Transporte','Saúde','Lazer','Assinaturas','Pecuária','Outros'];
+const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['settings','Ajustes','settings']];
-const APP_VERSION='0.37.0';
+const APP_VERSION='0.38.0';
 const updateInfo={lastCheck:localStorage.getItem('reserva.update.checkedAt')||'',latest:APP_VERSION,available:false,status:'Aguardando verificação',state:'waiting',notes:''};
 let updateRegistration=null;
 const $=(q)=>document.querySelector(q);
@@ -20,12 +20,12 @@ const uid=()=>typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID()
 const toCents=value=>{const n=Number(value);return Number.isFinite(n)&&n>0&&n<=100000000?Math.round(n*100):NaN};
 const icon=name=>`<svg aria-hidden="true"><use href="#${name}"/></svg>`;
 const sum=a=>a.reduce((v,n)=>v+n,0);
-const empty=()=>({version:4,investments:[],records:[],jars:[],allocations:[],recurring:[],institutions:[{id:'inter-default',name:'Banco Inter',type:'bank',cdiPercent:100,guaranteeFund:'fgc',conglomerate:'Banco Inter',otherCoveredBalance:0,isDefault:true}],prefs:{dark:!!window.matchMedia?.('(prefers-color-scheme: dark)').matches,balanceAnchorCents:null,balanceAnchorDate:'',emergencyMonths:6}});
+const empty=()=>({version:4,investments:[],records:[],jars:[],allocations:[],recurring:[],institutions:[{id:'inter-default',name:'Banco Inter',type:'bank',cdiPercent:100,guaranteeFund:'fgc',conglomerate:'Banco Inter',otherCoveredBalance:0,isDefault:true}],prefs:{dark:!!window.matchMedia?.('(prefers-color-scheme: dark)').matches,balanceAnchorCents:null,balanceAnchorDate:'',emergencyMonths:6,categoryBudgets:{}}});
 function validDate(s){if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return false;const [y,m,d]=s.split('-').map(Number);const dt=new Date(Date.UTC(y,m-1,d));return dt.getUTCFullYear()===y&&dt.getUTCMonth()===m-1&&dt.getUTCDate()===d}
 function verify(src){if(!src||![2,3,4].includes(src.version)||!Array.isArray(src.records)||!Array.isArray(src.jars)||!Array.isArray(src.allocations)||src.records.length>50000||src.jars.length>5000||src.allocations.length>50000||!Array.isArray(src.recurring||[])||(src.recurring||[]).length>5000)return null;
  const clean=empty();const ids=new Set();
  const goodId=id=>typeof id==='string'&&id.length>0&&id.length<=120&&!ids.has(id)&&(ids.add(id),true);
- for(const x of src.records){if(!x||!goodId(x.id)||!['income','expense'].includes(x.kind)||!Number.isSafeInteger(x.amount)||x.amount<=0||x.amount>10000000000||!validDate(x.date))return null;clean.records.push({id:x.id,kind:x.kind,amount:x.amount,date:x.date,source:x.source==='salary'?'salary':'complement',category:CATS.includes(x.category)?x.category:'Outros',note:String(x.note||'').slice(0,140),recurringId:typeof x.recurringId==='string'&&x.recurringId.length<=120?x.recurringId:null,recurringMonth:/^\d{4}-\d{2}$/.test(x.recurringMonth||'')?x.recurringMonth:null})}
+ for(const x of src.records){if(!x||!goodId(x.id)||!['income','expense'].includes(x.kind)||!Number.isSafeInteger(x.amount)||x.amount<=0||x.amount>10000000000||!validDate(x.date))return null;clean.records.push({id:x.id,kind:x.kind,amount:x.amount,date:x.date,source:x.source==='salary'?'salary':'complement',category:CATS.includes(x.category)?x.category:'Outros',note:String(x.note||'').slice(0,140),recurringId:typeof x.recurringId==='string'&&x.recurringId.length<=120?x.recurringId:null,recurringMonth:/^\d{4}-\d{2}$/.test(x.recurringMonth||'')?x.recurringMonth:null,investmentId:typeof x.investmentId==='string'&&x.investmentId.length<=120?x.investmentId:null,investmentExpenseId:typeof x.investmentExpenseId==='string'&&x.investmentExpenseId.length<=120?x.investmentExpenseId:null})}
  clean.institutions=[];const institutionIds=new Set();for(const x of src.institutions||[]){const pct=Number(x?.cdiPercent??100),fund=['fgc','fgcoop','none'].includes(x?.guaranteeFund)?x.guaranteeFund:(x?.type==='cooperative'?'fgcoop':'fgc'),other=Number.isSafeInteger(x?.otherCoveredBalance)&&x.otherCoveredBalance>=0?x.otherCoveredBalance:0;if(!x||!goodId(x.id)||typeof x.name!=='string'||!x.name.trim()||x.name.length>70||!['bank','cooperative'].includes(x.type)||!Number.isFinite(pct)||pct<=0||pct>500)return null;clean.institutions.push({id:x.id,name:x.name.trim(),type:x.type,cdiPercent:pct,guaranteeFund:fund,conglomerate:String(x.conglomerate||x.name).trim().slice(0,100),otherCoveredBalance:other,isDefault:!!x.isDefault});institutionIds.add(x.id)}if(!institutionIds.has('inter-default')){clean.institutions.unshift({id:'inter-default',name:'Banco Inter',type:'bank',cdiPercent:100,guaranteeFund:'fgc',conglomerate:'Banco Inter',otherCoveredBalance:0,isDefault:true});institutionIds.add('inter-default')}
  for(const x of src.jars){if(!x||!goodId(x.id)||typeof x.name!=='string'||!x.name.trim()||x.name.length>70||!Number.isSafeInteger(x.target)||x.target<=0||x.target>10000000000||!validDate(x.dueDate))return null;const name=x.name.trim(),legacyChallenge=x.challengeType==='save-10000-2027'||name==='Desafio R$ 10.000 — 2027'||name==='Desafio R$ 10.000',institutionId=institutionIds.has(x.institutionId)?x.institutionId:'inter-default';clean.jars.push({id:x.id,name:legacyChallenge?'Meta de R$ 10.000 — 2027':name,target:x.target,dueDate:x.dueDate,institutionId,archived:!!x.archived,paused:!!x.paused})}
  for(const x of src.recurring||[]){const kind=x?.kind==='income'?'income':'expense',source=x?.source==='salary'?'salary':'complement';if(!x||!goodId(x.id)||(kind==='expense'&&!CATS.includes(x.category))||!Number.isSafeInteger(x.amount)||x.amount<=0||x.amount>10000000000||!Number.isInteger(x.day)||x.day<1||x.day>31||!/^\d{4}-\d{2}$/.test(x.startMonth||'')||!validDate(x.startMonth+'-01')||(x.endMonth&&(!/^\d{4}-\d{2}$/.test(x.endMonth)||!validDate(x.endMonth+'-01')||x.endMonth<x.startMonth)))return null;clean.recurring.push({id:x.id,kind,source,category:kind==='expense'?x.category:'Outros',amount:x.amount,day:x.day,note:String(x.note||'').slice(0,140),startMonth:x.startMonth,endMonth:x.endMonth||null,paused:!!x.paused})}
@@ -39,19 +39,30 @@ function verify(src){if(!src||![2,3,4].includes(src.version)||!Array.isArray(src
    if(!x||!goodId(x.id)||![x.name,x.institution,x.product].every(v=>typeof v==='string'&&v.trim()&&v.length<=80)||
       ![x.cost,x.balance].every(v=>Number.isSafeInteger(v)&&v>=0&&v<=10000000000)||
       !validDate(x.date)||!validDate(x.checked)||x.checked<x.date)return null;
-   const redemptions=x.redemptions??[];
-   if(!Array.isArray(redemptions)||redemptions.length>50000||redemptions.some(r=>!r||!validDate(r.date)||r.date<x.date||!Number.isSafeInteger(r.amount)||r.amount<=0||r.amount>10000000000))return null;
    const assetType=x.assetType==='livestock'?'livestock':'financial';
    const livestockKind=['Corte','Leiteiro','Matrizes','Reprodutores','Bezerros e garrotes','Outro'].includes(x.livestockKind)?x.livestockKind:'Corte';
-   const headCount=Number.isSafeInteger(x.headCount)&&x.headCount>0&&x.headCount<=100000?x.headCount:1;
-   const extraCosts=Number.isSafeInteger(x.extraCosts)&&x.extraCosts>=0&&x.extraCosts<=10000000000?x.extraCosts:0;
    const status=assetType==='livestock'&&x.status==='sold'?'sold':'active';
+   const initialHeadCount=Number.isSafeInteger(x.initialHeadCount)&&x.initialHeadCount>0&&x.initialHeadCount<=100000?x.initialHeadCount:(Number.isSafeInteger(x.headCount)&&x.headCount>0&&x.headCount<=100000?x.headCount:1);
+   const headCount=status==='sold'?0:(Number.isSafeInteger(x.headCount)&&x.headCount>=1&&x.headCount<=100000?x.headCount:initialHeadCount);
+   const extraCosts=Number.isSafeInteger(x.extraCosts)&&x.extraCosts>=0&&x.extraCosts<=10000000000?x.extraCosts:0;
+   const expenses=x.expenses??[];
+   if(!Array.isArray(expenses)||expenses.length>50000||expenses.some(e=>!e||!validDate(e.date)||e.date<x.date||!Number.isSafeInteger(e.amount)||e.amount<=0||e.amount>10000000000||!['Ração','Vacinas','Medicamentos','Transporte','Manejo','Outros'].includes(e.category)||String(e.note||'').length>140))return null;
+   const redemptions=x.redemptions??[];
+   if(!Array.isArray(redemptions)||redemptions.length>50000||redemptions.some(r=>!r||!validDate(r.date)||r.date<x.date||!Number.isSafeInteger(r.amount)||r.amount<=0||r.amount>10000000000||r.kind==='sale'&&(!Number.isSafeInteger(r.heads)||r.heads<=0||!Number.isSafeInteger(r.costBasisSold)||r.costBasisSold<0)))return null;
    const soldDate=status==='sold'?x.soldDate:null,saleAmount=status==='sold'?x.saleAmount:null;
-   if(status==='sold'&&(!validDate(soldDate)||soldDate<x.checked||soldDate>isoToday()||!Number.isSafeInteger(saleAmount)||saleAmount<=0||saleAmount>10000000000||x.balance!==0))return null;
-   clean.investments.push({id:x.id,name:x.name,institution:x.institution,product:x.product,cost:x.cost,balance:x.balance,date:x.date,checked:x.checked,redemptions:redemptions.map(r=>({date:r.date,amount:r.amount})),existing:x.existing===true,goalId:clean.jars.some(j=>j.id===x.goalId)?x.goalId:null,assetType,livestockKind,headCount,extraCosts,status,soldDate,saleAmount});
+   if(status==='sold'&&(!validDate(soldDate)||soldDate>isoToday()||!Number.isSafeInteger(saleAmount)||saleAmount<=0||saleAmount>10000000000||x.balance!==0))return null;
+   const normalizedRedemptions=redemptions.map(r=>{
+     const legacySale=status==='sold'&&assetType==='livestock'&&!r.kind&&r.date===soldDate&&r.amount===saleAmount;
+     return {date:r.date,amount:r.amount,kind:r.kind==='sale'||legacySale?'sale':'redemption',heads:Number.isSafeInteger(r.heads)&&r.heads>0?r.heads:legacySale?initialHeadCount:null,costBasisSold:Number.isSafeInteger(r.costBasisSold)&&r.costBasisSold>=0?r.costBasisSold:legacySale?x.cost+extraCosts:null};
+   });
+   const remainingCostBasis=status==='sold'?0:(Number.isSafeInteger(x.remainingCostBasis)&&x.remainingCostBasis>=0&&x.remainingCostBasis<=10000000000?x.remainingCostBasis:x.cost+extraCosts+sum(expenses.map(e=>e.amount)));
+   if(remainingCostBasis>10000000000||status==='sold'&&soldDate<x.date)return null;
+   clean.investments.push({id:x.id,name:x.name,institution:x.institution,product:x.product,cost:x.cost,balance:x.balance,date:x.date,checked:x.checked,redemptions:normalizedRedemptions,existing:x.existing===true,goalId:clean.jars.some(j=>j.id===x.goalId)?x.goalId:null,assetType,livestockKind,headCount,initialHeadCount,extraCosts,expenses:expenses.map(e=>({id:String(e.id||uid()),date:e.date,category:e.category,amount:e.amount,note:String(e.note||'').slice(0,140),recordId:typeof e.recordId==='string'?e.recordId:null})),remainingCostBasis,status,soldDate,saleAmount});
+ 
  }
  const marketBudget=src.prefs?.marketBudget;
  clean.prefs.marketBudget=Number.isSafeInteger(marketBudget)&&marketBudget>0&&marketBudget<=10000000000?marketBudget:null;
+ const categoryBudgets={};for(const [category,amount] of Object.entries(src.prefs?.categoryBudgets||{})){if(CATS.includes(category)&&Number.isSafeInteger(amount)&&amount>0&&amount<=10000000000)categoryBudgets[category]=amount}clean.prefs.categoryBudgets=categoryBudgets;
  clean.prefs.palette=['blue','petrol','plum'].includes(src.prefs?.palette)?src.prefs.palette:'blue';
  clean.prefs.budgetSound=src.prefs?.budgetSound===true;
  return clean;
@@ -418,6 +429,26 @@ document.addEventListener('submit',async event=>{
   if(!Number.isSafeInteger(budget)||budget<=0||budget>10000000000)return notify('Informe uma cota mensal válida.');
   if(await mutate(()=>{db.prefs.marketBudget=budget}))notify('Cota mensal de Mercado atualizada.');
 });
+function categoryBudgetCard(monthData) {
+  const budgets=db.prefs.categoryBudgets||{}, categories=Object.entries(budgets).sort(([a],[b])=>CATS.indexOf(a)-CATS.indexOf(b));
+  const spentFor=category=>sum(monthData.records.filter(r=>r.kind==='expense'&&r.category===category).map(r=>r.amount));
+  const rows=categories.map(([category,budget])=>{const spent=spentFor(category),ratio=spent/budget*100,over=spent>budget,warning=ratio>=75;return `<div class="category-budget-row ${warning?'market-warning':''}"><div class="category-budget-head"><span><strong>${esc(category)}</strong><small>${money(spent)} de ${money(budget)} · ${over?'acima do limite: '+money(spent-budget):'restam '+money(budget-spent)}</small></span><b>${percent(ratio)}</b><button class="btn small" type="button" data-category-budget-remove="${esc(category)}" aria-label="Remover limite de ${esc(category)}">Remover</button></div><progress max="${budget}" value="${Math.min(spent,budget)}" aria-label="${esc(category)}: ${percent(ratio)} do limite"></progress>${over?'<p class="budget-alert">Limite mensal ultrapassado.</p>':warning?'<p class="budget-alert">Atenção: você já utilizou pelo menos 75% do limite.</p>':''}</div>`});
+  return `<article class="card category-budget"><h2>Orçamento mensal por categoria</h2><p>Os limites se repetem a cada mês e acompanham o mês selecionado.</p><form data-category-budget-form class="category-budget-form"><label class="field">Categoria<select name="category">${CATS.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></label><label class="field">Limite mensal (R$)<input name="budget" type="number" min="0.01" max="100000000" step="0.01" required placeholder="Ex.: 500,00"></label><button class="btn primary" type="submit">Salvar limite</button></form>${rows.length?`<div class="category-budget-list">${rows.join('')}</div>`:'<div class="empty">Adicione limites para acompanhar os gastos e receber avisos ao chegar a 75% ou ultrapassar o valor.</div>'}</article>`;
+}
+document.addEventListener('submit',async event=>{
+  if(!event.target.matches('[data-category-budget-form]'))return;
+  event.preventDefault();
+  const category=String(event.target.elements.namedItem('category').value),budget=toCents(event.target.elements.namedItem('budget').value);
+  if(!CATS.includes(category)||!Number.isSafeInteger(budget)||budget<=0||budget>10000000000)return notify('Informe uma categoria e um limite mensal válidos.');
+  if(await mutate(()=>{db.prefs.categoryBudgets={...(db.prefs.categoryBudgets||{}),[category]:budget}}))notify(`Limite de ${category} atualizado.`);
+});
+document.addEventListener('click',async event=>{
+  const button=event.target.closest('[data-category-budget-remove]');
+  if(!button)return;
+  const category=button.dataset.categoryBudgetRemove;
+  if(await mutate(()=>{const budgets={...(db.prefs.categoryBudgets||{})};delete budgets[category];db.prefs.categoryBudgets=budgets}))notify(`Limite de ${category} removido.`);
+});
+
 function homeOverview(m) {
   const period=mkey(state.year,state.month);
   const investments=db.investments;
@@ -488,99 +519,117 @@ function movementsTable(){
 let investmentEditId = null;
 let investmentExisting = false;
 function investments() {
-  const items=db.investments;
-  const byInstitution=new Map();
-  for(const item of items) if(item.balance>0) byInstitution.set(item.institution,(byInstitution.get(item.institution)||0)+item.balance);
+  const items=db.investments,byInstitution=new Map();
+  for(const item of items)if(item.balance>0)byInstitution.set(item.institution,(byInstitution.get(item.institution)||0)+item.balance);
   $('#page-investments').innerHTML=`${heading('Investimentos','Acompanhe aplicações financeiras e ativos de pecuária na mesma carteira.')}
   <div class="actions"><button class="btn primary" data-investment-edit="">Registrar novo investimento</button><button class="btn" data-investment-edit="" data-existing="true">Registrar investimento já existente</button><button class="btn" data-quick-open="add">Registrar aporte em cofrinho</button></div>
-  <div class="overview-grid"><article class="card"><h3>Total aplicado</h3><strong>${money(sum(items.filter(x=>x.status!=='sold').map(x=>x.cost+x.extraCosts)))}</strong></article><article class="card"><h3>Saldo da carteira</h3><strong>${money(sum(items.map(x=>x.balance)))}</strong></article></div>
+  <div class="overview-grid"><article class="card"><h3>Total aplicado e custo dos ativos</h3><strong>${money(sum(items.filter(x=>x.status!=='sold').map(x=>x.cost+x.extraCosts+sum((x.expenses||[]).map(e=>e.amount)))))}</strong></article><article class="card"><h3>Saldo atual da carteira</h3><strong>${money(sum(items.map(x=>x.balance)))}</strong></article></div>
   ${byInstitution.size?`<article class="card"><h3>Saldo por instituição ou propriedade</h3>${[...byInstitution].map(([name,value])=>`<p>${esc(name)} · ${money(value)}</p>`).join('')}</article>`:''}
-  ${items.length?`<div class="overview-grid">${items.map(x=>{const cattle=x.assetType==='livestock',basis=x.cost+(x.extraCosts||0),label=cattle?`Pecuária · ${esc(x.livestockKind)} · ${x.headCount} cabeça(s)`:`${esc(x.product)} · ${esc(x.institution)}`;return `<article class="card"><h3>${esc(x.name)} ${x.status==='sold'?'<span class="badge">Vendido</span>':''}</h3><p>${label}${cattle?' · '+esc(x.institution):''}</p><p>Compra: ${money(x.cost)} em ${dateBR(x.date)}${cattle?' · custos de manejo: '+money(x.extraCosts||0):''}</p><p>${x.status==='sold'?`Venda em ${dateBR(x.soldDate)}: ${money(x.saleAmount)} · Resultado realizado: <strong>${money(x.saleAmount-basis)}</strong>`:`Valor atual informado: ${money(x.balance)} em ${dateBR(x.checked)}`}</p>${cattle?'<p>Custos de manejo compõem o custo do lote e o cálculo do resultado.</p>':''}${x.redemptions?.length?`<details><summary>Resgates registrados</summary>${x.redemptions.map(r=>`<p>${dateBR(r.date)} · ${money(r.amount)}</p>`).join('')}</details>`:''}<div class="actions"><button class="btn" data-investment-edit="${esc(x.id)}">Editar dados</button>${x.status!=='sold'&&cattle?`<button class="btn" data-sell-livestock="${esc(x.id)}">Registrar venda do lote</button>`:''}${x.status!=='sold'&&!cattle&&x.balance>0?`<button class="btn" data-redeem-investment="${esc(x.id)}">Registrar resgate</button>`:''}<button class="btn" data-investment-delete="${esc(x.id)}">Remover</button></div></article>`}).join('')}</div>`:'<article class="card">Cadastre sua primeira aplicação ou lote de pecuária para acompanhar sua carteira.</article>'}`;
+  ${items.length?`<div class="overview-grid">${items.map(x=>{const cattle=x.assetType==='livestock',sales=(x.redemptions||[]).filter(r=>r.kind==='sale'),realized=sum(sales.map(r=>r.amount-(r.costBasisSold||0))),expenseTotal=sum((x.expenses||[]).map(e=>e.amount)),label=cattle?`Pecuária · ${esc(x.livestockKind)} · ${x.headCount} cabeça(s) no lote`:`${esc(x.product)} · ${esc(x.institution)}`;return `<article class="card"><h3>${esc(x.name)} ${x.status==='sold'?'<span class="badge">Lote vendido</span>':''}</h3><p>${label}${cattle?' · '+esc(x.institution):''}</p><p>Compra: ${money(x.cost)} em ${dateBR(x.date)}${cattle?' · custo restante do lote: '+money(x.remainingCostBasis||0):''}</p><p>${cattle?`Valor de mercado informado: ${money(x.balance)} em ${dateBR(x.checked)}${x.headCount? ' · '+money(Math.round(x.balance/x.headCount))+' por cabeça':''}`:`Saldo líquido informado: ${money(x.balance)} em ${dateBR(x.checked)}`}</p>${cattle?`<p>Custos detalhados: ${money(expenseTotal)}${x.extraCosts?' · custos anteriores sem detalhamento: '+money(x.extraCosts):''} · Resultado realizado nas vendas: <strong>${money(realized)}</strong></p>${x.expenses?.length?`<details><summary>Despesas do lote (${x.expenses.length})</summary>${x.expenses.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(e=>`<p>${dateBR(e.date)} · ${esc(e.category)} · ${money(e.amount)}${e.note?' · '+esc(e.note):''}</p>`).join('')}</details>`:''}${sales.length?`<details><summary>Vendas registradas (${sales.length})</summary>${sales.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>`<p>${dateBR(r.date)} · ${r.heads} cabeça(s) · ${money(r.amount)} recebido · resultado: ${money(r.amount-(r.costBasisSold||0))}</p>`).join('')}</details>`:''}`:`${x.redemptions?.length?`<details><summary>Resgates registrados</summary>${x.redemptions.map(r=>`<p>${dateBR(r.date)} · ${money(r.amount)}</p>`).join('')}</details>`:''}`}<div class="actions"><button class="btn" data-investment-edit="${esc(x.id)}">Editar dados</button>${cattle&&x.status!=='sold'?`<button class="btn" data-livestock-expense="${esc(x.id)}">Registrar gasto do lote</button><button class="btn" data-sell-livestock="${esc(x.id)}">Registrar venda parcial ou total</button>`:''}${!cattle&&x.status!=='sold'&&x.balance>0?`<button class="btn" data-redeem-investment="${esc(x.id)}">Registrar resgate</button>`:''}<button class="btn" data-investment-delete="${esc(x.id)}">Remover</button></div></article>`}).join('')}</div>`:'<article class="card">Cadastre sua primeira aplicação ou lote de pecuária para acompanhar sua carteira.</article>'}`;
 }
-const redemptionForm=$('#redemptionForm');
-let redemptionId=null, redemptionMode='redeem';
+const redemptionForm=$('#redemptionForm'),livestockExpenseForm=$('#livestockExpenseForm');
+let redemptionId=null,redemptionMode='redeem',livestockExpenseId=null;
 document.addEventListener('click',event=>{
   const button=event.target.closest('[data-redeem-investment],[data-sell-livestock]');
-  if(!button)return;
-  redemptionMode=button.hasAttribute('data-sell-livestock')?'sale':'redeem';
-  redemptionId=button.dataset.redeemInvestment||button.dataset.sellLivestock;
-  redemptionForm.reset();
-  redemptionForm.elements.namedItem('date').value=isoToday();
-  const sale=redemptionMode==='sale';
-  $('#redemptionTitle').textContent=sale?'Registrar venda do lote':'Registrar resgate';
-  redemptionForm.querySelector('label span').textContent=sale?'Valor recebido pela venda (R$)':'Valor líquido recebido (R$)';
-  redemptionForm.querySelector('button[type="submit"]').textContent=sale?'Salvar venda':'Salvar resgate';
-  $('#redemptionError').textContent='';
-  $('#redemptionDialog').showModal();
+  if(button){
+    redemptionMode=button.hasAttribute('data-sell-livestock')?'sale':'redeem';
+    redemptionId=button.dataset.redeemInvestment||button.dataset.sellLivestock;
+    const item=db.investments.find(x=>x.id===redemptionId);
+    redemptionForm.reset();redemptionForm.elements.namedItem('date').value=isoToday();
+    const sale=redemptionMode==='sale',headsInput=redemptionForm.elements.namedItem('heads'),headLabel=headsInput.closest('label');
+    headsInput.required=sale;headsInput.max=item?.headCount||1;
+    $('#redemptionTitle').textContent=sale?'Registrar venda do lote':'Registrar resgate';
+    redemptionForm.querySelector('label span').textContent=sale?'Valor recebido pela venda (R$)':'Valor líquido recebido (R$)';
+    redemptionForm.querySelector('button[type="submit"]').textContent=sale?'Salvar venda':'Salvar resgate';
+    headLabel.hidden=!sale;
+    if(sale)redemptionForm.elements.namedItem('heads').value=item?.headCount||1;
+    $('#redemptionError').textContent='';$('#redemptionDialog').showModal();return;
+  }
+  const expense=event.target.closest('[data-livestock-expense]');
+  if(expense){
+    livestockExpenseId=expense.dataset.livestockExpense;
+    const item=db.investments.find(x=>x.id===livestockExpenseId);
+    livestockExpenseForm.reset();livestockExpenseForm.elements.namedItem('date').value=isoToday();
+    $('#livestockExpenseTitle').textContent='Registrar gasto · '+(item?.name||'lote');
+    $('#livestockExpenseError').textContent='';$('#livestockExpenseDialog').showModal();
+  }
 });
 $('#redemptionCancel').addEventListener('click',()=>$('#redemptionDialog').close());
 redemptionForm.addEventListener('submit',async event=>{
   event.preventDefault();
-  const data=new FormData(redemptionForm), date=String(data.get('date')), amount=toCents(String(data.get('amount')));
-  const item=db.investments.find(x=>x.id===redemptionId), error=$('#redemptionError');
+  const data=new FormData(redemptionForm),date=String(data.get('date')),amount=toCents(String(data.get('amount'))),item=db.investments.find(x=>x.id===redemptionId),error=$('#redemptionError');
   error.textContent='';
   if(redemptionMode==='sale'){
-    if(!item||item.assetType!=='livestock'||item.status==='sold'||!Number.isSafeInteger(amount)||amount<=0||!validDate(date)||date<item.checked||date>isoToday()){
-      error.textContent='Informe o valor da venda e uma data entre a última conferência e hoje.';
-      return;
+    const heads=Number(data.get('heads'));
+    if(!item||item.assetType!=='livestock'||item.status==='sold'||!Number.isInteger(heads)||heads<1||heads>item.headCount||!Number.isSafeInteger(amount)||amount<=0||!validDate(date)||date<item.checked||date>isoToday()){
+      error.textContent='Informe a quantidade vendida, o valor recebido e uma data válida entre a última conferência e hoje.';return;
     }
-    if(await mutate(()=>{item.status='sold';item.soldDate=date;item.saleAmount=amount;item.balance=0;item.checked=date;(item.redemptions??=[]).push({date,amount});})){
-      $('#redemptionDialog').close();notify('Venda registrada. O resultado realizado foi atualizado.');
+    if(await mutate(()=>{
+      const beforeHeads=item.headCount,basis=item.remainingCostBasis||0;
+      const costBasisSold=heads===beforeHeads?basis:Math.round(basis*heads/beforeHeads);
+      const marketValueSold=heads===beforeHeads?item.balance:Math.round(item.balance*heads/beforeHeads);
+      item.remainingCostBasis=Math.max(0,basis-costBasisSold);item.balance=Math.max(0,item.balance-marketValueSold);item.headCount-=heads;item.checked=date;
+      (item.redemptions??=[]).push({date,amount,kind:'sale',heads,costBasisSold});
+      if(item.headCount===0){item.status='sold';item.soldDate=date;item.saleAmount=sum(item.redemptions.filter(r=>r.kind==='sale').map(r=>r.amount));item.balance=0;}
+    })){
+      $('#redemptionDialog').close();notify('Venda registrada; quantidade, carteira e resultado realizado atualizados.');
     }
     return;
   }
   if(!item||item.status==='sold'||!Number.isSafeInteger(amount)||amount<=0||amount>item.balance||!validDate(date)||date<item.checked||date>isoToday()){
-    error.textContent='Informe um valor até o saldo líquido e uma data entre a última conferência e hoje.';
-    return;
+    error.textContent='Informe um valor até o saldo líquido e uma data entre a última conferência e hoje.';return;
   }
-  if(await mutate(()=>{item.balance-=amount;item.checked=date;(item.redemptions??=[]).push({date,amount});})){
+  if(await mutate(()=>{item.balance-=amount;item.checked=date;(item.redemptions??=[]).push({date,amount,kind:'redemption',heads:null,costBasisSold:null});})){
     $('#redemptionDialog').close();notify('Resgate registrado no saldo disponível.');
   }
 });
+$('#livestockExpenseCancel').addEventListener('click',()=>$('#livestockExpenseDialog').close());
+livestockExpenseForm.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const data=new FormData(livestockExpenseForm),item=db.investments.find(x=>x.id===livestockExpenseId),date=String(data.get('date')),amount=toCents(String(data.get('amount'))),category=String(data.get('category')),note=String(data.get('note')||'').trim().slice(0,120),error=$('#livestockExpenseError');
+  error.textContent='';
+  if(!item||item.assetType!=='livestock'||item.status==='sold'||!Number.isSafeInteger(amount)||amount<=0||item.remainingCostBasis+amount>10000000000||!validDate(date)||date<item.date||date>isoToday()){
+    error.textContent='Informe um gasto positivo e uma data entre a compra e hoje.';return;
+  }
+  const expenseId=uid(),record={id:expenseId,kind:'expense',amount,date,source:'complement',category:'Pecuária',note:`${category} · ${item.name}${note?' — '+note:''}`,recurringId:null,recurringMonth:null,investmentId:item.id,investmentExpenseId:expenseId};
+  if(await mutate(()=>{item.expenses??=[];item.expenses.push({id:expenseId,date,category,amount,note,recordId:expenseId});item.remainingCostBasis+=amount;db.records.push(record);})){
+    $('#livestockExpenseDialog').close();notify('Gasto adicionado ao lote, ao histórico de despesas e aos orçamentos.');
+  }
+});
 function toggleInvestmentAssetFields(){
-  const form=$('#investmentForm'), cattle=form.elements.namedItem('assetType').value==='livestock';
+  const form=$('#investmentForm'),cattle=form.elements.namedItem('assetType').value==='livestock';
   for(const [name,visible,required] of [['product',!cattle,!cattle],['livestockKind',cattle,cattle],['headCount',cattle,cattle],['extraCosts',cattle,false]]){
-    const input=form.elements.namedItem(name), label=input.closest('label');
-    label.hidden=!visible;input.required=required;
+    const input=form.elements.namedItem(name),label=input.closest('label');label.hidden=!visible;input.required=required;
   }
   form.elements.namedItem('institution').closest('label').querySelector('span').textContent=cattle?'Fazenda ou propriedade':'Instituição';
   form.elements.namedItem('balance').closest('label').querySelector('span').textContent=cattle?'Valor de mercado atual do lote (R$)':'Saldo líquido do extrato (R$)';
   form.elements.namedItem('balance').closest('label').querySelector('small').textContent=cattle?'Informe uma estimativa atual para o lote.':'Use o valor líquido, após impostos, na data da conferência.';
   $('#investmentTitle').textContent=cattle?'Registrar investimento em pecuária':investmentExisting?'Investimento já existente':'Investimento com débito no saldo';
 }
-function openInvestment(id, existing = false) {
-  const item=db.investments.find(x=>x.id===id);
-  investmentEditId=item?.id??null;
-  investmentExisting=item ? item.existing===true : existing;
-  const form=$('#investmentForm');
-  form.reset();
-  const goal=form.elements.namedItem('goalId');
-  goal.innerHTML='<option value="">Sem vínculo</option>'+db.jars.filter(j=>!j.archived||j.id===item?.goalId).map(j=>`<option value="${esc(j.id)}">${esc(j.name)}</option>`).join('');
-  goal.value=item?.goalId||'';
+function openInvestment(id,existing=false){
+  const item=db.investments.find(x=>x.id===id);investmentEditId=item?.id??null;investmentExisting=item?item.existing===true:existing;
+  const form=$('#investmentForm');form.reset();const goal=form.elements.namedItem('goalId');
+  goal.innerHTML='<option value="">Sem vínculo</option>'+db.jars.filter(j=>!j.archived||j.id===item?.goalId).map(j=>`<option value="${esc(j.id)}">${esc(j.name)}</option>`).join('');goal.value=item?.goalId||'';
   form.elements.namedItem('assetType').value=item?.assetType||'financial';
   for(const key of ['name','institution','product','livestockKind','headCount','extraCosts','date','checked','cost','balance']){
-    const value=item?.[key];
-    form.elements.namedItem(key).value=value==null?(key==='checked'?isoToday():key==='headCount'?1:''):['cost','balance','extraCosts'].includes(key)?value/100:value;
+    const value=item?.[key];form.elements.namedItem(key).value=value==null?(key==='checked'?isoToday():key==='headCount'?1:''):['cost','balance','extraCosts'].includes(key)?value/100:value;
   }
-  toggleInvestmentAssetFields();
-  $('#investmentDialog').showModal();
+  const heads=form.elements.namedItem('headCount');
+  heads.readOnly=!!(item?.redemptions||[]).some(r=>r.kind==='sale');
+  toggleInvestmentAssetFields();$('#investmentDialog').showModal();
 }
 $('#investmentForm').elements.namedItem('assetType').addEventListener('change',toggleInvestmentAssetFields);
-async function saveInvestment(event) {
-  event.preventDefault();
-  const form=event.currentTarget, data=new FormData(form);
-  const field=key=>String(data.get(key)||'').trim(), cattle=field('assetType')==='livestock';
+async function saveInvestment(event){
+  event.preventDefault();const form=event.currentTarget,data=new FormData(form),field=key=>String(data.get(key)||'').trim();
+  const existingItem=db.investments.find(x=>x.id===investmentEditId),cattle=existingItem?.status==='sold'&&existingItem.assetType==='livestock'||field('assetType')==='livestock';
   const extraCosts=cattle?Math.round(Number(field('extraCosts')||0)*100):0;
-  const headCount=cattle?Number(field('headCount')):null;
-  const existingItem=db.investments.find(x=>x.id===investmentEditId);
-  const item={id:investmentEditId||uid(),existing:investmentExisting,goalId:field('goalId')||null,name:field('name'),institution:field('institution'),product:cattle?'Pecuária · '+field('livestockKind'):field('product'),date:field('date'),checked:field('checked'),cost:Math.round(Number(field('cost'))*100),balance:Math.round(Number(field('balance'))*100),assetType:cattle?'livestock':'financial',livestockKind:cattle?field('livestockKind'):null,headCount,extraCosts,status:existingItem?.status||'active',soldDate:existingItem?.soldDate||null,saleAmount:existingItem?.saleAmount||null};
-  if(cattle&&(!Number.isInteger(headCount)||headCount<1||headCount>100000||!Number.isSafeInteger(extraCosts)||extraCosts<0||extraCosts>10000000000))return notify('Informe a quantidade de animais e os custos de manejo válidos.');
+  const headCount=cattle?(existingItem?.status==='sold'?0:existingItem?.redemptions?.some(r=>r.kind==='sale')?existingItem.headCount:Number(field('headCount'))):null;
+  const cost=Math.round(Number(field('cost'))*100),balance=Math.round(Number(field('balance'))*100);
+  const item={id:investmentEditId||uid(),existing:investmentExisting,goalId:field('goalId')||null,name:field('name'),institution:field('institution'),product:cattle?'Pecuária · '+field('livestockKind'):field('product'),date:field('date'),checked:field('checked'),cost,balance,assetType:cattle?'livestock':'financial',livestockKind:cattle?field('livestockKind'):null,headCount,initialHeadCount:cattle?(existingItem?.initialHeadCount||headCount):null,extraCosts,expenses:existingItem?.expenses||[],remainingCostBasis:existingItem?(existingItem.remainingCostBasis+cost-existingItem.cost+extraCosts-existingItem.extraCosts):cost+extraCosts,status:existingItem?.status||'active',soldDate:existingItem?.soldDate||null,saleAmount:existingItem?.saleAmount||null,redemptions:existingItem?.redemptions||[]};
+  if(cattle&&((existingItem?.status!=='sold'&&(!Number.isInteger(headCount)||headCount<1||headCount>100000))||!Number.isSafeInteger(extraCosts)||extraCosts<0||extraCosts>10000000000||!Number.isSafeInteger(item.remainingCostBasis)||item.remainingCostBasis<0||item.remainingCostBasis>10000000000))return notify('Informe a quantidade, os custos e o custo restante válidos.');
   if(item.checked<item.date||item.checked>isoToday())return notify('A conferência deve ocorrer entre a data da aplicação e hoje.');
-  if(existingItem?.status==='sold'&&item.assetType==='livestock')item.balance=0;
-  if(await mutate(()=>{
-    const index=db.investments.findIndex(x=>x.id===item.id);
-    if(index<0)db.investments.push(item);else db.investments[index]={...item,redemptions:db.investments[index].redemptions??[]};
-  }))$('#investmentDialog').close();
+  if(existingItem?.status==='sold'&&item.assetType==='livestock'){item.balance=0;item.headCount=0;item.remainingCostBasis=0;}
+  if(await mutate(()=>{const index=db.investments.findIndex(x=>x.id===item.id);if(index<0)db.investments.push(item);else db.investments[index]={...item,redemptions:db.investments[index].redemptions??[]};}))$('#investmentDialog').close();
 }
 $('#investmentForm').addEventListener('submit',saveInvestment);
 $('#investmentCancel').addEventListener('click',()=>$('#investmentDialog').close());
@@ -613,6 +662,8 @@ function analysis(){
  <div class="stats">${stat('Entradas do mês',money(m.income),monthLabel(),'income')}${stat('Despesas do mês',money(m.expenses),monthLabel(),'expense')}${stat('Saldo disponível',money(m.balance),'Após despesas, cofrinhos e novos investimentos','wallet')}</div>
  <div class="card insights-portfolio"><span>Carteira de investimentos · <strong>${money(sum(db.investments.map(x=>x.balance)))}</strong></span><button class="btn small" data-page="investments">Abrir investimentos</button></div>
  ${marketBudgetCard(m)}
+ ${categoryBudgetCard(m)}
+ ${categoryBudgetCard(m)}
  ${goalProgressSummary()}
  <article class="card">${cardTitle('Onde você mais gasta','Ranking das categorias em '+monthLabel())}${cats.length?`<div class="bar-list">${cats.map(([name,amt])=>`<div><div class="bar-label"><span>${esc(name)}</span><b>${money(amt)} · ${percent(amt/cTotal*100)}</b></div><div class="bar-track"><span style="width:${amt/cats[0][1]*100}%;background:${CAT_COLORS[CATS.indexOf(name)]}"></span></div></div>`).join('')}</div><div class="soft-tip">Simulação: reduzir 10% de <b>${esc(cats[0][0])}</b> liberaria ${money(result.byCat.savingExample)} neste mês, se o gasto permitir.</div>`:'<div class="empty">Ainda não há despesas neste mês.</div>'}</article>
  
@@ -714,12 +765,12 @@ async function submitEntry(e){e.preventDefault();const mode=state.modal,monthBef
 if(mode==='recurring'){const amount=toCents($('#amount').value),day=Number($('#recurringDay').value),startMonth=$('#recurringStart').value,endMonth=$('#recurringEnd').value||null,kind=$('#recurringKind').value,source=$('#recurringSource')?.value||'complement',category=kind==='income'?'Outros':$('#category').value,note=$('#note').value.trim().slice(0,140);if(!Number.isSafeInteger(amount)||!Number.isInteger(day)||day<1||day>31||!validDate(startMonth+'-01')||(endMonth&&(!validDate(endMonth+'-01')||endMonth<startMonth))||(kind==='expense'&&!CATS.includes(category))){notify('Confira os dados da previsão recorrente.');return}const existing=db.recurring.find(t=>t.id===state.editRecordId);const entry={id:existing?.id||uid(),kind,source,amount,day,startMonth,endMonth,category,note,paused:$('#recurringPaused').checked};if(!await mutate(()=>{if(existing)db.recurring[db.recurring.indexOf(existing)]=entry;else db.recurring.push(entry)}))return}
 else if(mode==='institution'){const name=$('#institutionName').value.trim(),type=$('#institutionType').value,cdiPercent=Number($('#institutionCdiPercent').value),guaranteeFund=$('#institutionFund').value,conglomerate=$('#institutionConglomerate').value.trim(),otherRaw=Number($('#institutionOtherBalance').value),otherCoveredBalance=Number.isFinite(otherRaw)&&otherRaw>=0&&otherRaw<=100000000?Math.round(otherRaw*100):NaN,existing=db.institutions.find(x=>x.id===state.editInstitutionId);if(!name||!['bank','cooperative'].includes(type)||!Number.isFinite(cdiPercent)||cdiPercent<=0||cdiPercent>500||!['fgc','fgcoop','none'].includes(guaranteeFund)||!conglomerate||!Number.isSafeInteger(otherCoveredBalance)){notify('Confira o nome, o tipo e o percentual de CDI.');return}const item={id:existing?.id||uid(),name:name.slice(0,70),type,cdiPercent,guaranteeFund,conglomerate:conglomerate.slice(0,100),otherCoveredBalance,isDefault:!!existing?.isDefault};if(!await mutate(()=>{if(existing)db.institutions[db.institutions.indexOf(existing)]=item;else db.institutions.push(item)}))return;closeModal(true);notify(existing?'Instituição atualizada.':'Instituição cadastrada.');return}
 else if(mode==='jar'){const name=$('#jarName').value.trim(),target=toCents($('#jarTarget').value),dueDate=$('#jarDue').value;if(!name||!Number.isFinite(target)||!validDate(dueDate)){notify('Preencha corretamente o nome, valor e prazo.');return}const exists=db.jars.find(x=>x.id===state.editJarId);const linkedIds=new Set(new FormData(e.target).getAll('linkedInvestment'));const newJar={id:exists?.id||uid(),name:name.slice(0,70),target,dueDate,institutionId:$('#jarInstitution').value||'inter-default',paused:!!exists?.paused};if(!await mutate(()=>{if(exists)db.jars[db.jars.indexOf(exists)]=newJar;else db.jars.push(newJar);for(const item of db.investments){if(linkedIds.has(item.id))item.goalId=newJar.id;else if(item.goalId===newJar.id)item.goalId=null}}))return}
-else{const amount=toCents($('#amount').value),date=$('#date').value,note=$('#note').value.trim().slice(0,140);if(!Number.isFinite(amount)||!validDate(date)){notify('Informe um valor positivo e uma data válida.');return}if(mode==='income'||mode==='expense'){record={id:state.editRecordId||uid(),kind:mode,amount,date,note,source:mode==='income'?$('#type').value:'complement',category:mode==='expense'?$('#category').value:'Outros',recurringId:db.records.find(r=>r.id===state.editRecordId)?.recurringId||null,recurringMonth:db.records.find(r=>r.id===state.editRecordId)?.recurringMonth||null};state.year=Number(date.slice(0,4));state.month=Number(date.slice(5,7))-1;if(!await mutate(()=>{const i=db.records.findIndex(x=>x.id===record.id);if(i>=0)db.records[i]=record;else db.records.push(record)}))return}else{const jar=db.jars.find(j=>j.id===state.editJarId);if(!jar){notify('Cofrinho não encontrado.');return}const signed=mode==='withdraw'?-amount:amount;if(signed<0){const balanceAtDate=sum(db.allocations.filter(a=>a.jarId===jar.id&&a.date<=date).map(a=>a.amount));if(amount>balanceAtDate){notify(`Resgate maior que o saldo disponível em ${dateBR(date)}.`);return}}const receivedInput = mode==='withdraw' ? $('#netReceived').value.trim() : '';
+else{const amount=toCents($('#amount').value),date=$('#date').value,note=$('#note').value.trim().slice(0,140);if(!Number.isFinite(amount)||!validDate(date)){notify('Informe um valor positivo e uma data válida.');return}if(mode==='income'||mode==='expense'){const previousRecord=db.records.find(r=>r.id===state.editRecordId),linkedInvestment=previousRecord?.investmentId?db.investments.find(x=>x.id===previousRecord.investmentId):null;if(linkedInvestment&&(linkedInvestment.redemptions||[]).some(r=>r.kind==='sale')){notify('Para preservar o custo já distribuído nas vendas, este gasto do lote não pode ser editado após a primeira venda.');return}record={id:state.editRecordId||uid(),kind:mode,amount,date,note,source:mode==='income'?$('#type').value:'complement',category:previousRecord?.investmentId?'Pecuária':mode==='expense'?$('#category').value:'Outros',recurringId:previousRecord?.recurringId||null,recurringMonth:previousRecord?.recurringMonth||null,investmentId:previousRecord?.investmentId||null,investmentExpenseId:previousRecord?.investmentExpenseId||null};state.year=Number(date.slice(0,4));state.month=Number(date.slice(5,7))-1;if(!await mutate(()=>{if(previousRecord?.investmentId){const asset=db.investments.find(x=>x.id===previousRecord.investmentId),expense=asset?.expenses?.find(e=>e.id===previousRecord.investmentExpenseId);if(expense){asset.remainingCostBasis=Math.max(0,asset.remainingCostBasis-expense.amount+amount);expense.amount=amount;expense.date=date;expense.note=note}}const i=db.records.findIndex(x=>x.id===record.id);if(i>=0)db.records[i]=record;else db.records.push(record)}))return}else{const jar=db.jars.find(j=>j.id===state.editJarId);if(!jar){notify('Cofrinho não encontrado.');return}const signed=mode==='withdraw'?-amount:amount;if(signed<0){const balanceAtDate=sum(db.allocations.filter(a=>a.jarId===jar.id&&a.date<=date).map(a=>a.amount));if(amount>balanceAtDate){notify(`Resgate maior que o saldo disponível em ${dateBR(date)}.`);return}}const receivedInput = mode==='withdraw' ? $('#netReceived').value.trim() : '';
 const netReceived = receivedInput ? toCents(receivedInput) : null;
 if(receivedInput && (!Number.isSafeInteger(netReceived)||netReceived<=0)){notify('Informe um valor líquido recebido válido.');return}
 record={id:uid(),jarId:jar.id,amount:signed,date,note,...(netReceived!==null?{netReceived}:{})};state.year=Number(date.slice(0,4));state.month=Number(date.slice(5,7))-1;if(!await mutate(()=>db.allocations.push(record)))return}}closeModal(true);notify(monthBefore===mkey(state.year,state.month)?'Salvo com sucesso.':`Salvo em ${monthLabel()}.`)}
 async function copyPreviousExpenses(){let y=state.year,m=state.month-1;if(m<0){m=11;y--}const previous=getMonth(y,m).records.filter(r=>r.kind==='expense'&&!r.recurringId);if(!previous.length){notify('O mês anterior não tem despesas para copiar.');return}const targetKey=mkey(state.year,state.month);const hasSame=x=>db.records.some(r=>r.kind==='expense'&&r.date===x.date&&r.category===x.category&&r.note===x.note&&r.amount===x.amount);const copy=previous.map(x=>{const day=Number(x.date.slice(8));const lastDay=new Date(state.year,state.month+1,0).getDate();return {...x,id:uid(),recurringId:null,date:targetKey+'-'+String(Math.min(day,lastDay)).padStart(2,'0')}}).filter(x=>!hasSame(x));if(!copy.length){notify('Todas as despesas do mês anterior já foram copiadas.');return}if(!confirm(`Copiar ${copy.length} ${copy.length===1?'despesa':'despesas'} de ${MONTHS[m]} para ${monthLabel()}? Você poderá editar os valores.`))return;if(await mutate(()=>db.records.push(...copy)))notify(`${copy.length} despesas copiadas. Ajuste os valores em Editar.`)}
-async function deleteRecord(id){const x=db.records.find(r=>r.id===id);if(!x)return;if(!confirm(`Excluir ${money(x.amount)} de ${dateBR(x.date)}?`))return;if(await mutate(()=>db.records=db.records.filter(r=>r.id!==id)))notify('Lançamento excluído.')}
+async function deleteRecord(id){const x=db.records.find(r=>r.id===id);if(!x)return;const asset=x.investmentId?db.investments.find(v=>v.id===x.investmentId):null;if(asset&&(asset.redemptions||[]).some(r=>r.kind==='sale')){notify('Este gasto do lote já compõe vendas registradas e não pode ser excluído.');return}if(!confirm(`Excluir ${money(x.amount)} de ${dateBR(x.date)}?`))return;if(await mutate(()=>{if(asset){const expense=asset.expenses?.find(e=>e.id===x.investmentExpenseId);if(expense){asset.remainingCostBasis=Math.max(0,asset.remainingCostBasis-expense.amount);asset.expenses=asset.expenses.filter(e=>e.id!==expense.id)}}db.records=db.records.filter(r=>r.id!==id)}))notify('Lançamento excluído.')}
 function firstNegativeJarDate(jarId,allocations){let balance=0;for(const item of allocations.filter(x=>x.jarId===jarId).sort(byAllocationDate)){balance+=item.amount;if(balance<0)return item.date}return null}
 async function deleteAllocation(id){const a=db.allocations.find(r=>r.id===id);if(!a)return;const remaining=db.allocations.filter(x=>x.id!==id),invalidDate=firstNegativeJarDate(a.jarId,remaining);if(invalidDate){notify(`Não é possível excluir: o saldo ficaria negativo em ${dateBR(invalidDate)}.`);return}if(!confirm('Excluir esta movimentação do cofrinho?'))return;if(await mutate(()=>db.allocations=remaining))notify('Movimentação excluída.')}
 async function archiveJar(id,archived=true){const jar=db.jars.find(j=>j.id===id);if(!jar)return;if(await mutate(()=>jar.archived=archived))notify(archived?'Cofrinho arquivado. O histórico foi preservado.':'Cofrinho restaurado.')}
