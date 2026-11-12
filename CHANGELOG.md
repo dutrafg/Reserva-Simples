@@ -1,5 +1,10 @@
 # Histórico de alterações
 
+## v0.38.2
+
+- Relatórios financeiros e de cofrinhos geram um arquivo PDF para download, sem depender da tela de impressão do navegador.
+- Mantida a opção de imprimir quando o navegador oferece esse recurso.
+
 ## v0.38.1
 
 - Corrigida a impressão e o salvamento em PDF dos relatórios financeiros e de cofrinhos, com acionamento pelo botão no próprio relatório para evitar bloqueios do navegador.
