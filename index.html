@@ -261,7 +261,8 @@ body.dark .quick-add-option.goal>svg{background:#203855;color:#8bbaff}
 .shell{display:grid;grid-template-columns:216px minmax(0,1fr)}
 body.sidebar-compact .shell{grid-template-columns:72px minmax(0,1fr)}
 #desktopSidebar{display:flex;flex-direction:column;gap:18px;position:sticky;top:0;height:100dvh;overflow:auto;padding:14px 10px;background:var(--card);border-right:1px solid var(--line)}
-#desktopNav{display:grid;gap:6px}
+#desktopNav{display:flex;flex:1;flex-direction:column;gap:6px}
+#desktopNav [data-page="settings"]{margin-top:auto}
 #desktopNav .nav-button{width:100%;min-height:44px}
 #desktopNav .nav-short{display:none}
 body.sidebar-compact #desktopNav .nav-label{display:none}
