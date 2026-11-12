@@ -283,6 +283,7 @@ public partial class MainWindow : Window
             using var cmd = copy.CreateCommand();
             cmd.CommandText = "SELECT COUNT(*) FROM entries WHERE kind='expense' AND cents=3000";
             if (Convert.ToInt64(cmd.ExecuteScalar()) != 1) throw new InvalidOperationException("Backup não preservou o lançamento.");
+            VerifyPwaImport();
             Application.Current.Shutdown(0);
         }
         catch (Exception ex)

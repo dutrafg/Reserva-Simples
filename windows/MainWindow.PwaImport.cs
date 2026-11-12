@@ -146,4 +146,46 @@ public partial class MainWindow
         tx.Commit();
         return count;
     }
+    private void VerifyPwaImport()
+    {
+        const string password = "senha ficticia de homologacao";
+        const string fixture = """
+            {"records":[{"id":"qa-pwa-1","date":"2026-11-03","kind":"income","amount":12345,"note":"Importado"}]}
+            """;
+        using var original = JsonDocument.Parse(fixture);
+        var rows = ReadPwaEntries(original.RootElement);
+        if (WritePwaEntries(rows) != 1 || WritePwaEntries(rows) != 0)
+            throw new InvalidOperationException("Importação simples duplicou ou perdeu lançamentos.");
+
+        var plaintext = System.Text.Encoding.UTF8.GetBytes(fixture.Replace("qa-pwa-1", "qa-pwa-2"));
+        var salt = RandomNumberGenerator.GetBytes(16);
+        var nonce = RandomNumberGenerator.GetBytes(12);
+        var key = Rfc2898DeriveBytes.Pbkdf2(password, salt, 600000, HashAlgorithmName.SHA256, 32);
+        var cipher = new byte[plaintext.Length + 16];
+        try
+        {
+            using var aes = new AesGcm(key, 16);
+            aes.Encrypt(nonce, plaintext, cipher.AsSpan(0, plaintext.Length), cipher.AsSpan(plaintext.Length));
+        }
+        finally { CryptographicOperations.ZeroMemory(key); }
+
+        using var envelope = JsonDocument.Parse(JsonSerializer.Serialize(new { format = "reserva-vault-1", salt, iv = nonce, data = cipher }));
+        try
+        {
+            using var wrong = DecryptPwa(envelope.RootElement, "senha incorreta");
+            throw new InvalidOperationException("Senha incorreta foi aceita.");
+        }
+        catch (CryptographicException) { }
+
+        using var decoded = DecryptPwa(envelope.RootElement, password);
+        var decryptedRows = ReadPwaEntries(decoded.RootElement);
+        if (WritePwaEntries(decryptedRows) != 1 || WritePwaEntries(decryptedRows) != 0)
+            throw new InvalidOperationException("Importação cifrada não preservou os lançamentos.");
+        using var db = Open();
+        using var cmd = db.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM entries WHERE note='Importado' AND cents=12345 AND day='2026-11-03'";
+        if (Convert.ToInt64(cmd.ExecuteScalar()) != 2)
+            throw new InvalidOperationException("A base não contém os dois lançamentos importados.");
+    }
+
 }
