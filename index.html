@@ -317,6 +317,34 @@ body:has(#vaultDialog[data-mode="folder"][open]) .shell,body:has(#vaultDialog[da
 #entryForm .linked-position-name strong{font-size:13px;line-height:1.3}
 #entryForm .linked-position-value{justify-self:end;text-align:right}
 @media(max-width:360px){#entryForm .linked-position{grid-template-columns:18px minmax(0,1fr)}#entryForm .linked-position-value{grid-column:2;justify-self:start;text-align:left}}
+
+/* Shared module layout */
+.main{width:100%;max-width:none;padding-inline:clamp(14px,2.8vw,42px)}
+.page.active{gap:18px;min-width:0}
+.page :is(.stats,.overview-grid,.goal-grid,.settings-grid,.today-stats,.insight-grid){
+  display:flex;flex-wrap:wrap;gap:14px;align-items:stretch
+}
+.page :is(.stats,.overview-grid,.goal-grid,.settings-grid,.today-stats,.insight-grid)>*{
+  flex:1 1 var(--tile-width,210px);min-width:0;max-width:none;margin:0;overflow-wrap:anywhere
+}
+.page .goal-grid,.page .settings-grid{--tile-width:360px}
+.page .today-stats{--tile-width:190px}
+.page .insight-grid{--tile-width:240px}
+.page .card{border-radius:14px;padding:clamp(14px,1.8vw,24px)}
+.page .overview-card{display:flex;flex-direction:column;align-items:flex-start}
+.page .overview-card .btn{margin-top:auto}
+.page .goal-card{border-radius:14px}
+.page .goal-card .goal-amount{flex-wrap:wrap}
+.page .actions{flex-wrap:wrap;row-gap:8px}
+.page .section-heading{gap:12px}
+.page .section-heading h2{font-size:clamp(16px,1.7vw,21px)}
+.page .today-top-grid>.today-card,.page .today-top-grid>.card{padding:18px}
+@media(max-width:560px){
+ .page.active{gap:12px}
+ .page :is(.stats,.overview-grid,.goal-grid,.settings-grid,.today-stats,.insight-grid){gap:10px}
+ .page :is(.stats,.overview-grid,.today-stats){--tile-width:145px}
+ .page .goal-grid,.page .settings-grid{--tile-width:100%}
+}
 </style>
 </head>
 <body>

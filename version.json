@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.32.3",
+  "version": "0.33.0",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Lista de investimentos vinculados ocupa a largura do formulário de cofrinho."
+  "notes": "Layout responsivo com cartões que preenchem a largura dos módulos."
 }
