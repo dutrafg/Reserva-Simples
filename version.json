@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.33.1",
+  "version": "0.33.2",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Progresso das metas em Hoje e Insights inclui investimentos vinculados."
+  "notes": "Cálculo mensal compartilhado e integração dos investimentos na projeção de caixa."
 }

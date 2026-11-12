@@ -19,6 +19,10 @@
     if (!xs.length) return null;
     const n = xs.length; return Math.round(n % 2 ? nth(xs, (n - 1) / 2) : (nth(xs, n / 2 - 1) + nth(xs, n / 2)) / 2);
   };
+  const investmentCashEvents = db => (db.investments || []).flatMap(position => [
+    ...(!position.existing ? [{date:position.date, amount:-position.cost}] : []),
+    ...(position.redemptions ?? [])
+  ]);
   const monthData = (db, y, m) => {
     const key = period(y, m);
     const rows = (db.records || []).filter(x => asPeriod(x.date) === key);
@@ -28,7 +32,7 @@
     const allocations=(db.allocations||[]).filter(x=>asPeriod(x.date)===key);const deposits=sum(allocations.filter(x=>x.amount>0).map(x=>x.amount));const withdrawals=sum(allocations.filter(x=>x.amount<0).map(x=>x.netReceived??-x.amount));const saved=deposits-withdrawals;
     const invested = sum((db.investments || []).filter(x => !x.existing && asPeriod(x.date) === key).map(x => x.cost));
     const redeemed = sum((db.investments || []).flatMap(x => x.redemptions ?? []).filter(r => asPeriod(r.date) === key).map(r => r.amount));
-    return { invested, key, year: y, month: m, income, expenses, salary, complement: income - salary,
+    return { invested, redeemed, key, year: y, month: m, income, expenses, salary, complement: income - salary,
       deposits, withdrawals, saved, minimum: Math.round(income * 0.1), available: income - expenses - saved - invested + redeemed,
       recordedIncome: rows.some(x => x.kind === 'income'), recordedExpenses: rows.some(x => x.kind === 'expense') };
   };
@@ -130,5 +134,5 @@
     if (goalsView.affordable === false) add('attention', 'Metas exigem ajuste', 'A soma mensal necessária para os cofrinhos supera a sobra mensal estimada antes de guardar.');
     return { items, now, byCat, projection, goals: goalsView };
   }
-  return Object.freeze({ monthData, history, median, forecast, categories, balanceAt, goal, goals, insights });
+  return Object.freeze({ investmentCashEvents, monthData, history, median, forecast, categories, balanceAt, goal, goals, insights });
 });
