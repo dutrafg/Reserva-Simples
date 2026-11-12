@@ -386,7 +386,37 @@ body[data-palette="petrol"] .today-card{background:linear-gradient(135deg,#11373
 body[data-palette="plum"] .today-card{background:linear-gradient(135deg,#36204d,#653c91)}
 body[data-palette="petrol"] .btn.primary{background:#08796e;color:#fff}
 body[data-palette="plum"] .btn.primary{background:#7444a5;color:#fff}
-.sidebar-control{display:none}@media(min-width:1024px){.sidebar-control{display:flex;justify-content:flex-start;margin-bottom:8px}.sidebar-control #sidebarToggle{align-self:auto}}@media(min-width:1024px){.sidebar-control{box-sizing:border-box;height:80px;align-items:center;padding-inline:16px;margin-inline:calc(-1 * clamp(14px,2.8vw,42px));margin-bottom:18px;background:color-mix(in srgb,var(--card) 78%,var(--bg));border-bottom:1px solid var(--line)}.sidebar-control #sidebarToggle{width:46px;height:46px;min-height:46px;border-radius:16px;background:var(--mint)}.sidebar-control #sidebarToggle svg{width:20px;height:20px}}</style>
+.sidebar-control{display:none}@media(min-width:1024px){.sidebar-control{display:flex;justify-content:flex-start;margin-bottom:8px}.sidebar-control #sidebarToggle{align-self:auto}}@media(min-width:1024px){.sidebar-control{box-sizing:border-box;height:80px;align-items:center;padding-inline:16px;margin-inline:calc(-1 * clamp(14px,2.8vw,42px));margin-bottom:18px;background:color-mix(in srgb,var(--card) 78%,var(--bg));border-bottom:1px solid var(--line)}.sidebar-control #sidebarToggle{width:46px;height:46px;min-height:46px;border-radius:16px;background:var(--mint)}.sidebar-control #sidebarToggle svg{width:20px;height:20px}}
+/* Layout for narrow screens and touch tablets in landscape. */
+@media (max-width:1023px), (max-width:1366px) and (pointer:coarse){
+  .shell,body.sidebar-compact .shell{display:block}
+  #desktopSidebar,.sidebar-control{display:none}
+  #headerSettings{display:inline-flex}
+  #mobileNav{display:grid;width:min(520px,calc(100% - 20px));grid-template-columns:repeat(5,minmax(0,1fr));bottom:max(8px,env(safe-area-inset-bottom))}
+  #mobileNav :is(.nav-button,.nav-add){min-height:44px}
+  .main{padding-block:18px calc(100px + env(safe-area-inset-bottom));padding-inline:clamp(12px,3vw,28px)}
+  .header{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+  .header-intro,.header-right{min-width:0}
+  .header-right{display:flex;flex-wrap:wrap;gap:8px}
+  .page :is(.actions,.setting-actions)>.btn{white-space:normal;min-height:44px}
+  .page :is(input,select,textarea){max-width:100%}
+  .table-wrap{max-width:100%;overflow-x:auto}
+  .dialog{width:min(540px,100%);max-height:calc(100dvh - 24px);padding:clamp(14px,3vw,22px);overscroll-behavior:contain}
+  .dialog-title button{min-width:44px;min-height:44px}
+}
+@media(max-width:600px){
+  .header-intro,.header-right{width:100%}
+  .header-right{justify-content:space-between}
+  .header-right .month-picker{max-width:100%}
+  .page :is(.today-top-grid,.two-col,.today-lower){grid-template-columns:minmax(0,1fr)}
+  .page .overview-grid{--tile-width:150px}
+  .page .transaction-row{grid-template-columns:32px minmax(0,1fr) auto;gap:8px}
+  .page .transaction-actions{grid-column:2/-1;display:flex;flex-wrap:wrap;justify-content:flex-end}
+  .page .transaction-row :is(.transaction-copy,.transaction-amount){min-width:0;overflow-wrap:anywhere}
+  .dialog .form-grid{grid-template-columns:minmax(0,1fr)}
+  .dialog :is(input,select,textarea){font-size:16px;max-width:100%}
+}
+</style>
 </head>
 <body>
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
