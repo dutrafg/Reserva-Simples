@@ -1,0 +1,8 @@
+{
+  "application": "Reserva Simples",
+  "version": "0.28.1",
+  "channel": "stable",
+  "updatedAt": "2026-11-12T00:00:00Z",
+  "source": "same-origin PWA release",
+  "notes": "Paginação, contas pendentes e preparação da atualização antes da ativação."
+}
