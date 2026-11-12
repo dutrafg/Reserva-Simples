@@ -281,6 +281,13 @@ body.sidebar-compact #sidebarToggle{align-self:center}
 #desktopNav .nav-button{padding-inline:10px}
 #desktopNav .nav-button svg{width:20px;height:20px}
 }
+.settings-grid{gap:16px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.settings-grid .settings-card{margin:0}
+body:has(#vaultDialog[open]) .shell,body:has(#vaultDialog[open]) #mobileNav{visibility:hidden}
+#vaultDialog{width:min(420px,calc(100% - 28px));background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:22px}
+#vaultDialog::backdrop{background:var(--bg)}
+#vaultDialog form{display:grid;gap:12px}
+@media(max-width:760px){.settings-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -307,6 +314,7 @@ body.sidebar-compact #sidebarToggle{align-self:center}
 <nav id="mobileNav" class="floating-nav" aria-label="Menu de módulos"></nav>
 <div id="modal" class="modal" aria-hidden="true"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="dialog-title"><h2 id="modalTitle">Novo registro</h2><button id="closeModal" aria-label="Fechar">×</button></div><div id="modalContent"></div></div></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
+<dialog id="vaultDialog" aria-labelledby="vaultTitle"><form id="vaultForm"><h2 id="vaultTitle">Cofre local</h2><label for="vaultPassword">Senha</label><input id="vaultPassword" type="password" required><div id="vaultConfirmField" hidden><label for="vaultConfirm">Confirme a senha</label><input id="vaultConfirm" type="password"></div><p id="vaultError" role="alert"></p><button class="btn primary" type="submit">Continuar</button><button class="btn" type="button" id="vaultCancel">Cancelar</button></form></dialog>
 <script src="./engines.js"></script>
 <script src="./app.js"></script>
 </body>
