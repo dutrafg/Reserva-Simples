@@ -23,8 +23,8 @@ public partial class MainWindow
             header.SequenceEqual("SQLite format 3\0"u8);
     }
 
-    private SqliteConnection OpenBackupConnection(string path) =>
-        CreateDatabaseConnection(path, SqliteOpenMode.ReadOnly, IsPlainSqlite(path) ? null : databaseKey);
+    private SqliteConnection OpenBackupConnection(string path, SqliteOpenMode mode = SqliteOpenMode.ReadOnly) =>
+        CreateDatabaseConnection(path, mode, IsPlainSqlite(path) ? null : databaseKey);
 
     private void InitializeEncryptedStorage()
     {
@@ -63,7 +63,7 @@ public partial class MainWindow
         var staged = databasePath + "." + Guid.NewGuid().ToString("N") + ".migration";
         try
         {
-            using (var source = CreateDatabaseConnection(databasePath, SqliteOpenMode.ReadOnly, null))
+            using (var source = CreateDatabaseConnection(databasePath, SqliteOpenMode.ReadWrite, null))
             {
                 source.Open();
                 ExportEncryptedDatabase(source, staged, databaseKey);
