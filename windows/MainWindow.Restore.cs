@@ -29,10 +29,7 @@ public partial class MainWindow
     {
         if (string.Equals(Path.GetFullPath(path), Path.GetFullPath(databasePath), StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Escolha um arquivo de backup separado do banco atual.");
-        using var source = new SqliteConnection(new SqliteConnectionStringBuilder
-        {
-            DataSource = path, Mode = SqliteOpenMode.ReadOnly, Pooling = false
-        }.ToString());
+        using var source = OpenBackupConnection(path);
         source.Open();
         using var cmd = source.CreateCommand();
         cmd.CommandText = "PRAGMA quick_check";
@@ -53,8 +50,13 @@ public partial class MainWindow
         }
 
         var snapshot = CreateRecoverySnapshot("antes-de-restaurar");
-        using var destination = Open();
-        source.BackupDatabase(destination);
+        var staged = databasePath + "." + Guid.NewGuid().ToString("N") + ".restore";
+        try
+        {
+            ExportEncryptedDatabase(source, staged, databaseKey!);
+            File.Move(staged, databasePath, overwrite: true);
+        }
+        finally { if (File.Exists(staged)) File.Delete(staged); }
         return snapshot;
     }
 
@@ -87,10 +89,7 @@ public partial class MainWindow
         var snapshot = RestoreLocalBackup(previous);
         Refresh();
         if (Balance.Text != Money(7000)) throw new InvalidOperationException("Saldo restaurado incorreto.");
-        using var saved = new SqliteConnection(new SqliteConnectionStringBuilder
-        {
-            DataSource = snapshot, Mode = SqliteOpenMode.ReadOnly
-        }.ToString());
+        using var saved = OpenBackupConnection(snapshot);
         saved.Open();
         using var cmd = saved.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM entries WHERE note='Importado'";

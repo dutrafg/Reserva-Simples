@@ -22,6 +22,7 @@ public partial class MainWindow : Window
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
+            InitializeEncryptedStorage();
             using var db = Open();
             using var cmd = db.CreateCommand();
             cmd.CommandText = """
@@ -45,7 +46,7 @@ public partial class MainWindow : Window
 
     private SqliteConnection Open()
     {
-        var db = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString());
+        var db = CreateDatabaseConnection(databasePath, SqliteOpenMode.ReadWriteCreate, databaseKey ?? throw new InvalidOperationException("Cofre indisponível."));
         db.Open();
         return db;
     }
@@ -194,7 +195,7 @@ public partial class MainWindow : Window
         try
         {
             CopyDatabase(temporary, target);
-            StatusText.Text = "Backup criado. O arquivo ainda não é criptografado.";
+            StatusText.Text = "Backup criado. A cópia é cifrada e vinculada ao usuário Windows.";
         }
         catch (Exception ex)
         {
@@ -244,12 +245,7 @@ public partial class MainWindow : Window
 
     private void CopyDatabase(string temporary, string target)
     {
-        using (var source = Open())
-        using (var copy = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = temporary, Pooling = false }.ToString()))
-        {
-            copy.Open();
-            source.BackupDatabase(copy);
-        }
+        using (var source = Open()) ExportEncryptedDatabase(source, temporary, databaseKey!);
         File.Move(temporary, target);
     }
 
@@ -279,7 +275,7 @@ public partial class MainWindow : Window
             if (RemoveEntry(expense.Id) != 1) throw new InvalidOperationException("Exclusão falhou.");
             Refresh();
             if (Balance.Text != Money(10000)) throw new InvalidOperationException("Saldo após exclusão incorreto.");
-            using var copy = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = copyPath, Mode = SqliteOpenMode.ReadOnly }.ToString());
+            using var copy = OpenBackupConnection(copyPath);
             copy.Open();
             using var cmd = copy.CreateCommand();
             cmd.CommandText = "SELECT COUNT(*) FROM entries WHERE kind='expense' AND cents=3000";
@@ -287,6 +283,7 @@ public partial class MainWindow : Window
             VerifyPwaImport();
             VerifyLocalRestore();
             VerifyPortfolioMigration();
+            if (IsPlainSqlite(databasePath) || IsPlainSqlite(copyPath)) throw new InvalidOperationException("Banco ou backup sem cifra.");
             Application.Current.Shutdown(0);
         }
         catch (Exception ex)

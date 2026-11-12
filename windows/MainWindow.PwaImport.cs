@@ -38,7 +38,7 @@ public partial class MainWindow
                 var portfolio = ReadPwaPortfolio(root);
                 if (entries.Count == 0 && portfolio.Count == 0) { StatusText.Text = "O backup está vazio."; return; }
                 var answer = MessageBox.Show(this,
-                    $"Importar {entries.Count} lançamentos e {portfolio.Count} itens de metas e carteira? O banco Windows ainda não é cifrado.",
+                    $"Importar {entries.Count} lançamentos e {portfolio.Count} itens de metas e carteira? O banco Windows é cifrado e vinculado a este usuário do Windows.",
                     "Importar lançamentos", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
                 if (answer != MessageBoxResult.Yes) return;
                 var snapshot = CreateRecoverySnapshot("antes-de-importar");
@@ -188,7 +188,7 @@ public partial class MainWindow
         var decryptedRows = ReadPwaEntries(decoded.RootElement);
         if (WritePwaEntries(decryptedRows) != 1 || WritePwaEntries(decryptedRows) != 0)
             throw new InvalidOperationException("Importação cifrada não preservou os lançamentos.");
-        using var preserved = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = snapshot, Mode = SqliteOpenMode.ReadOnly }.ToString());
+        using var preserved = OpenBackupConnection(snapshot);
         preserved.Open();
         using var prior = preserved.CreateCommand();
         prior.CommandText = "SELECT COUNT(*) FROM entries WHERE note='Importado'";
