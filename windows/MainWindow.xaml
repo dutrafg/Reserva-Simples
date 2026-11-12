@@ -20,7 +20,7 @@
           <TextBlock x:Name="MonthLabel" Margin="10,0" VerticalAlignment="Center"/>
           <Button Content="Próximo" Click="NextMonth" Padding="9,5"/>
           <Button Content="Mês atual" Click="CurrentMonth" Padding="9,5" Margin="8,0"/>
-          <Button Content="Importar lançamentos do PWA" Click="ImportPwa" Padding="9,5" Margin="0,0,8,0"/><Button Content="Criar backup" Click="BackupDatabase" Padding="9,5"/>
+          <Button Content="Importar lançamentos do PWA" Click="ImportPwa" Padding="9,5" Margin="0,0,8,0"/><Button Content="Criar backup" Click="BackupDatabase" Padding="9,5"/><Button Content="Restaurar backup" Click="RestoreDatabase" Padding="9,5" Margin="8,0,0,0"/>
         </WrapPanel>
         <StackPanel x:Name="EntryEditor" Visibility="Collapsed">
           <TextBlock Text="Registrar lançamento" FontSize="17" FontWeight="SemiBold"/>
