@@ -61,6 +61,60 @@ public partial class MainWindow : Window
 
     private static string Money(long cents) => (cents / 100m).ToString("C2", Br);
 
+    private long? editingId;
+
+    private void ResetEditor()
+    {
+        editingId = null;
+        SaveEntryButton.Content = "Salvar lançamento";
+        EntryNote.Clear();
+        EntryAmount.Clear();
+        EntryDate.SelectedDate = DateTime.Today;
+        EntryKind.SelectedIndex = 0;
+    }
+
+    private void CancelEdit(object sender, RoutedEventArgs e) => ResetEditor();
+
+    private void EditEntry(object sender, RoutedEventArgs e)
+    {
+        if (Entries.SelectedItem is not EntryRow row)
+        {
+            StatusText.Text = "Selecione um lançamento para editar.";
+            return;
+        }
+        editingId = row.Id;
+        EntryDate.SelectedDate = DateTime.ParseExact(row.Date, "dd/MM/yyyy", Br);
+        EntryKind.SelectedIndex = row.Kind == "Receita" ? 1 : 0;
+        EntryNote.Text = row.Note;
+        EntryAmount.Text = (row.Cents / 100m).ToString("F2", Br);
+        SaveEntryButton.Content = "Salvar alterações";
+        ShowEntries(sender, e);
+        EntryNote.Focus();
+    }
+
+    private void DeleteEntry(object sender, RoutedEventArgs e)
+    {
+        if (Entries.SelectedItem is not EntryRow row)
+        {
+            StatusText.Text = "Selecione um lançamento para excluir.";
+            return;
+        }
+        if (MessageBox.Show(this, $"Excluir o lançamento de {row.Date} no valor de {row.Amount}?",
+            "Confirmar exclusão", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes) return;
+        try
+        {
+            using var db = Open();
+            using var cmd = db.CreateCommand();
+            cmd.CommandText = "DELETE FROM entries WHERE id=$id";
+            cmd.Parameters.AddWithValue("$id", row.Id);
+            var removed = cmd.ExecuteNonQuery();
+            if (editingId == row.Id) ResetEditor();
+            Refresh();
+            StatusText.Text = removed == 1 ? "Lançamento excluído." : "O lançamento já foi removido.";
+        }
+        catch (Exception ex) { StatusText.Text = $"Falha ao excluir ou atualizar a lista: {ex.Message}"; }
+    }
+
     private void SaveEntry(object sender, RoutedEventArgs e)
     {
         if (EntryDate.SelectedDate is not DateTime date ||
@@ -76,12 +130,15 @@ public partial class MainWindow : Window
         {
             using var db = Open();
             using var cmd = db.CreateCommand();
-            cmd.CommandText = "INSERT INTO entries(day,kind,note,cents) VALUES($day,$kind,$note,$cents)";
+            cmd.CommandText = editingId.HasValue
+                ? "UPDATE entries SET day=$day,kind=$kind,note=$note,cents=$cents WHERE id=$id"
+                : "INSERT INTO entries(day,kind,note,cents) VALUES($day,$kind,$note,$cents)";
+            if (editingId is long id) cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$day", date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
             cmd.Parameters.AddWithValue("$kind", EntryKind.SelectedIndex == 1 ? "income" : "expense");
             cmd.Parameters.AddWithValue("$note", EntryNote.Text.Trim());
             cmd.Parameters.AddWithValue("$cents", (long)(amount * 100));
-            cmd.ExecuteNonQuery();
+            if (cmd.ExecuteNonQuery() != 1) throw new InvalidOperationException("O lançamento não está mais disponível.");
         }
         catch (Exception ex)
         {
@@ -89,8 +146,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        EntryNote.Clear();
-        EntryAmount.Clear();
+        selectedMonth = new DateTime(date.Year, date.Month, 1);
+        ResetEditor();
         StatusText.Text = "Lançamento salvo.";
         try { Refresh(); }
         catch (Exception ex) { StatusText.Text = $"Lançamento salvo. Falha ao atualizar a lista: {ex.Message}"; }
@@ -160,7 +217,7 @@ public partial class MainWindow : Window
         long income = 0, expenses = 0;
         using var db = Open();
         using var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT day, kind, note, cents FROM entries WHERE day LIKE $month ORDER BY day DESC, id DESC";
+        cmd.CommandText = "SELECT day, kind, note, cents, id FROM entries WHERE day LIKE $month ORDER BY day DESC, id DESC";
         cmd.Parameters.AddWithValue("$month", month + "-%");
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
@@ -174,7 +231,7 @@ public partial class MainWindow : Window
                 else expenses += cents;
             }
             rows.Add(new EntryRow(DateTime.ParseExact(day, "yyyy-MM-dd", CultureInfo.InvariantCulture).ToString("dd/MM/yyyy", Br),
-                isIncome ? "Receita" : "Despesa", reader.GetString(2), Money(cents)));
+                isIncome ? "Receita" : "Despesa", reader.GetString(2), Money(cents), reader.GetInt64(4), cents));
         }
         Entries.ItemsSource = rows;
         Income.Text = Money(income);
@@ -182,5 +239,5 @@ public partial class MainWindow : Window
         Balance.Text = Money(income - expenses);
     }
 
-    public sealed record EntryRow(string Date, string Kind, string Note, string Amount);
+    public sealed record EntryRow(string Date, string Kind, string Note, string Amount, long Id, long Cents);
 }

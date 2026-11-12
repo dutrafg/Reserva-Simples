@@ -28,10 +28,10 @@
           <ComboBox x:Name="EntryKind" SelectedIndex="0" Margin="0,0,0,6"><ComboBoxItem Content="Despesa"/><ComboBoxItem Content="Receita"/></ComboBox>
           <TextBlock Text="Descrição"/><TextBox x:Name="EntryNote" MaxLength="120" Margin="0,2,0,6"/>
           <TextBlock Text="Valor (R$)"/><TextBox x:Name="EntryAmount" MaxLength="20" Margin="0,2,0,8"/>
-          <Button Content="Salvar lançamento" Padding="10,6" HorizontalAlignment="Left" Click="SaveEntry"/>
+          <WrapPanel><Button x:Name="SaveEntryButton" Content="Salvar lançamento" Padding="10,6" Click="SaveEntry"/><Button Content="Cancelar edição" Margin="8,0" Padding="10,6" Click="CancelEdit"/></WrapPanel>
         </StackPanel>
         <TextBlock x:Name="StatusText" TextWrapping="Wrap" Margin="0,8"/>
-        <DataGrid x:Name="Entries" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="340">
+        <WrapPanel Margin="0,0,0,8"><Button Content="Editar selecionado" Padding="10,6" Click="EditEntry"/><Button Content="Excluir selecionado" Margin="8,0" Padding="10,6" Click="DeleteEntry"/></WrapPanel><DataGrid SelectionMode="Single" SelectionUnit="FullRow" x:Name="Entries" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="340">
           <DataGrid.Columns><DataGridTextColumn Header="Data" Binding="{Binding Date}" Width="85"/><DataGridTextColumn Header="Tipo" Binding="{Binding Kind}" Width="85"/><DataGridTextColumn Header="Descrição" Binding="{Binding Note}" Width="*"/><DataGridTextColumn Header="Valor" Binding="{Binding Amount}" Width="110"/></DataGrid.Columns>
         </DataGrid>
       </StackPanel>
