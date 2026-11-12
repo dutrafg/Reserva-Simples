@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.34.9",
+  "version": "0.36.0",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Cota de Mercado opcional, sem valor padrão e com opção de remover."
+  "notes": "Importação de extratos CSV com reconhecimento automático de datas, valores, tipo e categorias; prévia, deduplicação e inclusão sem substituir registros locais."
 }

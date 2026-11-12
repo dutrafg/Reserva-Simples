@@ -41,7 +41,7 @@
     return monthData(db, dt.year, dt.month);
   });
   function forecast(db, y, m) {
-    const now=new Date(),lastClosed=addMonths(now.getFullYear(),now.getMonth(),-1);
+    const lastClosed=addMonths(y,m,-1);
     const recent=history(db,lastClosed.year,lastClosed.month,6);
     const sample=recent.filter(x=>x.recordedIncome&&x.recordedExpenses).slice(-4);
     const incomes=sample.map(x=>x.income),expenses=sample.map(x=>x.expenses);
@@ -54,7 +54,7 @@
       beforeSavings:complete?predictedIncome-predictedExpenses:null,
       incomeMonths:sample.length,expenseMonths:sample.length,monthsUsed:sample.map(x=>x.key),
       level:complete?(sample.length>=4?'referência histórica':'preliminar'):'insuficiente',
-      method:'Mediana dos mesmos meses fechados, anteriores ao mês atual. Não inclui rendimentos ou inflação.'};
+      method:'Mediana dos mesmos meses fechados, anteriores ao mês selecionado. Não inclui rendimentos ou inflação.'};
   }
   function categories(db, y, m) {
     const key = period(y, m);
@@ -79,23 +79,22 @@
   const balanceAt = (db, id, y, m) => sum((db.allocations || [])
     .filter(x => x.jarId === id && asPeriod(x.date) <= period(y, m)).map(x => x.amount));
   function goal(db, jar, y, m) {
-    const actualToday=new Date(),actualYear=actualToday.getFullYear(),actualMonth=actualToday.getMonth();
-    const todayKey=period(actualYear,actualMonth),selectedKey=period(y,m),current=balanceAt(db,jar.id,y,m);
+    const selectedKey=period(y,m),current=balanceAt(db,jar.id,y,m);
     const pending=Math.max(0,jar.target-current),deadline=asPeriod(jar.dueDate),dueYear=Number(deadline.slice(0,4)),dueMonth=Number(deadline.slice(5,7))-1;
-    const monthsRemaining=Math.max(0,(dueYear-actualYear)*12+(dueMonth-actualMonth)+1);
+    const monthsRemaining=Math.max(0,(dueYear-y)*12+(dueMonth-m)+1);
     const perMonth=pending===0?0:monthsRemaining>0?Math.ceil(pending/monthsRemaining):null;
-    const closedMonth=addMonths(actualYear,actualMonth,-1),recentPeriods=history(db,closedMonth.year,closedMonth.month,3);
-    const movements=(db.allocations||[]).filter(x=>x.jarId===jar.id&&asPeriod(x.date)<todayKey);
+    const closedMonth=addMonths(y,m,-1),recentPeriods=history(db,closedMonth.year,closedMonth.month,3);
+    const movements=(db.allocations||[]).filter(x=>x.jarId===jar.id&&asPeriod(x.date)<selectedKey);
     const first=movements.length?movements.map(x=>asPeriod(x.date)).sort()[0]:null;
     const recent=first?recentPeriods.filter(x=>x.key>=first).map(periodData=>sum(movements.filter(x=>asPeriod(x.date)===periodData.key).map(x=>x.amount))):[];
     const monthlyPace=recent.length>=2?Math.round(sum(recent)/recent.length):null;
     let status = 'sem_historico';
     if (pending === 0) status = 'concluida';
-    else if (deadline < todayKey) status = 'atrasada';
-    else if (monthlyPace !== null && monthlyPace < perMonth) status = 'em_risco';
+    else if (deadline < selectedKey) status = 'atrasada';
+    else if (monthlyPace !== null && perMonth !== null && monthlyPace < perMonth) status = 'em_risco';
     else if (monthlyPace !== null) status = 'no_ritmo';
     const monthsAtPace = pending > 0 && monthlyPace > 0 ? Math.ceil(pending / monthlyPace) : null;
-    const projected=monthsAtPace!==null?addMonths(actualYear,actualMonth,monthsAtPace-1):null;
+    const projected=monthsAtPace!==null?addMonths(y,m,monthsAtPace-1):null;
     return { id: jar.id, name: jar.name, dueDate: jar.dueDate, target: jar.target,
       current, pending, progress: jar.target > 0 ? current / jar.target * 100 : 0,
       monthsRemaining, perMonth, monthlyPace, sampleMonths: recent.length, status,

@@ -1,5 +1,14 @@
 # Histórico de alterações
 
+## v0.36.0
+
+- Adicionada importação de extratos bancários CSV com reconhecimento automático de datas, valores, entradas/saídas e categorias por cabeçalho, categoria bancária e descrição.
+- Incluída prévia dos lançamentos, deduplicação e importação aditiva, preservando os registros já salvos.
+- Corrigidas previsões e metas para acompanhar o mês selecionado na navegação.
+- Compactado o botão Ajustes no cabeçalho para celular e tablet; esclarecido o vínculo de investimentos às metas.
+
+
+
 ## v0.17.0
 
 - Removida a interface especial da cartela de investimento/desafio.
