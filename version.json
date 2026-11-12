@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.38.4",
+  "version": "0.38.5",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "PDF baixado a partir da própria aba do relatório para evitar bloqueios do navegador móvel."
+  "notes": "PDF é gerado sem abrir outra janela; seleção de período e link de download funcionam na própria tela, inclusive no celular."
 }
