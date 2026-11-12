@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.34.6",
+  "version": "0.34.7",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Melhorias de navegação, formulários e cartões em smartphones e tablets."
+  "notes": "Proteção contra recarga acidental e aviso ao sair com edição ou gravação em andamento."
 }
