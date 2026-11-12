@@ -1,6 +1,11 @@
 name: Reserva Simples Windows
 on:
   workflow_dispatch:
+    inputs:
+      publish_beta:
+        description: Publicar instalador x64 como pré-release
+        type: boolean
+        default: false
   pull_request:
     branches: [main]
     paths: ['windows/**', '.github/workflows/windows-native.yml']
@@ -66,3 +71,32 @@ jobs:
           name: Reserva-Simples-Instalador-x64
           path: artifacts/installer/*.exe
           if-no-files-found: error
+
+  publish-beta:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_beta && github.ref == 'refs/heads/windows-native'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v4
+        with:
+          name: Reserva-Simples-Instalador-x64
+          path: installer
+      - name: Publicar pré-release no GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(python3 -c 'import xml.etree.ElementTree as ET; print(ET.parse("windows/ReservaSimples.csproj").findtext(".//Version") or "")')
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          tag="windows-v${version}-beta"
+          shopt -s nullglob
+          files=(installer/*.exe)
+          [[ "${#files[@]}" -eq 1 ]]
+          (cd installer && sha256sum -- *.exe > SHA256SUMS.txt)
+          gh release create "$tag" "${files[0]}" installer/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "Reserva Simples Windows x64 $version Beta" \
+            --notes "Instalador nativo Windows x64 validado no GitHub Actions. Confira SHA256SUMS.txt para verificar o download."
