@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.31.0",
+  "version": "0.31.1",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Carteira manual de aplicações existentes."
+  "notes": "Cota mensal editável de Mercado e alertas de gasto alto."
 }
