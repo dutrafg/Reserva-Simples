@@ -19,7 +19,7 @@ public partial class MainWindow
     {
         using var stream = File.OpenRead(path);
         Span<byte> header = stackalloc byte[16];
-        return stream.ReadAtLeast(header, 16, throwIfEndOfStream: false) == 16 &&
+        return stream.ReadAtLeast(header, 16, false) == 16 &&
             header.SequenceEqual("SQLite format 3\0"u8);
     }
 
