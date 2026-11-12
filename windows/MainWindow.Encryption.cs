@@ -63,7 +63,7 @@ public partial class MainWindow
         var staged = databasePath + "." + Guid.NewGuid().ToString("N") + ".migration";
         try
         {
-            using (var source = CreateDatabaseConnection(databasePath, SqliteOpenMode.ReadWrite, null))
+            using (var source = CreateDatabaseConnection(databasePath, SqliteOpenMode.ReadWriteCreate, null))
             {
                 source.Open();
                 ExportEncryptedDatabase(source, staged, databaseKey);

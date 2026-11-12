@@ -29,7 +29,7 @@ public partial class MainWindow
     {
         if (string.Equals(Path.GetFullPath(path), Path.GetFullPath(databasePath), StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Escolha um arquivo de backup separado do banco atual.");
-        using var source = OpenBackupConnection(path, SqliteOpenMode.ReadWrite);
+        using var source = OpenBackupConnection(path, SqliteOpenMode.ReadWriteCreate);
         source.Open();
         using var cmd = source.CreateCommand();
         cmd.CommandText = "PRAGMA quick_check";
