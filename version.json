@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.31.8",
+  "version": "0.31.9",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "O cadastro de investimentos identifica o saldo líquido do extrato."
+  "notes": "Vínculo de investimentos pelo formulário de metas e registro de resgate líquido na carteira."
 }
