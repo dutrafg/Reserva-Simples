@@ -297,7 +297,20 @@ body:has(#vaultDialog[open]) .shell,body:has(#vaultDialog[open]) #mobileNav{visi
 #vaultDialog input{width:100%;min-height:44px;border-radius:10px}
 #vaultDialog::backdrop{background:#081221a8}
 body:has(#vaultDialog[data-mode="folder"][open]) .shell,body:has(#vaultDialog[data-mode="folder"][open]) #mobileNav{visibility:visible}
-#investmentDialog,#redemptionDialog{width:min(560px,calc(100% - 24px));max-height:90dvh;overflow:auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:20px}#investmentDialog::backdrop,#redemptionDialog::backdrop{background:#081221a8}.market-budget h2{margin-top:0}.market-budget form{display:flex;flex-wrap:wrap;align-items:end;gap:10px}.market-budget .field{flex:0 1 190px}.market-warning{border-color:#ef737c}.market-warning strong{color:#a91f36}body.dark .market-warning strong{color:#ff9aa4}.insights-portfolio{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}.insights-details>summary{cursor:pointer;font-weight:700}.insights-details[open]>summary{margin-bottom:14px}.insights-details> :not(summary)+:not(summary){margin-top:14px}</style>
+#investmentDialog,#redemptionDialog{width:min(560px,calc(100% - 24px));max-height:90dvh;overflow:auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:20px}#investmentDialog::backdrop,#redemptionDialog::backdrop{background:#081221a8}.market-budget h2{margin-top:0}.market-budget form{display:flex;flex-wrap:wrap;align-items:end;gap:10px}.market-budget .field{flex:0 1 190px}.market-warning{border-color:#ef737c}.market-warning strong{color:#a91f36}body.dark .market-warning strong{color:#ff9aa4}.insights-portfolio{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}.insights-details>summary{cursor:pointer;font-weight:700}.insights-details[open]>summary{margin-bottom:14px}.insights-details> :not(summary)+:not(summary){margin-top:14px}
+.linked-positions{min-inline-size:0;margin:0;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+.linked-positions legend{padding:0 6px;font-weight:700;font-size:14px}
+.linked-positions legend small{margin-left:5px;color:var(--muted);font-weight:400}
+.linked-positions p{margin:0 0 9px;color:var(--muted);font-size:12px}
+.linked-positions-list{display:grid;gap:6px}
+.linked-position{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:9px;align-items:center;min-height:48px;padding:7px 9px;background:var(--card);border:1px solid var(--line);border-radius:9px;cursor:pointer}
+.linked-position input[type=checkbox]{width:16px;height:16px;margin:0;accent-color:var(--primary)}
+.linked-position:has(input:checked){border-color:var(--primary)}
+.linked-position-name{display:grid;gap:2px;overflow-wrap:anywhere}
+.linked-position-name small{color:var(--muted)}
+.linked-position-value{font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+@media(max-width:360px){.linked-position{grid-template-columns:18px minmax(0,1fr)}.linked-position-value{grid-column:2}}
+</style>
 </head>
 <body>
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
