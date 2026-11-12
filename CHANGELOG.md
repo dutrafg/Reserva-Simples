@@ -1,5 +1,10 @@
 # Histórico de alterações
 
+## v0.36.1
+
+- Corrigida a leitura dos códigos de movimento “D” e “C” em extratos bancários CSV.
+
+
 ## v0.36.0
 
 - Adicionada importação de extratos bancários CSV com reconhecimento automático de datas, valores, entradas/saídas e categorias por cabeçalho, categoria bancária e descrição.

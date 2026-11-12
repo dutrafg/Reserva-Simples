@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.36.0",
+  "version": "0.36.1",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Importação de extratos CSV com reconhecimento automático de datas, valores, tipo e categorias; prévia, deduplicação e inclusão sem substituir registros locais."
+  "notes": "Importação de extratos CSV com reconhecimento de datas, valores, categorias e códigos bancários D/C; prévia, deduplicação e inclusão sem substituir registros locais."
 }
