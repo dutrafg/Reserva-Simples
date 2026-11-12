@@ -21,3 +21,18 @@ jobs:
           name: Reserva-Simples-Windows-x64
           path: artifacts/win-x64/
           if-no-files-found: error
+      - name: Compilar instalador x64
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          & $iscc windows/installer/ReservaSimples.iss
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Reserva-Simples-Instalador-x64
+          path: artifacts/installer/*.exe
+          if-no-files-found: error
