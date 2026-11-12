@@ -16,11 +16,6 @@ jobs:
           dotnet-version: '10.0.x'
       - name: Publicar Windows x64
         run: dotnet publish windows/ReservaSimples.csproj -c Release -r win-x64 --self-contained true -o artifacts/win-x64
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Reserva-Simples-Windows-x64
-          path: artifacts/win-x64/
-          if-no-files-found: error
       - name: Compilar instalador x64
         shell: pwsh
         run: |

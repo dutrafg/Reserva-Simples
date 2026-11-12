@@ -96,15 +96,72 @@ public partial class MainWindow : Window
         catch (Exception ex) { StatusText.Text = $"Lançamento salvo. Falha ao atualizar a lista: {ex.Message}"; }
     }
 
+    private DateTime selectedMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+    private void PreviousMonth(object sender, RoutedEventArgs e) => ChangeMonth(-1);
+    private void NextMonth(object sender, RoutedEventArgs e) => ChangeMonth(1);
+    private void CurrentMonth(object sender, RoutedEventArgs e)
+    {
+        selectedMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        RefreshSelectedMonth();
+    }
+
+    private void ChangeMonth(int offset)
+    {
+        selectedMonth = selectedMonth.AddMonths(offset);
+        RefreshSelectedMonth();
+    }
+
+    private void RefreshSelectedMonth()
+    {
+        try { Refresh(); StatusText.Text = ""; }
+        catch (Exception ex) { StatusText.Text = $"Falha ao consultar o mês: {ex.Message}"; }
+    }
+
+    private void BackupDatabase(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            FileName = $"ReservaSimples-backup-{DateTime.Now:yyyyMMdd-HHmmss}.db",
+            Filter = "Banco SQLite (*.db)|*.db",
+            OverwritePrompt = true
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        var target = Path.GetFullPath(dialog.FileName);
+        if (File.Exists(target))
+        {
+            StatusText.Text = "Escolha um nome novo para preservar o arquivo que já existe.";
+            return;
+        }
+        var temporary = target + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            using (var source = Open())
+            using (var copy = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = temporary, Pooling = false }.ToString()))
+            {
+                copy.Open();
+                source.BackupDatabase(copy);
+            }
+            File.Move(temporary, target);
+            StatusText.Text = "Backup criado. O arquivo ainda não é criptografado.";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Falha ao criar o backup: {ex.Message}";
+            try { File.Delete(temporary); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+    }
+
     private void Refresh()
     {
-        var month = DateTime.Today.ToString("yyyy-MM", CultureInfo.InvariantCulture);
-        MonthLabel.Text = $"Resumo de {DateTime.Today.ToString("MMMM yyyy", Br)} · A lista inclui todos os lançamentos";
+        var month = selectedMonth.ToString("yyyy-MM", CultureInfo.InvariantCulture);
+        MonthLabel.Text = $"{selectedMonth.ToString("MMMM yyyy", Br)}";
         var rows = new List<EntryRow>();
         long income = 0, expenses = 0;
         using var db = Open();
         using var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT day, kind, note, cents FROM entries ORDER BY day DESC, id DESC";
+        cmd.CommandText = "SELECT day, kind, note, cents FROM entries WHERE day LIKE $month ORDER BY day DESC, id DESC";
+        cmd.Parameters.AddWithValue("$month", month + "-%");
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {

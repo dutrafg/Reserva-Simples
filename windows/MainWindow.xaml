@@ -15,7 +15,13 @@
           <Border Background="White" Padding="12" Margin="0,0,8,0" CornerRadius="8"><StackPanel><TextBlock Text="Despesas"/><TextBlock x:Name="Expenses" FontSize="18" FontWeight="Bold"/></StackPanel></Border>
           <Border Background="White" Padding="12" CornerRadius="8"><StackPanel><TextBlock Text="Saldo do mês"/><TextBlock x:Name="Balance" FontSize="18" FontWeight="Bold"/></StackPanel></Border>
         </UniformGrid>
-        <TextBlock x:Name="MonthLabel" Margin="0,0,0,10"/>
+        <WrapPanel Margin="0,0,0,10">
+          <Button Content="Anterior" Click="PreviousMonth" Padding="9,5"/>
+          <TextBlock x:Name="MonthLabel" Margin="10,0" VerticalAlignment="Center"/>
+          <Button Content="Próximo" Click="NextMonth" Padding="9,5"/>
+          <Button Content="Mês atual" Click="CurrentMonth" Padding="9,5" Margin="8,0"/>
+          <Button Content="Criar backup" Click="BackupDatabase" Padding="9,5"/>
+        </WrapPanel>
         <StackPanel x:Name="EntryEditor" Visibility="Collapsed">
           <TextBlock Text="Registrar lançamento" FontSize="17" FontWeight="SemiBold"/>
           <DatePicker x:Name="EntryDate" Margin="0,6"/>
