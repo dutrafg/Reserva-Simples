@@ -366,7 +366,18 @@ body:has(#vaultDialog[data-mode="folder"][open]) .shell,body:has(#vaultDialog[da
 #page-analysis .insights-portfolio{gap:8px}
 #page-transactions .transaction-row{padding-block:8px}
 @media(max-width:760px){.page .settings-grid,.page .goal-grid{--tile-width:100%}}
-.sidebar-brand{display:flex;align-items:center;gap:9px;min-width:0}.sidebar-brand img{flex:none;border-radius:9px}.sidebar-compact .sidebar-brand{justify-content:center}.sidebar-compact .sidebar-brand strong{display:none}#sidebarToggle{display:grid;place-items:center}</style>
+.sidebar-brand{display:flex;align-items:center;gap:9px;min-width:0}.sidebar-brand img{flex:none;border-radius:9px}.sidebar-compact .sidebar-brand{justify-content:center}.sidebar-compact .sidebar-brand strong{display:none}#sidebarToggle{display:grid;place-items:center}
+.page .settings-grid>.backup-panel{flex:1 1 100%}
+.backup-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.backup-group{min-width:0;padding:15px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+.backup-group h3{margin:0;font-size:15px}.backup-group p{margin:6px 0 12px;color:var(--muted);font-size:13px}
+.backup-group .setting-actions{margin:0;gap:8px}
+.backup-pdf-controls{display:flex;flex-wrap:wrap;align-items:end;gap:10px}
+.backup-pdf-controls label{flex:1 1 180px;min-width:0;margin:0}
+.backup-pdf-controls select{width:100%;min-height:44px}
+.backup-pdf-controls .btn{min-height:44px}
+@media(max-width:680px){.backup-grid{grid-template-columns:1fr}.backup-pdf-controls .btn{flex:1}}
+</style>
 </head>
 <body>
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">

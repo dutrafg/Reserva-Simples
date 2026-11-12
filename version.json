@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.34.0",
+  "version": "0.34.1",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Opção para desativar o cofre local com confirmação por senha."
+  "notes": "Backup e exportação organizados por finalidade, com área própria para relatórios."
 }
