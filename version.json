@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.33.6",
+  "version": "0.33.7",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Relatório geral de todos os períodos, com impressão e salvamento em PDF."
+  "notes": "Nova marca e verificação de atualização ao iniciar."
 }

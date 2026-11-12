@@ -7,7 +7,7 @@ const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Ago
 const CATS=['Água','Luz','Internet','Faculdade','Farmácia','Cartões','Telefone','Mercado','Comida / Marmita','Moradia','Transporte','Saúde','Lazer','Assinaturas','Outros'];
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['settings','Ajustes','settings']];
-const APP_VERSION='0.33.6';
+const APP_VERSION='0.33.7';
 const updateInfo={lastCheck:localStorage.getItem('reserva.update.checkedAt')||'',latest:APP_VERSION,available:false,status:'Aguardando verificação',state:'waiting',notes:''};
 let updateRegistration=null;
 const $=(q)=>document.querySelector(q);
@@ -306,7 +306,7 @@ let sidebarCompact = localStorage.getItem('reserva.sidebarCompact') === 'true';
 function syncSidebar() {
   document.body.classList.toggle('sidebar-compact', sidebarCompact);
   const toggle = $('#sidebarToggle');
-  toggle.textContent = sidebarCompact ? '›' : '‹';
+  
   toggle.setAttribute('aria-expanded', String(!sidebarCompact));
   toggle.setAttribute('aria-label', sidebarCompact ? 'Expandir menu lateral' : 'Recolher menu lateral');
   toggle.title = toggle.getAttribute('aria-label');
@@ -556,7 +556,7 @@ function settings(){
  <article class="card settings-card update-card"><div class="settings-card-head"><span class="settings-icon">${icon('refresh')}</span><div><h2>Atualizações</h2><p>Consulte a versão publicada e atualize o aplicativo sem apagar seus registros.</p></div></div><div id="updateState" class="update-status" data-state="${esc(updateInfo.state)}" role="status" aria-live="polite">${esc(updateInfo.status)}</div><div class="update-metrics"><div class="update-metric"><span>VERSÃO INSTALADA</span><strong>v${APP_VERSION}</strong></div><div class="update-metric"><span>VERSÃO PUBLICADA</span><strong id="updateLatest">v${esc(updateInfo.latest)}</strong></div><div class="update-metric"><span>ÚLTIMA CONSULTA</span><strong id="updateLastCheck">${updateInfo.lastCheck?esc(new Date(updateInfo.lastCheck).toLocaleString('pt-BR')):'Ainda não consultado'}</strong></div></div><div class="setting-actions"><button class="btn" id="checkUpdatesBtn">Verificar agora</button><button class="btn primary" id="applyUpdateBtn" ${updateInfo.available?'':'hidden'}>Atualizar agora</button></div><p class="update-help" id="updateNotes">${esc(updateInfo.notes||'O app preserva o banco local. A atualização do PWA requer conexão com o endereço publicado.')}</p></article>
  <article class="card settings-card"><div class="settings-card-head"><span class="settings-icon">${icon('wallet')}</span><div><h2>Backup e exportação</h2><p>Guarde uma cópia dos dados em uma pasta do aparelho ou exporte para outros formatos.</p></div></div><div class="setting-actions"><button class="btn primary" id="chooseBackupFolderBtn">Escolher pasta de backup</button><button class="btn" id="reconnectBackupFolderBtn" hidden>Reconectar pasta</button><button class="btn" id="saveFolderBackupBtn" ${backupDirectory?'':'disabled'}>Salvar backup agora</button><button class="btn" id="restoreFolderBackupBtn" ${backupDirectory?'':'disabled'}>Restaurar da pasta</button><button class="btn" id="exportBtn">Baixar backup</button><button class="btn" id="importBtn">Restaurar arquivo</button><button class="btn" id="csvBtn">Exportar CSV</button><button class="btn" id="globalPdfBtn">Gerar PDF geral</button><input id="importFile" type="file" accept=".json,application/json" hidden></div><p class="settings-note" id="folderBackupStatus" role="status">${folderStatusText()}</p><p class="settings-note">O navegador continua guardando os dados principais. A pasta recebe uma cópia JSON automática após cada alteração. O backup inclui rendas, despesas, cofrinhos e todas as movimentações registradas.</p></article>
  <article class="card settings-card settings-danger"><div class="settings-card-head"><span class="settings-icon">${icon('expense')}</span><div><h2>Apagar dados</h2><p>Remove ${total} movimentações e ${db.jars.length} cofrinhos salvos neste navegador.</p></div></div><div class="setting-actions"><button class="btn negative" id="clearBtn">Apagar todos os dados</button></div></article>
- </div><div class="notice">Versão 0.33.6. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
+ </div><div class="notice">Versão 0.33.7. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
 }
 function setUpdateStatus(status,state='waiting'){updateInfo.status=status;updateInfo.state=state;const el=$('#updateState');if(el){el.textContent=status;el.dataset.state=state}const button=$('#applyUpdateBtn');if(button)button.hidden=!updateInfo.available;const latest=$('#updateLatest');if(latest)latest.textContent='v'+updateInfo.latest;const checked=$('#updateLastCheck');if(checked)checked.textContent=updateInfo.lastCheck?new Date(updateInfo.lastCheck).toLocaleString('pt-BR'):'Ainda não consultado';const notes=$('#updateNotes');if(notes)notes.textContent=updateInfo.notes||'O app preserva o banco local. A atualização do PWA requer conexão com o endereço publicado.'}
 function compareVersions(a,b){const x=String(a).split('.').map(Number),y=String(b).split('.').map(Number);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return d}return 0}
@@ -648,7 +648,8 @@ render();
 if(storageRecoveryRaw)setTimeout(()=>notify('Dados inválidos preservados. Acesse Configurações para exportar ou iniciar uma base nova.'),0);
 if(navigator.storage?.persist)navigator.storage.persist().then(granted=>{persistenceStatus=granted?'O navegador autorizou armazenamento persistente.':'O navegador pode remover dados locais em uma limpeza de armazenamento.';const el=$('#storagePersistenceStatus');if(el)el.textContent=persistenceStatus}).catch(()=>{persistenceStatus='Não foi possível confirmar a proteção de armazenamento.'});
 initFolderBackup();
-if(location.protocol!=='file:'&&navigator.onLine){setTimeout(checkForUpdates,900);setInterval(()=>{if(navigator.onLine)checkForUpdates()},6*60*60*1000);setTimeout(()=>updateCdi(),1100);setInterval(()=>{if(navigator.onLine)updateCdi()},12*60*60*1000);setTimeout(()=>updateIpca(),1500);setInterval(()=>{if(navigator.onLine)updateIpca()},24*60*60*1000)}
+if(location.protocol!=='file:')checkForUpdates();
+if(location.protocol!=='file:'&&navigator.onLine){setInterval(()=>{if(navigator.onLine)checkForUpdates()},6*60*60*1000);setTimeout(()=>updateCdi(),1100);setInterval(()=>{if(navigator.onLine)updateCdi()},12*60*60*1000);setTimeout(()=>updateIpca(),1500);setInterval(()=>{if(navigator.onLine)updateIpca()},24*60*60*1000)}
 window.addEventListener('online',()=>{if(location.protocol!=='file:'){checkForUpdates();updateCdi();updateIpca()}});
 if('serviceWorker' in navigator&&location.protocol!=='file:')window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').then(reg=>{updateRegistration=reg}).catch(e=>console.warn('Offline indisponível',e)));
 })();
