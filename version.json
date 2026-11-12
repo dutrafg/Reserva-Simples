@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.34.7",
+  "version": "0.34.8",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Proteção contra recarga acidental e aviso ao sair com edição ou gravação em andamento."
+  "notes": "Recarga liberada durante a aplicação de atualizações, com trava reativada em caso de falha."
 }
