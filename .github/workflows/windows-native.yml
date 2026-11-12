@@ -48,6 +48,19 @@ jobs:
           } finally {
             if (!$app.HasExited) { Stop-Process -Id $app.Id }
           }
+      - name: Validar lançamentos, saldo e backup no aplicativo instalado
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:RUNNER_TEMP 'ReservaSimplesSmoke/ReservaSimples.exe'
+          $app = Start-Process $exe -ArgumentList '--phase1-smoke' -PassThru
+          if (!$app.WaitForExit(30000)) {
+            Stop-Process -Id $app.Id -Force
+            throw 'Tempo de validação excedido'
+          }
+          if ($app.ExitCode -ne 0) {
+            Get-Content (Join-Path $env:TEMP 'ReservaSimples-smoke-error.txt') -ErrorAction SilentlyContinue
+            throw "Validação falhou: $($app.ExitCode)"
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: Reserva-Simples-Instalador-x64

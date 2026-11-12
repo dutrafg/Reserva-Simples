@@ -8,13 +8,16 @@ namespace ReservaSimples;
 public partial class MainWindow : Window
 {
     private static readonly CultureInfo Br = CultureInfo.GetCultureInfo("pt-BR");
-    private readonly string databasePath = Path.Combine(
+    private readonly string databasePath = Environment.GetCommandLineArgs().Contains("--phase1-smoke")
+        ? Path.Combine(Path.GetTempPath(), "ReservaSimples-QA-" + Guid.NewGuid().ToString("N"), "reserva.db")
+        : Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "ReservaSimples", "reserva.db");
 
     public MainWindow()
     {
         InitializeComponent();
+        if (Environment.GetCommandLineArgs().Contains("--phase1-smoke")) Loaded += RunPhaseOneSmoke;
         EntryDate.SelectedDate = DateTime.Today;
         try
         {
@@ -103,11 +106,7 @@ public partial class MainWindow : Window
             "Confirmar exclusão", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes) return;
         try
         {
-            using var db = Open();
-            using var cmd = db.CreateCommand();
-            cmd.CommandText = "DELETE FROM entries WHERE id=$id";
-            cmd.Parameters.AddWithValue("$id", row.Id);
-            var removed = cmd.ExecuteNonQuery();
+            var removed = RemoveEntry(row.Id);
             if (editingId == row.Id) ResetEditor();
             Refresh();
             StatusText.Text = removed == 1 ? "Lançamento excluído." : "O lançamento já foi removido.";
@@ -193,13 +192,7 @@ public partial class MainWindow : Window
         var temporary = target + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
-            using (var source = Open())
-            using (var copy = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = temporary, Pooling = false }.ToString()))
-            {
-                copy.Open();
-                source.BackupDatabase(copy);
-            }
-            File.Move(temporary, target);
+            CopyDatabase(temporary, target);
             StatusText.Text = "Backup criado. O arquivo ainda não é criptografado.";
         }
         catch (Exception ex)
@@ -237,6 +230,66 @@ public partial class MainWindow : Window
         Income.Text = Money(income);
         Expenses.Text = Money(expenses);
         Balance.Text = Money(income - expenses);
+    }
+
+    private int RemoveEntry(long id)
+    {
+        using var db = Open();
+        using var cmd = db.CreateCommand();
+        cmd.CommandText = "DELETE FROM entries WHERE id=$id";
+        cmd.Parameters.AddWithValue("$id", id);
+        return cmd.ExecuteNonQuery();
+    }
+
+    private void CopyDatabase(string temporary, string target)
+    {
+        using (var source = Open())
+        using (var copy = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = temporary, Pooling = false }.ToString()))
+        {
+            copy.Open();
+            source.BackupDatabase(copy);
+        }
+        File.Move(temporary, target);
+    }
+
+    private void RunPhaseOneSmoke(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var args = new RoutedEventArgs();
+            EntryKind.SelectedIndex = 1;
+            EntryNote.Text = "Receita QA";
+            EntryAmount.Text = "100,00";
+            SaveEntry(this, args);
+            EntryNote.Text = "Despesa QA";
+            EntryAmount.Text = "25,50";
+            SaveEntry(this, args);
+            if (Balance.Text != Money(7450)) throw new InvalidOperationException("Saldo inicial incorreto.");
+
+            Entries.SelectedItem = ((IEnumerable<EntryRow>)Entries.ItemsSource).Single(x => x.Kind == "Despesa");
+            EditEntry(this, args);
+            EntryAmount.Text = "30,00";
+            SaveEntry(this, args);
+            if (Balance.Text != Money(7000)) throw new InvalidOperationException("Saldo após edição incorreto.");
+            var expense = ((IEnumerable<EntryRow>)Entries.ItemsSource).Single(x => x.Kind == "Despesa");
+
+            var copyPath = Path.Combine(Path.GetDirectoryName(databasePath)!, "backup.db");
+            CopyDatabase(copyPath + ".tmp", copyPath);
+            if (RemoveEntry(expense.Id) != 1) throw new InvalidOperationException("Exclusão falhou.");
+            Refresh();
+            if (Balance.Text != Money(10000)) throw new InvalidOperationException("Saldo após exclusão incorreto.");
+            using var copy = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = copyPath, Mode = SqliteOpenMode.ReadOnly }.ToString());
+            copy.Open();
+            using var cmd = copy.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM entries WHERE kind='expense' AND cents=3000";
+            if (Convert.ToInt64(cmd.ExecuteScalar()) != 1) throw new InvalidOperationException("Backup não preservou o lançamento.");
+            Application.Current.Shutdown(0);
+        }
+        catch (Exception ex)
+        {
+            File.WriteAllText(Path.Combine(Path.GetTempPath(), "ReservaSimples-smoke-error.txt"), ex.ToString());
+            Application.Current.Shutdown(1);
+        }
     }
 
     public sealed record EntryRow(string Date, string Kind, string Note, string Amount, long Id, long Cents);
