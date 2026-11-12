@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.33.3",
+  "version": "0.33.4",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Cartões compactos e remoção do painel duplicado de vencimentos em Hoje."
+  "notes": "Backups em pasta guardam versões cifradas antes de substituir a cópia principal."
 }

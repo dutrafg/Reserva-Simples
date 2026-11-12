@@ -7,7 +7,7 @@ const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Ago
 const CATS=['Água','Luz','Internet','Faculdade','Farmácia','Cartões','Telefone','Mercado','Comida / Marmita','Moradia','Transporte','Saúde','Lazer','Assinaturas','Outros'];
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['settings','Ajustes','settings']];
-const APP_VERSION='0.33.3';
+const APP_VERSION='0.33.4';
 const updateInfo={lastCheck:localStorage.getItem('reserva.update.checkedAt')||'',latest:APP_VERSION,available:false,status:'Aguardando verificação',state:'waiting',notes:''};
 let updateRegistration=null;
 const $=(q)=>document.querySelector(q);
@@ -115,6 +115,8 @@ async function submitVault(event) {
     const restored = await openVault(envelope,key);
     if (importing) {
       if (!confirm('Substituir os registros atuais pelo backup cifrado?')) return;
+      if (!await preserveBeforeDestructiveAction('antes-de-importar')) throw Error('Não foi possível preservar a base atual');
+      if(backupDirectory)backupConflict=true;
       if (vault) {
         const candidate = await sealVault(restored,vaultKey,vault.salt);
         localStorage.setItem(STORE,JSON.stringify(candidate));
@@ -176,6 +178,9 @@ async function readEncryptedFolder(handle = backupDirectory) {
 }
 async function writeEncryptedFolder(handle, name, key, salt) {
   const envelope = await sealVault(backupPayload(),key,salt);
+  await writeBackupEnvelope(handle,name,envelope);
+}
+async function writeBackupEnvelope(handle,name,envelope){
   const writer = await (await handle.getFileHandle(name,{create:true})).createWritable();
   try { await writer.write(JSON.stringify(envelope)); await writer.close(); }
   catch(error) { await writer.abort().catch(()=>{}); throw error; }
@@ -184,10 +189,15 @@ async function writeFolderBackup(manual=false) {
   if(!backupDirectory||!folderKey)return;
   if(backupConflict&&!manual)return;
   try {
-    const previous=await openVault(await readEncryptedFolder(),folderKey);
+    const envelope=await readEncryptedFolder();
+    const previous=await openVault(envelope,folderKey);
     if((backupConflict||(!hasSavedData(db)&&hasSavedData(previous))) &&
        (!manual||!confirm('Substituir o backup cifrado da pasta pelos dados atuais?'))) return;
-    await writeEncryptedFolder(backupDirectory,ENCRYPTED_FOLDER_FILE,folderKey,folderSalt);
+    if(canonicalData(previous)!==canonicalData(db)){
+      const stamp=new Date().toISOString().replace(/[:.]/g,'-');
+      await writeBackupEnvelope(backupDirectory,`Reserva_Simples_versao_${stamp}_${uid()}.json`,envelope);
+      await writeEncryptedFolder(backupDirectory,ENCRYPTED_FOLDER_FILE,folderKey,folderSalt);
+    }
     backupConflict=false;
     updateFolderStatus('Backup cifrado salvo.');
   } catch { updateFolderStatus('Falha ao salvar. Reconecte a pasta com a senha do backup.'); }
@@ -206,7 +216,9 @@ async function restoreFolderBackup(){
   try {
     const restored=await openVault(await readEncryptedFolder(),folderKey);
     if(!confirm('Substituir os registros atuais pelo backup da pasta?'))return;
-    if(await mutate(()=>{db=restored})){backupConflict=false;notify('Backup restaurado.')}
+    if(!await preserveBeforeDestructiveAction('antes-de-restaurar'))return;
+    backupConflict=true;
+    if(await mutate(()=>{db=restored}))notify('Backup restaurado. A base anterior foi preservada.');
   } catch {notify('Não foi possível restaurar o backup cifrado.')}
 }
 async function chooseBackupFolder() {
@@ -508,7 +520,7 @@ function settings(){
  <article class="card settings-card update-card"><div class="settings-card-head"><span class="settings-icon">${icon('refresh')}</span><div><h2>Atualizações</h2><p>Consulte a versão publicada e atualize o aplicativo sem apagar seus registros.</p></div></div><div id="updateState" class="update-status" data-state="${esc(updateInfo.state)}" role="status" aria-live="polite">${esc(updateInfo.status)}</div><div class="update-metrics"><div class="update-metric"><span>VERSÃO INSTALADA</span><strong>v${APP_VERSION}</strong></div><div class="update-metric"><span>VERSÃO PUBLICADA</span><strong id="updateLatest">v${esc(updateInfo.latest)}</strong></div><div class="update-metric"><span>ÚLTIMA CONSULTA</span><strong id="updateLastCheck">${updateInfo.lastCheck?esc(new Date(updateInfo.lastCheck).toLocaleString('pt-BR')):'Ainda não consultado'}</strong></div></div><div class="setting-actions"><button class="btn" id="checkUpdatesBtn">Verificar agora</button><button class="btn primary" id="applyUpdateBtn" ${updateInfo.available?'':'hidden'}>Atualizar agora</button></div><p class="update-help" id="updateNotes">${esc(updateInfo.notes||'O app preserva o banco local. A atualização do PWA requer conexão com o endereço publicado.')}</p></article>
  <article class="card settings-card"><div class="settings-card-head"><span class="settings-icon">${icon('wallet')}</span><div><h2>Backup e exportação</h2><p>Guarde uma cópia dos dados em uma pasta do aparelho ou exporte para outros formatos.</p></div></div><div class="setting-actions"><button class="btn primary" id="chooseBackupFolderBtn">Escolher pasta de backup</button><button class="btn" id="reconnectBackupFolderBtn" hidden>Reconectar pasta</button><button class="btn" id="saveFolderBackupBtn" ${backupDirectory?'':'disabled'}>Salvar backup agora</button><button class="btn" id="restoreFolderBackupBtn" ${backupDirectory?'':'disabled'}>Restaurar da pasta</button><button class="btn" id="exportBtn">Baixar backup</button><button class="btn" id="importBtn">Restaurar arquivo</button><button class="btn" id="csvBtn">Exportar CSV</button><input id="importFile" type="file" accept=".json,application/json" hidden></div><p class="settings-note" id="folderBackupStatus" role="status">${folderStatusText()}</p><p class="settings-note">O navegador continua guardando os dados principais. A pasta recebe uma cópia JSON automática após cada alteração. O backup inclui rendas, despesas, cofrinhos e todas as movimentações registradas.</p></article>
  <article class="card settings-card settings-danger"><div class="settings-card-head"><span class="settings-icon">${icon('expense')}</span><div><h2>Apagar dados</h2><p>Remove ${total} movimentações e ${db.jars.length} cofrinhos salvos neste navegador.</p></div></div><div class="setting-actions"><button class="btn negative" id="clearBtn">Apagar todos os dados</button></div></article>
- </div><div class="notice">Versão 0.33.3. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
+ </div><div class="notice">Versão 0.33.4. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
 }
 function setUpdateStatus(status,state='waiting'){updateInfo.status=status;updateInfo.state=state;const el=$('#updateState');if(el){el.textContent=status;el.dataset.state=state}const button=$('#applyUpdateBtn');if(button)button.hidden=!updateInfo.available;const latest=$('#updateLatest');if(latest)latest.textContent='v'+updateInfo.latest;const checked=$('#updateLastCheck');if(checked)checked.textContent=updateInfo.lastCheck?new Date(updateInfo.lastCheck).toLocaleString('pt-BR'):'Ainda não consultado';const notes=$('#updateNotes');if(notes)notes.textContent=updateInfo.notes||'O app preserva o banco local. A atualização do PWA requer conexão com o endereço publicado.'}
 function compareVersions(a,b){const x=String(a).split('.').map(Number),y=String(b).split('.').map(Number);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return d}return 0}
@@ -570,7 +582,7 @@ function download(content,mime,filename){const blob=new Blob([content],{type:mim
 function backup(){if(saving||vaultBusy)return;if(vault){download(JSON.stringify(vault),'application/json','reserva-cofre.json');return notify('Backup cifrado exportado.')}download(JSON.stringify(backupPayload(),null,2),'application/json',`reserva-backup-${new Date().toISOString().slice(0,10)}.json`);notify('Backup exportado.')}
 function csv(){const rows=[['Data','Tipo','Categoria ou cofrinho','Descrição','Valor (R$)']];const decimal=cents=>(cents/100).toFixed(2).replace('.',',');for(const x of db.records){rows.push([x.date,x.kind==='income'?'Renda':'Despesa',x.kind==='income'?(x.source==='salary'?'Salário':'Complemento'):x.category,x.note,decimal((x.kind==='income'?1:-1)*x.amount)])}for(const a of db.allocations){rows.push([a.date,a.amount>0?'Guardar':'Resgatar',db.jars.find(j=>j.id===a.jarId)?.name||'',a.note,decimal(a.netReceived!=null?-a.netReceived:a.amount)])}rows.sort((a,b)=>a[0]==='Data'?-1:b[0]==='Data'?1:String(a[0]).localeCompare(String(b[0])));const encode=(cell,column)=>{let value=String(cell??'');if(column!==4&&/^[\s]*[=+\-@]/.test(value))value="'"+value;return '"'+value.replace(/"/g,'""')+'"'};download('\ufeff'+rows.map(r=>r.map(encode).join(';')).join('\r\n'),'text/csv;charset=utf-8',`reserva-movimentacoes-todos-os-anos.csv`);notify('CSV de todos os anos exportado.')}
 
-async function importFile(file){if(!file||saving||vaultBusy||(vault&&!vaultKey))return;if(file.size>8000000)return notify('Backup muito grande; máximo de 8 MB.');let restored=null;try{const source=JSON.parse(await file.text());if(source?.format==='reserva-vault-1'){pendingVaultImport=source;showVaultDialog('import');return}restored=verify(source)}catch(e){}if(!restored)return notify('Backup inválido ou incompatível.');if(!confirm('Importar o backup? Ele substituirá todos os dados atuais.'))return;if(storageRecoveryRaw&&!recoveryArchived)return notify('Exporte primeiro a cópia bruta; não foi possível arquivá-la automaticamente.');const before=db;db=restored;if(!await save({recover:!!storageRecoveryRaw})){db=before;return}render();notify('Backup importado.')}
+async function importFile(file){if(!file||saving||vaultBusy||(vault&&!vaultKey))return;if(file.size>8000000)return notify('Backup muito grande; máximo de 8 MB.');let restored=null;try{const source=JSON.parse(await file.text());if(source?.format==='reserva-vault-1'){pendingVaultImport=source;showVaultDialog('import');return}restored=verify(source)}catch(e){}if(!restored)return notify('Backup inválido ou incompatível.');if(!confirm('Importar o backup? Ele substituirá todos os dados atuais.'))return;if(storageRecoveryRaw&&!recoveryArchived)return notify('Exporte primeiro a cópia bruta; não foi possível arquivá-la automaticamente.');if(!await preserveBeforeDestructiveAction('antes-de-importar'))return notify('Reconecte a pasta para preservar a base atual.');if(backupDirectory)backupConflict=true;const before=db;db=restored;if(!await save({recover:!!storageRecoveryRaw})){db=before;return}render();notify('Backup importado.')}
 async function demo(){if(!confirm('Carregar dados fictícios de 2027? Os dados atuais serão substituídos.'))return;if(!await preserveBeforeDestructiveAction('antes-do-exemplo'))return;const d=empty();const add=(mo,kind,amount,details={})=>d.records.push({id:uid(),date:`2027-${String(mo).padStart(2,'0')}-05`,kind,amount:Math.round(amount*100),note:'',source:'complement',category:'Outros',...details});for(let m=1;m<=5;m++){add(m,'income',3400,{source:'salary'});add(m,'income',[700,400,850,500,750][m-1]);for(const [cat,value] of [['Água',96],['Luz',178],['Internet',110],['Faculdade',560],['Farmácia',105],['Cartões',430],['Telefone',55],['Mercado',770],['Transporte',210]])add(m,'expense',value+((m+1)%3)*10,{category:cat})}const j1={id:uid(),name:'Reserva de emergência',target:1000000,dueDate:'2027-12-31'},j2={id:uid(),name:'Viagem',target:350000,dueDate:'2028-07-31'};d.jars.push(j1,j2);for(let m=1;m<=5;m++){d.allocations.push({id:uid(),jarId:j1.id,date:`2027-${String(m).padStart(2,'0')}-10`,amount:[40000,55000,60000,45000,70000][m-1],note:''});if(m%2)d.allocations.push({id:uid(),jarId:j2.id,date:`2027-${String(m).padStart(2,'0')}-12`,amount:20000,note:''})}d.prefs.dark=db.prefs.dark;const prev=db;db=d;if(!await save({folderBackup:false})){db=prev;return}state.year=2027;state.month=4;go('home');notify('Exemplo fictício carregado.')}
 async function clearAll(){
   if(saving||vaultBusy)return;
