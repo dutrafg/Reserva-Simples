@@ -7,7 +7,7 @@ const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Ago
 const CATS=['Água','Luz','Internet','Faculdade','Farmácia','Cartões','Telefone','Mercado','Comida / Marmita','Moradia','Transporte','Saúde','Lazer','Assinaturas','Outros'];
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['settings','Ajustes','settings']];
-const APP_VERSION='0.34.1';
+const APP_VERSION='0.34.2';
 const updateInfo={lastCheck:localStorage.getItem('reserva.update.checkedAt')||'',latest:APP_VERSION,available:false,status:'Aguardando verificação',state:'waiting',notes:''};
 let updateRegistration=null;
 const $=(q)=>document.querySelector(q);
@@ -45,6 +45,8 @@ function verify(src){if(!src||![2,3,4].includes(src.version)||!Array.isArray(src
  }
  const marketBudget=src.prefs?.marketBudget;
  clean.prefs.marketBudget=Number.isSafeInteger(marketBudget)&&marketBudget>0&&marketBudget<=10000000000?marketBudget:70000;
+ clean.prefs.palette=['blue','petrol','plum'].includes(src.prefs?.palette)?src.prefs.palette:'blue';
+ clean.prefs.budgetSound=src.prefs?.budgetSound===true;
  return clean;
 }
 let storageRecoveryRaw=null,recoveryArchived=false;
@@ -160,7 +162,46 @@ if(vault&&!vaultKey) return false;
 const candidate=vault?await sealVault(db,vaultKey,vault.salt):db;
 localStorage.setItem(STORE,JSON.stringify(candidate));
 if(vault) vault=candidate;if(recover){storageRecoveryRaw=null;recoveryArchived=false}if(folderBackup&&folderKey)scheduleFolderBackup();return true}catch(e){notify('Não foi possível salvar os dados neste navegador.');return false}}
-async function mutate(callback){if(saving||vaultBusy||(vault&&!vaultKey))return false;saving=true;try{const previous=JSON.stringify(db);callback();if(!verify(db)){db=JSON.parse(previous);notify('Não foi possível validar os dados. Nenhuma alteração foi salva. Confira valores, datas e saldo do cofrinho.');return false}if(!await save()){db=JSON.parse(previous);return false}render();return true}finally{saving=false}}
+let budgetAudio;
+function unlockBudgetAudio(){
+  try {
+    const Audio=window.AudioContext||window.webkitAudioContext;
+    if(!Audio)return;
+    budgetAudio??=new Audio();
+    if(budgetAudio.state==='suspended')budgetAudio.resume().catch(()=>{});
+  }catch{}
+}
+function playBudgetSound(critical=false){
+  if(budgetAudio?.state!=='running')return;
+  const start=budgetAudio.currentTime;
+  (critical?[520,440,370]:[620,780]).forEach((frequency,index)=>{
+    const tone=budgetAudio.createOscillator(), volume=budgetAudio.createGain();
+    const at=start+index*.16;
+    tone.frequency.value=frequency;
+    volume.gain.setValueAtTime(.0001,at);
+    volume.gain.exponentialRampToValueAtTime(.09,at+.025);
+    volume.gain.exponentialRampToValueAtTime(.0001,at+.14);
+    tone.connect(volume).connect(budgetAudio.destination);
+    tone.start(at);tone.stop(at+.15);
+  });
+}
+function groceryAlertLevel(){
+  const period=isoToday().slice(0,7);
+  const spent=sum(db.records.filter(r=>r.kind==='expense'&&r.category==='Mercado'&&r.date.startsWith(period)).map(r=>r.amount));
+  const cap=db.prefs.marketBudget??70000;
+  return spent>=cap?2:spent*4>=cap*3?1:0;
+}
+document.addEventListener('pointerdown',()=>{if(db.prefs.budgetSound)unlockBudgetAudio()});
+document.addEventListener('keydown',()=>{if(db.prefs.budgetSound)unlockBudgetAudio()});
+document.addEventListener('click',e=>{if(e.target.closest('#testBudgetSound')){unlockBudgetAudio();budgetAudio?.resume().then(()=>playBudgetSound(true)).catch(()=>{});}});
+document.addEventListener('change',async e=>{
+  if(e.target.id==='appearancePalette')await mutate(()=>{db.prefs.palette=e.target.value});
+  if(e.target.id==='budgetSound'){
+    if(e.target.checked)unlockBudgetAudio();
+    await mutate(()=>{db.prefs.budgetSound=e.target.checked});
+  }
+});
+async function mutate(callback){if(saving||vaultBusy||(vault&&!vaultKey))return false;saving=true;try{const previous=JSON.stringify(db), oldAlert=groceryAlertLevel();callback();if(!verify(db)){db=JSON.parse(previous);notify('Não foi possível validar os dados. Nenhuma alteração foi salva. Confira valores, datas e saldo do cofrinho.');return false}if(!await save()){db=JSON.parse(previous);return false}render();const alert=groceryAlertLevel();if(db.prefs.budgetSound&&alert>oldAlert)playBudgetSound(alert===2);return true}finally{saving=false}}
 async function startFreshAfterCorrupt(){if(!storageRecoveryRaw)return;if(!recoveryArchived)return notify('Exporte primeiro os dados brutos; não consegui criar uma cópia local.');if(!confirm('A cópia bruta foi preservada. Criar uma base vazia neste navegador?'))return;const raw=storageRecoveryRaw;try{localStorage.removeItem(STORE);storageRecoveryRaw=null;db=empty();if(!await save({folderBackup:false})){storageRecoveryRaw=raw;return}render();notify('Base nova iniciada. A cópia bruta preservada continua disponível.')}catch(e){storageRecoveryRaw=raw;notify('Não foi possível iniciar a base nova. A cópia bruta permanece preservada.')}}
 function notify(msg){const t=$('#toast');t.textContent=msg;t.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('visible'),2900)}
 function folderStatusText(){if(!('showDirectoryPicker' in window))return 'Acesso à pasta indisponível neste navegador. Você ainda pode baixar e restaurar arquivos de backup.';if(!backupDirectory)return 'Nenhuma pasta conectada. Escolha uma pasta para salvar o backup automático.';if(backupConflict)return 'Há um backup diferente na pasta. Escolha restaurar o arquivo ou salvar os dados deste aparelho para resolver.';return 'Pasta conectada. O backup será atualizado após as alterações.'}
@@ -572,7 +613,7 @@ async function savePlanningPrefs(e){e.preventDefault();const raw=$('#balanceAnch
 function settings(){
  const total=db.records.length+db.allocations.length;const institutionsCard=institutionRegistryCard();const recoveryCard=storageRecoveryRaw?`<article class="card settings-card settings-danger"><div class="settings-card-head"><span class="settings-icon">${icon('expense')}</span><div><h2>Recuperação de dados</h2><p>Os dados salvos não puderam ser lidos. O app pausou gravações para não sobrescrever o arquivo original.</p></div></div><div class="setting-actions"><button class="btn primary" id="exportCorruptBtn">Baixar cópia dos dados</button><button class="btn negative" id="startFreshAfterCorruptBtn">Iniciar base nova</button></div><p class="settings-note">${recoveryArchived?'Uma cópia também foi guardada neste navegador.':'Não foi possível arquivar a cópia automaticamente; exporte o arquivo antes de iniciar uma base nova.'}</p></article>`:'';
  $('#page-settings').innerHTML=`${heading('Configurações','Ajuste a aparência e organize seus dados.')}<div class="settings-grid">${recoveryCard}<article class="card settings-card"><h2>Cofre local</h2><p>${vault?'Cofre ativo. Exporte uma cópia cifrada em Backup.':'Proteja os registros com uma senha. Guarde-a para poder abrir o cofre.'}</p><button class="btn" id="vaultAction">${vault?'Bloquear cofre':'Ativar cofre'}</button>${vault?'<button class="btn" id="disableVaultBtn">Desativar cofre local</button>':''}</article>${institutionsCard}
- <article class="card settings-card"><div class="settings-card-head"><span class="settings-icon">${icon('settings')}</span><div><h2>Aparência</h2><p>Escolha como o aplicativo aparece neste aparelho.</p></div></div><div class="setting-row"><div><h3>Tema escuro</h3><p>Reduz o brilho da tela.</p></div><label class="switch"><input id="darkMode" type="checkbox" ${db.prefs.dark?'checked':''}>Ativar</label></div></article>
+ <article class="card settings-card"><div class="settings-card-head"><span class="settings-icon">${icon('settings')}</span><div><h2>Aparência</h2><p>Escolha como o aplicativo aparece neste aparelho.</p></div></div><div class="setting-row"><div><h3>Tema escuro</h3><p>Reduz o brilho da tela.</p></div><label class="switch"><input id="darkMode" type="checkbox" ${db.prefs.dark?'checked':''}>Ativar</label></div><label class="field">Paleta de cores<select id="appearancePalette">${[['blue','Azul Reserva'],['petrol','Verde-petróleo'],['plum','Ameixa']].map(([id,label])=>`<option value="${id}" ${(db.prefs.palette||'blue')===id?'selected':''}>${label}</option>`).join('')}</select></label></article><article class="card settings-card"><h2>Notificações</h2><p>Som ao atingir 75% ou 100% da cota de Mercado no mês atual, com o app aberto.</p><label class="switch"><input type="checkbox" id="budgetSound" ${db.prefs.budgetSound?'checked':''}>Ativar som</label> <button type="button" class="btn small" id="testBudgetSound">Testar som</button></article>
  <article class="card settings-card update-card"><div class="settings-card-head"><span class="settings-icon">${icon('refresh')}</span><div><h2>Atualizações</h2><p>Consulte a versão publicada e atualize o aplicativo sem apagar seus registros.</p></div></div><div id="updateState" class="update-status" data-state="${esc(updateInfo.state)}" role="status" aria-live="polite">${esc(updateInfo.status)}</div><div class="update-metrics"><div class="update-metric"><span>VERSÃO INSTALADA</span><strong>v${APP_VERSION}</strong></div><div class="update-metric"><span>VERSÃO PUBLICADA</span><strong id="updateLatest">v${esc(updateInfo.latest)}</strong></div><div class="update-metric"><span>ÚLTIMA CONSULTA</span><strong id="updateLastCheck">${updateInfo.lastCheck?esc(new Date(updateInfo.lastCheck).toLocaleString('pt-BR')):'Ainda não consultado'}</strong></div></div><div class="setting-actions"><button class="btn" id="checkUpdatesBtn">Verificar agora</button><button class="btn primary" id="applyUpdateBtn" ${updateInfo.available?'':'hidden'}>Atualizar agora</button></div><p class="update-help" id="updateNotes">${esc(updateInfo.notes||'O app preserva o banco local. A atualização do PWA requer conexão com o endereço publicado.')}</p></article>
  <article class="card settings-card backup-panel"><div class="settings-card-head"><span class="settings-icon">${icon('wallet')}</span><div><h2>Backup e exportação</h2><p>Proteja seus registros e gere relatórios.</p></div></div><div class="backup-grid">
 <section class="backup-group"><h3>Backup em pasta</h3><p>Guarde cópias cifradas e versões anteriores dos registros.</p><p class="settings-note" id="folderBackupStatus" role="status">${folderStatusText()}</p><div class="setting-actions"><button class="btn primary" id="chooseBackupFolderBtn">Escolher pasta de backup</button><button class="btn" id="reconnectBackupFolderBtn" hidden>Reconectar pasta</button><button class="btn" id="saveFolderBackupBtn" ${backupDirectory?'':'disabled'}>Salvar backup agora</button><button class="btn" id="restoreFolderBackupBtn" ${backupDirectory?'':'disabled'}>Restaurar da pasta</button></div></section>
@@ -580,7 +621,7 @@ function settings(){
 <section class="backup-group backup-report"><h3>Relatório financeiro</h3><p>Escolha o período para imprimir ou salvar em PDF.</p><div class="backup-pdf-controls"><label class="field" for="globalPdfScope">Período do relatório<select id="globalPdfScope"><option value="month">${esc(monthLabel())}</option><option value="year">Ano de ${state.year}</option><option value="all">Histórico completo</option></select></label><button class="btn primary" id="globalPdfBtn">Gerar PDF</button></div></section>
 <section class="backup-group"><h3>Planilha de lançamentos</h3><p>Exporte o histórico em CSV.</p><div class="setting-actions"><button class="btn" id="csvBtn">Exportar CSV</button></div></section></div></article>
  <article class="card settings-card settings-danger"><div class="settings-card-head"><span class="settings-icon">${icon('expense')}</span><div><h2>Apagar dados</h2><p>Remove ${total} movimentações e ${db.jars.length} cofrinhos salvos neste navegador.</p></div></div><div class="setting-actions"><button class="btn negative" id="clearBtn">Apagar todos os dados</button></div></article>
- </div><div class="notice">Versão 0.34.1. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
+ </div><div class="notice">Versão 0.34.2. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
 }
 function setUpdateStatus(status,state='waiting'){updateInfo.status=status;updateInfo.state=state;const el=$('#updateState');if(el){el.textContent=status;el.dataset.state=state}const button=$('#applyUpdateBtn');if(button)button.hidden=!updateInfo.available;const latest=$('#updateLatest');if(latest)latest.textContent='v'+updateInfo.latest;const checked=$('#updateLastCheck');if(checked)checked.textContent=updateInfo.lastCheck?new Date(updateInfo.lastCheck).toLocaleString('pt-BR'):'Ainda não consultado';const notes=$('#updateNotes');if(notes)notes.textContent=updateInfo.notes||'O app preserva o banco local. A atualização do PWA requer conexão com o endereço publicado.'}
 function compareVersions(a,b){const x=String(a).split('.').map(Number),y=String(b).split('.').map(Number);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return d}return 0}
@@ -604,7 +645,7 @@ function render(){
   if(vault&&!vaultKey){showVaultDialog("unlock");return}
   marketRefreshPending = false;
   const debtDraft = new Map(['debtPayoff','debtPayment','debtMonths','debtCET'].map(id => [id, $('#'+id)?.value]));
-document.body.classList.toggle('dark',db.prefs.dark);const chosen=PAGES.find(p=>p[0]===state.page)||PAGES[0];$('#pageTitle').textContent=chosen[1];$('#monthTitleLabel').textContent=monthLabel();const privacy=$('#privacyToggle');privacy.textContent=hideValues?'Mostrar valores':'Ocultar valores';privacy.setAttribute('aria-pressed',String(hideValues));document.body.classList.toggle('hide-values',hideValues);const now=new Date();$('#todayBtn').hidden=state.year===now.getFullYear()&&state.month===now.getMonth();document.title='Reserva — '+chosen[1];nav();document.querySelectorAll('.page').forEach(el=>el.classList.toggle('active',el.id==='page-'+state.page));home();transactions();goals();investments();analysis();settings();simulateGoal();
+document.body.classList.toggle('dark',db.prefs.dark);document.body.dataset.palette=db.prefs.palette||'blue';const chosen=PAGES.find(p=>p[0]===state.page)||PAGES[0];$('#pageTitle').textContent=chosen[1];$('#monthTitleLabel').textContent=monthLabel();const privacy=$('#privacyToggle');privacy.textContent=hideValues?'Mostrar valores':'Ocultar valores';privacy.setAttribute('aria-pressed',String(hideValues));document.body.classList.toggle('hide-values',hideValues);const now=new Date();$('#todayBtn').hidden=state.year===now.getFullYear()&&state.month===now.getMonth();document.title='Reserva — '+chosen[1];nav();document.querySelectorAll('.page').forEach(el=>el.classList.toggle('active',el.id==='page-'+state.page));home();transactions();goals();investments();analysis();settings();simulateGoal();
   for (const [id, value] of debtDraft) if (value !== undefined) $('#'+id).value = value;
   updateDebtComparison();
 }

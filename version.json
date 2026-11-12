@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.34.1",
+  "version": "0.34.2",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Backup e exportação organizados por finalidade, com área própria para relatórios."
+  "notes": "Paletas de aparência e som opcional nos alertas de cota de Mercado."
 }

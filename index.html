@@ -377,6 +377,15 @@ body:has(#vaultDialog[data-mode="folder"][open]) .shell,body:has(#vaultDialog[da
 .backup-pdf-controls select{width:100%;min-height:44px}
 .backup-pdf-controls .btn{min-height:44px}
 @media(max-width:680px){.backup-grid{grid-template-columns:1fr}.backup-pdf-controls .btn{flex:1}}
+
+body[data-palette="petrol"]{--green:#08796e;--mint:#dff5ef}
+body[data-palette="plum"]{--green:#7444a5;--mint:#f1e7fb}
+body.dark[data-palette="petrol"]{--green:#78ddcb;--mint:#183a3c}
+body.dark[data-palette="plum"]{--green:#dab3ff;--mint:#362848}
+body[data-palette="petrol"] .today-card{background:linear-gradient(135deg,#11373e,#09695e)}
+body[data-palette="plum"] .today-card{background:linear-gradient(135deg,#36204d,#653c91)}
+body[data-palette="petrol"] .btn.primary{background:#08796e;color:#fff}
+body[data-palette="plum"] .btn.primary{background:#7444a5;color:#fff}
 </style>
 </head>
 <body>
