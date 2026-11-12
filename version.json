@@ -1,6 +1,6 @@
 {
   "application": "Reserva Simples",
-  "version": "0.28.1",
+  "version": "0.29.0",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",

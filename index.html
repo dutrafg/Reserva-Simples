@@ -255,6 +255,20 @@ body.dark .quick-add-option.goal>svg{background:#203855;color:#8bbaff}
 .header-right{flex-wrap:wrap}
 .month-picker #monthTitleLabel{min-width:0}
 .hide-values :is(.budget-progress,.chart-wrap,.donut,.reserve-meter,.comparison-bars,.visual-chart,.track){visibility:hidden}
+#desktopSidebar{display:none}
+@media(min-width:761px) and (max-width:1023px){.main{padding-inline:24px}.overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(min-width:1024px){
+.shell{display:grid;grid-template-columns:216px minmax(0,1fr)}
+body.sidebar-compact .shell{grid-template-columns:72px minmax(0,1fr)}
+#desktopSidebar{display:flex;flex-direction:column;gap:18px;position:sticky;top:0;height:100dvh;overflow:auto;padding:14px 10px;background:var(--card);border-right:1px solid var(--line)}
+#desktopNav{display:grid;gap:6px}
+#desktopNav .nav-button{width:100%;min-height:44px}
+#desktopNav .nav-short{display:none}
+body.sidebar-compact #desktopNav .nav-label{display:none}
+body.sidebar-compact #desktopNav .nav-button{justify-content:center;padding-inline:0}
+#mobileNav{display:none}
+.main{padding-bottom:32px}
+}
 </style>
 </head>
 <body>
@@ -274,7 +288,7 @@ body.dark .quick-add-option.goal>svg{background:#203855;color:#8bbaff}
  </svg>
 <div class="shell">
  
- <main class="main"><header class="header"><div class="header-intro"><div><p class="subtitle">SEU PLANEJAMENTO FINANCEIRO</p><h1 id="pageTitle">Início</h1></div><button type="button" id="headerSettings" class="header-settings" data-page="settings" aria-label="Abrir Ajustes" title="Ajustes"><svg aria-hidden="true"><use href="#settings"></use></svg><span>Ajustes</span></button></div><div class="header-right"><button id="privacyToggle" type="button" class="btn small" aria-pressed="false">Ocultar valores</button><div class="month-picker"><button id="prevMonth" title="Mês anterior" aria-label="Mês anterior">‹</button><button id="monthTitle" class="month-title-button" aria-label="Escolher mês" title="Toque para escolher mês"><span id="monthTitleLabel">Janeiro de 2027</span><svg class="month-chevron" aria-hidden="true" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button><button id="nextMonth" title="Mês seguinte" aria-label="Mês seguinte">›</button><button id="todayBtn" class="btn small today-button" hidden>Hoje</button></div></div></header>
+ <aside id="desktopSidebar" aria-label="Menu lateral"><button id="sidebarToggle" class="btn" type="button" aria-controls="desktopNav">‹</button><nav id="desktopNav" aria-label="Módulos"></nav></aside><main class="main"><header class="header"><div class="header-intro"><div><p class="subtitle">SEU PLANEJAMENTO FINANCEIRO</p><h1 id="pageTitle">Início</h1></div><button type="button" id="headerSettings" class="header-settings" data-page="settings" aria-label="Abrir Ajustes" title="Ajustes"><svg aria-hidden="true"><use href="#settings"></use></svg><span>Ajustes</span></button></div><div class="header-right"><button id="privacyToggle" type="button" class="btn small" aria-pressed="false">Ocultar valores</button><div class="month-picker"><button id="prevMonth" title="Mês anterior" aria-label="Mês anterior">‹</button><button id="monthTitle" class="month-title-button" aria-label="Escolher mês" title="Toque para escolher mês"><span id="monthTitleLabel">Janeiro de 2027</span><svg class="month-chevron" aria-hidden="true" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button><button id="nextMonth" title="Mês seguinte" aria-label="Mês seguinte">›</button><button id="todayBtn" class="btn small today-button" hidden>Hoje</button></div></div></header>
  <section id="page-home" class="page active"></section><section id="page-transactions" class="page"></section><section id="page-goals" class="page"></section><section id="page-analysis" class="page"></section><section id="page-settings" class="page"></section>
  </main>
 </div>
