@@ -7,7 +7,7 @@ const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Ago
 const CATS=['Água','Luz','Internet','Faculdade','Farmácia','Cartões','Telefone','Mercado','Comida / Marmita','Moradia','Transporte','Saúde','Lazer','Assinaturas','Outros'];
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['settings','Ajustes','settings']];
-const APP_VERSION='0.31.4';
+const APP_VERSION='0.31.5';
 const updateInfo={lastCheck:localStorage.getItem('reserva.update.checkedAt')||'',latest:APP_VERSION,available:false,status:'Aguardando verificação',state:'waiting',notes:''};
 let updateRegistration=null;
 const $=(q)=>document.querySelector(q);
@@ -39,7 +39,7 @@ function verify(src){if(!src||![2,3,4].includes(src.version)||!Array.isArray(src
    if(!x||!goodId(x.id)||![x.name,x.institution,x.product].every(v=>typeof v==='string'&&v.trim()&&v.length<=80)||
       ![x.cost,x.balance].every(v=>Number.isSafeInteger(v)&&v>=0&&v<=10000000000)||
       !validDate(x.date)||!validDate(x.checked)||x.checked<x.date)return null;
-   clean.investments.push({id:x.id,name:x.name,institution:x.institution,product:x.product,cost:x.cost,balance:x.balance,date:x.date,checked:x.checked});
+   clean.investments.push({id:x.id,name:x.name,institution:x.institution,product:x.product,cost:x.cost,balance:x.balance,date:x.date,checked:x.checked,existing:x.existing===true});
  }
  const marketBudget=src.prefs?.marketBudget;
  clean.prefs.marketBudget=Number.isSafeInteger(marketBudget)&&marketBudget>0&&marketBudget<=10000000000?marketBudget:70000;
@@ -236,7 +236,7 @@ async function initFolderBackup(){try{backupDirectory=await getBackupHandle();if
 const mkey=(y,m)=>`${y}-${String(m+1).padStart(2,'0')}`;
 const monthLabel=()=>`${MONTHS[state.month]} de ${state.year}`;
 const formDate=()=>{const d=new Date();return state.year===d.getFullYear()&&state.month===d.getMonth()?`${state.year}-${String(state.month+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`:`${mkey(state.year,state.month)}-01`};
-const getMonth=(y,m)=>{const prefix=mkey(y,m),records=db.records.filter(r=>r.date.startsWith(prefix)),movements=db.allocations.filter(a=>a.date.startsWith(prefix));const income=sum(records.filter(r=>r.kind==='income').map(r=>r.amount)),salary=sum(records.filter(r=>r.kind==='income'&&r.source==='salary').map(r=>r.amount)),complement=income-salary,expenses=sum(records.filter(r=>r.kind==='expense').map(r=>r.amount)),deposits=sum(movements.filter(a=>a.amount>0).map(a=>a.amount)),withdrawals=sum(movements.filter(a=>a.amount<0).map(a=>-a.amount)),saved=deposits-withdrawals,invested=sum(db.investments.filter(x=>x.date.startsWith(prefix)).map(x=>x.cost));return{invested,income,salary,complement,expenses,saved,deposits,withdrawals,minimum:Math.round(income*.1),balance:income-expenses-saved-invested,rate:income?saved/income*100:0,records,movements}};
+const getMonth=(y,m)=>{const prefix=mkey(y,m),records=db.records.filter(r=>r.date.startsWith(prefix)),movements=db.allocations.filter(a=>a.date.startsWith(prefix));const income=sum(records.filter(r=>r.kind==='income').map(r=>r.amount)),salary=sum(records.filter(r=>r.kind==='income'&&r.source==='salary').map(r=>r.amount)),complement=income-salary,expenses=sum(records.filter(r=>r.kind==='expense').map(r=>r.amount)),deposits=sum(movements.filter(a=>a.amount>0).map(a=>a.amount)),withdrawals=sum(movements.filter(a=>a.amount<0).map(a=>-a.amount)),saved=deposits-withdrawals,invested=sum(db.investments.filter(x=>!x.existing&&x.date.startsWith(prefix)).map(x=>x.cost));return{invested,income,salary,complement,expenses,saved,deposits,withdrawals,minimum:Math.round(income*.1),balance:income-expenses-saved-invested,rate:income?saved/income*100:0,records,movements}};
 const month=()=>getMonth(state.year,state.month);
 const recurringForMonth=()=>db.recurring.filter(t=>!t.paused&&t.startMonth<=mkey(state.year,state.month)&&(!t.endMonth||t.endMonth>=mkey(state.year,state.month)));
 function pendingRecurring(){const period=mkey(state.year,state.month);return recurringForMonth().filter(t=>!db.records.some(r=>r.kind===(t.kind||'expense')&&r.recurringId===t.id&&(r.recurringMonth||r.date.slice(0,7))===period))}
@@ -377,19 +377,22 @@ function jarCard(j,mini=false){
 }
 function movementsTable(){const x=db.allocations.filter(a=>a.date.startsWith(mkey(state.year,state.month))).sort((a,b)=>b.date.localeCompare(a.date));if(!x.length)return '<div class="empty"><strong>Nenhum valor movimentado neste mês</strong>Abra um cofrinho e registre o quanto guardou.</div>';const rows=x.map(a=>{const j=db.jars.find(k=>k.id===a.jarId);return `<tr><td>${dateBR(a.date)}</td><td><b>${esc(j?.name||'Cofrinho')}</b><div class="sub">${a.amount>0?'Depósito':'Resgate'}${a.note?' · '+esc(a.note):''}</div></td><td class="money" style="color:${a.amount>=0?'var(--good)':'var(--danger)'}">${a.amount>0?'+':'−'}${money(Math.abs(a.amount))}</td><td class="right"><button class="delete" data-delete-allocation="${esc(a.id)}">Excluir</button></td></tr>`}).join('');return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Data</th><th>Cofrinho</th><th class="right">Valor</th><th class="right">Ação</th></tr></thead><tbody>${rows}</tbody></table></div>`}
 let investmentEditId = null;
+let investmentExisting = false;
 function investments() {
   const items=db.investments;
   const byInstitution=new Map();
   for(const item of items) byInstitution.set(item.institution,(byInstitution.get(item.institution)||0)+item.balance);
   $('#page-investments').innerHTML=`${heading('Investimentos','Posições cadastradas a partir dos seus extratos.')}
-  <div class="actions"><button class="btn primary" data-investment-edit="">Cadastrar aplicação existente</button><button class="btn" data-quick-open="add">Registrar aporte em cofrinho</button></div>
+  <div class="actions"><button class="btn primary" data-investment-edit="">Registrar novo investimento</button><button class="btn" data-investment-edit="" data-existing="true">Registrar investimento já existente</button><button class="btn" data-quick-open="add">Registrar aporte em cofrinho</button></div>
   <div class="overview-grid"><article class="card"><h3>Total aplicado</h3><strong>${money(sum(items.map(x=>x.cost)))}</strong></article><article class="card"><h3>Saldo informado</h3><strong>${money(sum(items.map(x=>x.balance)))}</strong></article></div>
   ${items.length?`<article class="card"><h3>Saldo por instituição</h3>${[...byInstitution].map(([name,value])=>`<p>${esc(name)} · ${money(value)}</p>`).join('')}</article>`:'<article class="card">Cadastre sua primeira aplicação para acompanhar o saldo da carteira.</article>'}
   <div class="overview-grid">${items.map(x=>`<article class="card"><h3>${esc(x.name)}</h3><p>${esc(x.product)} · ${esc(x.institution)}</p><p>Aplicado: ${money(x.cost)} em ${dateBR(x.date)}</p><p>Saldo: ${money(x.balance)} em ${dateBR(x.checked)}</p><div class="actions"><button class="btn" data-investment-edit="${esc(x.id)}">Editar saldo ou dados</button><button class="btn" data-investment-delete="${esc(x.id)}">Remover</button></div></article>`).join('')}</div>`;
 }
-function openInvestment(id) {
+function openInvestment(id, existing = false) {
   const item=db.investments.find(x=>x.id===id);
   investmentEditId=item?.id??null;
+  investmentExisting=item ? item.existing===true : existing;
+  $('#investmentTitle').textContent=investmentExisting?'Investimento já existente':'Investimento com débito no saldo';
   const form=$('#investmentForm');
   form.reset();
   for(const key of ['name','institution','product','date','checked','cost','balance']){
@@ -402,7 +405,7 @@ async function saveInvestment(event) {
   event.preventDefault();
   const form=event.currentTarget, data=new FormData(form);
   const field=key=>String(data.get(key)||'').trim();
-  const item={id:investmentEditId||uid(),name:field('name'),institution:field('institution'),product:field('product'),date:field('date'),checked:field('checked'),cost:Math.round(Number(field('cost'))*100),balance:Math.round(Number(field('balance'))*100)};
+  const item={id:investmentEditId||uid(),existing:investmentExisting,name:field('name'),institution:field('institution'),product:field('product'),date:field('date'),checked:field('checked'),cost:Math.round(Number(field('cost'))*100),balance:Math.round(Number(field('balance'))*100)};
   if(item.checked<item.date||item.checked>isoToday())return notify('A conferência deve ocorrer entre a data da aplicação e hoje.');
   if(await mutate(()=>{
     const index=db.investments.findIndex(x=>x.id===item.id);
@@ -413,7 +416,7 @@ $('#investmentForm').addEventListener('submit',saveInvestment);
 $('#investmentCancel').addEventListener('click',()=>$('#investmentDialog').close());
 document.addEventListener('click',async event=>{
   const edit=event.target.closest('[data-investment-edit]');
-  if(edit)openInvestment(edit.dataset.investmentEdit);
+  if(edit)openInvestment(edit.dataset.investmentEdit,edit.dataset.existing==='true');
   const remove=event.target.closest('[data-investment-delete]');
   if(remove&&confirm('Remover esta aplicação da carteira?'))await mutate(()=>{db.investments=db.investments.filter(x=>x.id!==remove.dataset.investmentDelete)});
 });
@@ -453,7 +456,7 @@ function settings(){
  <article class="card settings-card update-card"><div class="settings-card-head"><span class="settings-icon">${icon('refresh')}</span><div><h2>Atualizações</h2><p>Consulte a versão publicada e atualize o aplicativo sem apagar seus registros.</p></div></div><div id="updateState" class="update-status" data-state="${esc(updateInfo.state)}" role="status" aria-live="polite">${esc(updateInfo.status)}</div><div class="update-metrics"><div class="update-metric"><span>VERSÃO INSTALADA</span><strong>v${APP_VERSION}</strong></div><div class="update-metric"><span>VERSÃO PUBLICADA</span><strong id="updateLatest">v${esc(updateInfo.latest)}</strong></div><div class="update-metric"><span>ÚLTIMA CONSULTA</span><strong id="updateLastCheck">${updateInfo.lastCheck?esc(new Date(updateInfo.lastCheck).toLocaleString('pt-BR')):'Ainda não consultado'}</strong></div></div><div class="setting-actions"><button class="btn" id="checkUpdatesBtn">Verificar agora</button><button class="btn primary" id="applyUpdateBtn" ${updateInfo.available?'':'hidden'}>Atualizar agora</button></div><p class="update-help" id="updateNotes">${esc(updateInfo.notes||'O app preserva o banco local. A atualização do PWA requer conexão com o endereço publicado.')}</p></article>
  <article class="card settings-card"><div class="settings-card-head"><span class="settings-icon">${icon('wallet')}</span><div><h2>Backup e exportação</h2><p>Guarde uma cópia dos dados em uma pasta do aparelho ou exporte para outros formatos.</p></div></div><div class="setting-actions"><button class="btn primary" id="chooseBackupFolderBtn">Escolher pasta de backup</button><button class="btn" id="reconnectBackupFolderBtn" hidden>Reconectar pasta</button><button class="btn" id="saveFolderBackupBtn" ${backupDirectory?'':'disabled'}>Salvar backup agora</button><button class="btn" id="restoreFolderBackupBtn" ${backupDirectory?'':'disabled'}>Restaurar da pasta</button><button class="btn" id="exportBtn">Baixar backup</button><button class="btn" id="importBtn">Restaurar arquivo</button><button class="btn" id="csvBtn">Exportar CSV</button><input id="importFile" type="file" accept=".json,application/json" hidden></div><p class="settings-note" id="folderBackupStatus" role="status">${folderStatusText()}</p><p class="settings-note">O navegador continua guardando os dados principais. A pasta recebe uma cópia JSON automática após cada alteração. O backup inclui rendas, despesas, cofrinhos e todas as movimentações registradas.</p></article>
  <article class="card settings-card settings-danger"><div class="settings-card-head"><span class="settings-icon">${icon('expense')}</span><div><h2>Apagar dados</h2><p>Remove ${total} movimentações e ${db.jars.length} cofrinhos salvos neste navegador.</p></div></div><div class="setting-actions"><button class="btn negative" id="clearBtn">Apagar todos os dados</button></div></article>
- </div><div class="notice">Versão 0.31.4. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
+ </div><div class="notice">Versão 0.31.5. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
 }
 function setUpdateStatus(status,state='waiting'){updateInfo.status=status;updateInfo.state=state;const el=$('#updateState');if(el){el.textContent=status;el.dataset.state=state}const button=$('#applyUpdateBtn');if(button)button.hidden=!updateInfo.available;const latest=$('#updateLatest');if(latest)latest.textContent='v'+updateInfo.latest;const checked=$('#updateLastCheck');if(checked)checked.textContent=updateInfo.lastCheck?new Date(updateInfo.lastCheck).toLocaleString('pt-BR'):'Ainda não consultado';const notes=$('#updateNotes');if(notes)notes.textContent=updateInfo.notes||'O app preserva o banco local. A atualização do PWA requer conexão com o endereço publicado.'}
 function compareVersions(a,b){const x=String(a).split('.').map(Number),y=String(b).split('.').map(Number);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return d}return 0}

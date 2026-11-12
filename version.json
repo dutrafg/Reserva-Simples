@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.31.4",
+  "version": "0.31.5",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Valor aplicado descontado do saldo disponível no mês da aplicação."
+  "notes": "Cadastro de investimentos existentes sem débito mensal."
 }
