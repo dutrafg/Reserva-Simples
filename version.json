@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.38.0",
+  "version": "0.38.1",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Orçamento mensal por categoria e controle pecuário com despesas detalhadas, vendas parciais/totais e resultado realizado."
+  "notes": "Correção da impressão dos relatórios PDF no celular e no desktop."
 }
