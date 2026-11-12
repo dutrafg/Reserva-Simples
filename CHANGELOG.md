@@ -1,5 +1,10 @@
 # Histórico de alterações
 
+## v0.38.3
+
+- Corrigido o vínculo dos botões de download nos relatórios financeiros e de cofrinhos.
+- O arquivo PDF é gerado diretamente, sem depender da caixa de impressão móvel.
+
 ## v0.38.2
 
 - Relatórios financeiros e de cofrinhos geram um arquivo PDF para download, sem depender da tela de impressão do navegador.
