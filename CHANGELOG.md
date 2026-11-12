@@ -1,5 +1,9 @@
 # Histórico de alterações
 
+## v0.38.4
+
+- O download do PDF agora usa a aba do relatório, preservando o gesto do usuário exigido por navegadores móveis.
+
 ## v0.38.3
 
 - Corrigido o vínculo dos botões de download nos relatórios financeiros e de cofrinhos.
