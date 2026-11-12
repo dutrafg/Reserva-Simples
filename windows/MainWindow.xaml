@@ -22,6 +22,13 @@
           <Button Content="Mês atual" Click="CurrentMonth" Padding="9,5" Margin="8,0"/>
           <Button Content="Importar lançamentos do PWA" Click="ImportPwa" Padding="9,5" Margin="0,0,8,0"/><Button Content="Criar backup" Click="BackupDatabase" Padding="9,5"/><Button Content="Restaurar backup" Click="RestoreDatabase" Padding="9,5" Margin="8,0,0,0"/>
         </WrapPanel>
+        <Border Background="White" Padding="12" CornerRadius="8" Margin="0,0,0,12">
+          <StackPanel><TextBlock Text="Cota mensal de Mercado" FontWeight="SemiBold"/>
+          <TextBlock x:Name="GroceryStatus" Margin="0,5" TextWrapping="Wrap"/>
+          <WrapPanel><TextBox x:Name="GroceryLimit" Width="110" MaxLength="20" AutomationProperties.Name="Cota mensal em reais"/>
+          <Button Content="Salvar cota" Click="SaveGroceryLimit" Margin="8,0" Padding="8,4"/>
+          <Button Content="Remover cota" Click="ClearGroceryLimit" Padding="8,4"/></WrapPanel></StackPanel>
+        </Border>
         <StackPanel x:Name="EntryEditor" Visibility="Collapsed">
           <TextBlock Text="Registrar lançamento" FontSize="17" FontWeight="SemiBold"/>
           <DatePicker x:Name="EntryDate" Margin="0,6"/>
