@@ -1,5 +1,10 @@
 # Histórico de alterações
 
+## v0.38.1
+
+- Corrigida a impressão e o salvamento em PDF dos relatórios financeiros e de cofrinhos, com acionamento pelo botão no próprio relatório para evitar bloqueios do navegador.
+- Atualizado o cache do aplicativo para disponibilizar a correção instalada no PWA.
+
 ## v0.38.0
 
 - Adicionado orçamento mensal configurável por categoria, com acompanhamento no mês selecionado e alertas ao atingir 75% ou ultrapassar o limite.
