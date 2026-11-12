@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.31.9",
+  "version": "0.32.0",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Vínculo de investimentos pelo formulário de metas e registro de resgate líquido na carteira."
+  "notes": "Visão geral do mês com saldo, renda comprometida, carteira, aportes e principais gastos."
 }
