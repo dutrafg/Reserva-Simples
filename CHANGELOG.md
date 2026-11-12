@@ -1,5 +1,11 @@
 # Histórico de alterações
 
+## v0.38.5
+
+- O relatório financeiro é gerado na própria tela, sem abrir outra janela.
+- O período é escolhido por botões e o link de download fica visível como alternativa quando o navegador móvel bloqueia o download automático.
+- O relatório de cofrinhos também baixa o PDF diretamente.
+
 ## v0.38.4
 
 - O download do PDF agora usa a aba do relatório, preservando o gesto do usuário exigido por navegadores móveis.
