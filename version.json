@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.31.7",
+  "version": "0.31.8",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Insights simplificado com resumo mensal, cota de Mercado e detalhes recolhíveis."
+  "notes": "O cadastro de investimentos identifica o saldo líquido do extrato."
 }
