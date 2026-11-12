@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.32.2",
+  "version": "0.32.3",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Cartões iniciais de Hoje mais compactos e lado a lado em telas largas."
+  "notes": "Lista de investimentos vinculados ocupa a largura do formulário de cofrinho."
 }
