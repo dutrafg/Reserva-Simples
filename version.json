@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.31.6",
+  "version": "0.31.7",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Carteira visível em Metas e Insights e vínculo opcional de aplicações a metas."
+  "notes": "Insights simplificado com resumo mensal, cota de Mercado e detalhes recolhíveis."
 }
