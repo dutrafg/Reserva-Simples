@@ -1,0 +1,34 @@
+<Window x:Class="ReservaSimples.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Reserva Simples" Width="1000" Height="690" MinWidth="640" MinHeight="480" Background="#F3F6FB">
+  <Grid>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <StackPanel Background="#112C55">
+      <TextBlock Text="Reserva Simples" Margin="18,25" Foreground="White" FontSize="19" FontWeight="Bold"/>
+      <Button Content="Hoje" Margin="14,0,14,8" Padding="12" Click="ShowToday"/>
+      <Button Content="Lançamentos" Margin="14,0,14,8" Padding="12" Click="ShowEntries"/>
+    </StackPanel>
+    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="28">
+        <TextBlock x:Name="PageTitle" Text="Hoje" FontSize="28" FontWeight="Bold"/>
+        <UniformGrid Columns="3" Margin="0,16,0,12">
+          <Border Background="White" Padding="12" Margin="0,0,8,0" CornerRadius="8"><StackPanel><TextBlock Text="Receitas"/><TextBlock x:Name="Income" FontSize="18" FontWeight="Bold"/></StackPanel></Border>
+          <Border Background="White" Padding="12" Margin="0,0,8,0" CornerRadius="8"><StackPanel><TextBlock Text="Despesas"/><TextBlock x:Name="Expenses" FontSize="18" FontWeight="Bold"/></StackPanel></Border>
+          <Border Background="White" Padding="12" CornerRadius="8"><StackPanel><TextBlock Text="Saldo do mês"/><TextBlock x:Name="Balance" FontSize="18" FontWeight="Bold"/></StackPanel></Border>
+        </UniformGrid>
+        <TextBlock x:Name="MonthLabel" Margin="0,0,0,10"/>
+        <StackPanel x:Name="EntryEditor" Visibility="Collapsed">
+          <TextBlock Text="Registrar lançamento" FontSize="17" FontWeight="SemiBold"/>
+          <DatePicker x:Name="EntryDate" Margin="0,6"/>
+          <ComboBox x:Name="EntryKind" SelectedIndex="0" Margin="0,0,0,6"><ComboBoxItem Content="Despesa"/><ComboBoxItem Content="Receita"/></ComboBox>
+          <TextBlock Text="Descrição"/><TextBox x:Name="EntryNote" MaxLength="120" Margin="0,2,0,6"/>
+          <TextBlock Text="Valor (R$)"/><TextBox x:Name="EntryAmount" MaxLength="20" Margin="0,2,0,8"/>
+          <Button Content="Salvar lançamento" Padding="10,6" HorizontalAlignment="Left" Click="SaveEntry"/>
+        </StackPanel>
+        <TextBlock x:Name="StatusText" TextWrapping="Wrap" Margin="0,8"/>
+        <DataGrid x:Name="Entries" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="340">
+          <DataGrid.Columns><DataGridTextColumn Header="Data" Binding="{Binding Date}" Width="85"/><DataGridTextColumn Header="Tipo" Binding="{Binding Kind}" Width="85"/><DataGridTextColumn Header="Descrição" Binding="{Binding Note}" Width="*"/><DataGridTextColumn Header="Valor" Binding="{Binding Amount}" Width="110"/></DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</Window>
