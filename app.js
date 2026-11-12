@@ -7,7 +7,7 @@ const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Ago
 const CATS=['Água','Luz','Internet','Faculdade','Farmácia','Cartões','Telefone','Mercado','Comida / Marmita','Moradia','Transporte','Saúde','Lazer','Assinaturas','Outros'];
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['settings','Ajustes','settings']];
-const APP_VERSION='0.36.1';
+const APP_VERSION='0.37.0';
 const updateInfo={lastCheck:localStorage.getItem('reserva.update.checkedAt')||'',latest:APP_VERSION,available:false,status:'Aguardando verificação',state:'waiting',notes:''};
 let updateRegistration=null;
 const $=(q)=>document.querySelector(q);
@@ -41,7 +41,14 @@ function verify(src){if(!src||![2,3,4].includes(src.version)||!Array.isArray(src
       !validDate(x.date)||!validDate(x.checked)||x.checked<x.date)return null;
    const redemptions=x.redemptions??[];
    if(!Array.isArray(redemptions)||redemptions.length>50000||redemptions.some(r=>!r||!validDate(r.date)||r.date<x.date||!Number.isSafeInteger(r.amount)||r.amount<=0||r.amount>10000000000))return null;
-   clean.investments.push({id:x.id,name:x.name,institution:x.institution,product:x.product,cost:x.cost,balance:x.balance,date:x.date,checked:x.checked,redemptions:redemptions.map(r=>({date:r.date,amount:r.amount})),existing:x.existing===true,goalId:clean.jars.some(j=>j.id===x.goalId)?x.goalId:null});
+   const assetType=x.assetType==='livestock'?'livestock':'financial';
+   const livestockKind=['Corte','Leiteiro','Matrizes','Reprodutores','Bezerros e garrotes','Outro'].includes(x.livestockKind)?x.livestockKind:'Corte';
+   const headCount=Number.isSafeInteger(x.headCount)&&x.headCount>0&&x.headCount<=100000?x.headCount:1;
+   const extraCosts=Number.isSafeInteger(x.extraCosts)&&x.extraCosts>=0&&x.extraCosts<=10000000000?x.extraCosts:0;
+   const status=assetType==='livestock'&&x.status==='sold'?'sold':'active';
+   const soldDate=status==='sold'?x.soldDate:null,saleAmount=status==='sold'?x.saleAmount:null;
+   if(status==='sold'&&(!validDate(soldDate)||soldDate<x.checked||soldDate>isoToday()||!Number.isSafeInteger(saleAmount)||saleAmount<=0||saleAmount>10000000000||x.balance!==0))return null;
+   clean.investments.push({id:x.id,name:x.name,institution:x.institution,product:x.product,cost:x.cost,balance:x.balance,date:x.date,checked:x.checked,redemptions:redemptions.map(r=>({date:r.date,amount:r.amount})),existing:x.existing===true,goalId:clean.jars.some(j=>j.id===x.goalId)?x.goalId:null,assetType,livestockKind,headCount,extraCosts,status,soldDate,saleAmount});
  }
  const marketBudget=src.prefs?.marketBudget;
  clean.prefs.marketBudget=Number.isSafeInteger(marketBudget)&&marketBudget>0&&marketBudget<=10000000000?marketBudget:null;
@@ -483,31 +490,46 @@ let investmentExisting = false;
 function investments() {
   const items=db.investments;
   const byInstitution=new Map();
-  for(const item of items) byInstitution.set(item.institution,(byInstitution.get(item.institution)||0)+item.balance);
-  $('#page-investments').innerHTML=`${heading('Investimentos','Posições cadastradas a partir dos seus extratos.')}
+  for(const item of items) if(item.balance>0) byInstitution.set(item.institution,(byInstitution.get(item.institution)||0)+item.balance);
+  $('#page-investments').innerHTML=`${heading('Investimentos','Acompanhe aplicações financeiras e ativos de pecuária na mesma carteira.')}
   <div class="actions"><button class="btn primary" data-investment-edit="">Registrar novo investimento</button><button class="btn" data-investment-edit="" data-existing="true">Registrar investimento já existente</button><button class="btn" data-quick-open="add">Registrar aporte em cofrinho</button></div>
-  <div class="overview-grid"><article class="card"><h3>Total aplicado</h3><strong>${money(sum(items.map(x=>x.cost)))}</strong></article><article class="card"><h3>Saldo líquido informado</h3><strong>${money(sum(items.map(x=>x.balance)))}</strong></article></div>
-  ${items.length?`<article class="card"><h3>Saldo por instituição</h3>${[...byInstitution].map(([name,value])=>`<p>${esc(name)} · ${money(value)}</p>`).join('')}</article>`:'<article class="card">Cadastre sua primeira aplicação para acompanhar o saldo da carteira.</article>'}
-  <div class="overview-grid">${items.map(x=>`<article class="card"><h3>${esc(x.name)}</h3><p>${esc(x.product)} · ${esc(x.institution)}</p><p>Aplicado: ${money(x.cost)} em ${dateBR(x.date)}</p><p>Saldo líquido: ${money(x.balance)} em ${dateBR(x.checked)}</p>${x.redemptions?.length?`<details><summary>Resgates registrados</summary>${x.redemptions.map(r=>`<p>${dateBR(r.date)} · ${money(r.amount)}</p>`).join('')}</details>`:''}<div class="actions"><button class="btn" data-investment-edit="${esc(x.id)}">Editar saldo ou dados</button>${x.balance>0?`<button class="btn" data-redeem-investment="${esc(x.id)}">Registrar resgate</button>`:''}<button class="btn" data-investment-delete="${esc(x.id)}">Remover</button></div></article>`).join('')}</div>`;
+  <div class="overview-grid"><article class="card"><h3>Total aplicado</h3><strong>${money(sum(items.filter(x=>x.status!=='sold').map(x=>x.cost+x.extraCosts)))}</strong></article><article class="card"><h3>Saldo da carteira</h3><strong>${money(sum(items.map(x=>x.balance)))}</strong></article></div>
+  ${byInstitution.size?`<article class="card"><h3>Saldo por instituição ou propriedade</h3>${[...byInstitution].map(([name,value])=>`<p>${esc(name)} · ${money(value)}</p>`).join('')}</article>`:''}
+  ${items.length?`<div class="overview-grid">${items.map(x=>{const cattle=x.assetType==='livestock',basis=x.cost+(x.extraCosts||0),label=cattle?`Pecuária · ${esc(x.livestockKind)} · ${x.headCount} cabeça(s)`:`${esc(x.product)} · ${esc(x.institution)}`;return `<article class="card"><h3>${esc(x.name)} ${x.status==='sold'?'<span class="badge">Vendido</span>':''}</h3><p>${label}${cattle?' · '+esc(x.institution):''}</p><p>Compra: ${money(x.cost)} em ${dateBR(x.date)}${cattle?' · custos de manejo: '+money(x.extraCosts||0):''}</p><p>${x.status==='sold'?`Venda em ${dateBR(x.soldDate)}: ${money(x.saleAmount)} · Resultado realizado: <strong>${money(x.saleAmount-basis)}</strong>`:`Valor atual informado: ${money(x.balance)} em ${dateBR(x.checked)}`}</p>${cattle?'<p>Custos de manejo compõem o custo do lote e o cálculo do resultado.</p>':''}${x.redemptions?.length?`<details><summary>Resgates registrados</summary>${x.redemptions.map(r=>`<p>${dateBR(r.date)} · ${money(r.amount)}</p>`).join('')}</details>`:''}<div class="actions"><button class="btn" data-investment-edit="${esc(x.id)}">Editar dados</button>${x.status!=='sold'&&cattle?`<button class="btn" data-sell-livestock="${esc(x.id)}">Registrar venda do lote</button>`:''}${x.status!=='sold'&&!cattle&&x.balance>0?`<button class="btn" data-redeem-investment="${esc(x.id)}">Registrar resgate</button>`:''}<button class="btn" data-investment-delete="${esc(x.id)}">Remover</button></div></article>`}).join('')}</div>`:'<article class="card">Cadastre sua primeira aplicação ou lote de pecuária para acompanhar sua carteira.</article>'}`;
 }
 const redemptionForm=$('#redemptionForm');
-let redemptionId=null;
+let redemptionId=null, redemptionMode='redeem';
 document.addEventListener('click',event=>{
-  const button=event.target.closest('[data-redeem-investment]');
+  const button=event.target.closest('[data-redeem-investment],[data-sell-livestock]');
   if(!button)return;
-  redemptionId=button.dataset.redeemInvestment;
+  redemptionMode=button.hasAttribute('data-sell-livestock')?'sale':'redeem';
+  redemptionId=button.dataset.redeemInvestment||button.dataset.sellLivestock;
   redemptionForm.reset();
   redemptionForm.elements.namedItem('date').value=isoToday();
+  const sale=redemptionMode==='sale';
+  $('#redemptionTitle').textContent=sale?'Registrar venda do lote':'Registrar resgate';
+  redemptionForm.querySelector('label span').textContent=sale?'Valor recebido pela venda (R$)':'Valor líquido recebido (R$)';
+  redemptionForm.querySelector('button[type="submit"]').textContent=sale?'Salvar venda':'Salvar resgate';
+  $('#redemptionError').textContent='';
   $('#redemptionDialog').showModal();
 });
 $('#redemptionCancel').addEventListener('click',()=>$('#redemptionDialog').close());
 redemptionForm.addEventListener('submit',async event=>{
   event.preventDefault();
   const data=new FormData(redemptionForm), date=String(data.get('date')), amount=toCents(String(data.get('amount')));
-  const item=db.investments.find(x=>x.id===redemptionId);
-  const error=$('#redemptionError');
+  const item=db.investments.find(x=>x.id===redemptionId), error=$('#redemptionError');
   error.textContent='';
-  if(!item||!Number.isSafeInteger(amount)||amount<=0||amount>item.balance||!validDate(date)||date<item.checked||date>isoToday()){
+  if(redemptionMode==='sale'){
+    if(!item||item.assetType!=='livestock'||item.status==='sold'||!Number.isSafeInteger(amount)||amount<=0||!validDate(date)||date<item.checked||date>isoToday()){
+      error.textContent='Informe o valor da venda e uma data entre a última conferência e hoje.';
+      return;
+    }
+    if(await mutate(()=>{item.status='sold';item.soldDate=date;item.saleAmount=amount;item.balance=0;item.checked=date;(item.redemptions??=[]).push({date,amount});})){
+      $('#redemptionDialog').close();notify('Venda registrada. O resultado realizado foi atualizado.');
+    }
+    return;
+  }
+  if(!item||item.status==='sold'||!Number.isSafeInteger(amount)||amount<=0||amount>item.balance||!validDate(date)||date<item.checked||date>isoToday()){
     error.textContent='Informe um valor até o saldo líquido e uma data entre a última conferência e hoje.';
     return;
   }
@@ -515,28 +537,46 @@ redemptionForm.addEventListener('submit',async event=>{
     $('#redemptionDialog').close();notify('Resgate registrado no saldo disponível.');
   }
 });
+function toggleInvestmentAssetFields(){
+  const form=$('#investmentForm'), cattle=form.elements.namedItem('assetType').value==='livestock';
+  for(const [name,visible,required] of [['product',!cattle,!cattle],['livestockKind',cattle,cattle],['headCount',cattle,cattle],['extraCosts',cattle,false]]){
+    const input=form.elements.namedItem(name), label=input.closest('label');
+    label.hidden=!visible;input.required=required;
+  }
+  form.elements.namedItem('institution').closest('label').querySelector('span').textContent=cattle?'Fazenda ou propriedade':'Instituição';
+  form.elements.namedItem('balance').closest('label').querySelector('span').textContent=cattle?'Valor de mercado atual do lote (R$)':'Saldo líquido do extrato (R$)';
+  form.elements.namedItem('balance').closest('label').querySelector('small').textContent=cattle?'Informe uma estimativa atual para o lote.':'Use o valor líquido, após impostos, na data da conferência.';
+  $('#investmentTitle').textContent=cattle?'Registrar investimento em pecuária':investmentExisting?'Investimento já existente':'Investimento com débito no saldo';
+}
 function openInvestment(id, existing = false) {
   const item=db.investments.find(x=>x.id===id);
   investmentEditId=item?.id??null;
   investmentExisting=item ? item.existing===true : existing;
-  $('#investmentTitle').textContent=investmentExisting?'Investimento já existente':'Investimento com débito no saldo';
   const form=$('#investmentForm');
   form.reset();
   const goal=form.elements.namedItem('goalId');
   goal.innerHTML='<option value="">Sem vínculo</option>'+db.jars.filter(j=>!j.archived||j.id===item?.goalId).map(j=>`<option value="${esc(j.id)}">${esc(j.name)}</option>`).join('');
   goal.value=item?.goalId||'';
-  for(const key of ['name','institution','product','date','checked','cost','balance']){
+  form.elements.namedItem('assetType').value=item?.assetType||'financial';
+  for(const key of ['name','institution','product','livestockKind','headCount','extraCosts','date','checked','cost','balance']){
     const value=item?.[key];
-    form.elements.namedItem(key).value=value==null?(key==='checked'?isoToday():''):['cost','balance'].includes(key)?value/100:value;
+    form.elements.namedItem(key).value=value==null?(key==='checked'?isoToday():key==='headCount'?1:''):['cost','balance','extraCosts'].includes(key)?value/100:value;
   }
+  toggleInvestmentAssetFields();
   $('#investmentDialog').showModal();
 }
+$('#investmentForm').elements.namedItem('assetType').addEventListener('change',toggleInvestmentAssetFields);
 async function saveInvestment(event) {
   event.preventDefault();
   const form=event.currentTarget, data=new FormData(form);
-  const field=key=>String(data.get(key)||'').trim();
-  const item={id:investmentEditId||uid(),existing:investmentExisting,goalId:field('goalId')||null,name:field('name'),institution:field('institution'),product:field('product'),date:field('date'),checked:field('checked'),cost:Math.round(Number(field('cost'))*100),balance:Math.round(Number(field('balance'))*100)};
+  const field=key=>String(data.get(key)||'').trim(), cattle=field('assetType')==='livestock';
+  const extraCosts=cattle?Math.round(Number(field('extraCosts')||0)*100):0;
+  const headCount=cattle?Number(field('headCount')):null;
+  const existingItem=db.investments.find(x=>x.id===investmentEditId);
+  const item={id:investmentEditId||uid(),existing:investmentExisting,goalId:field('goalId')||null,name:field('name'),institution:field('institution'),product:cattle?'Pecuária · '+field('livestockKind'):field('product'),date:field('date'),checked:field('checked'),cost:Math.round(Number(field('cost'))*100),balance:Math.round(Number(field('balance'))*100),assetType:cattle?'livestock':'financial',livestockKind:cattle?field('livestockKind'):null,headCount,extraCosts,status:existingItem?.status||'active',soldDate:existingItem?.soldDate||null,saleAmount:existingItem?.saleAmount||null};
+  if(cattle&&(!Number.isInteger(headCount)||headCount<1||headCount>100000||!Number.isSafeInteger(extraCosts)||extraCosts<0||extraCosts>10000000000))return notify('Informe a quantidade de animais e os custos de manejo válidos.');
   if(item.checked<item.date||item.checked>isoToday())return notify('A conferência deve ocorrer entre a data da aplicação e hoje.');
+  if(existingItem?.status==='sold'&&item.assetType==='livestock')item.balance=0;
   if(await mutate(()=>{
     const index=db.investments.findIndex(x=>x.id===item.id);
     if(index<0)db.investments.push(item);else db.investments[index]={...item,redemptions:db.investments[index].redemptions??[]};
@@ -548,7 +588,7 @@ document.addEventListener('click',async event=>{
   const edit=event.target.closest('[data-investment-edit]');
   if(edit)openInvestment(edit.dataset.investmentEdit,edit.dataset.existing==='true');
   const remove=event.target.closest('[data-investment-delete]');
-  if(remove&&confirm('Remover esta aplicação e seus resgates do histórico?'))await mutate(()=>{db.investments=db.investments.filter(x=>x.id!==remove.dataset.investmentDelete)});
+  if(remove&&confirm('Remover este investimento e seu histórico?'))await mutate(()=>{db.investments=db.investments.filter(x=>x.id!==remove.dataset.investmentDelete)});
 });
 function goals(){
  const m=month(),all=allSaved(),activeJars=db.jars.filter(j=>!j.archived&&!j.paused),pausedJars=db.jars.filter(j=>!j.archived&&j.paused),archivedJars=db.jars.filter(j=>j.archived),target=sum(activeJars.map(j=>j.target)),allCdb=sum(db.jars.filter(j=>!j.archived).map(j=>estimateCdbJar(j.id).net));

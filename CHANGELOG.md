@@ -1,5 +1,12 @@
 # Histórico de alterações
 
+## v0.37.0
+
+- Adicionado o ativo de pecuária à carteira, com categoria do gado, quantidade, compra, custos de manejo e valor de mercado estimado.
+- Incluído registro de venda do lote, com entrada no histórico financeiro e cálculo do resultado realizado após os custos de aquisição e manejo.
+- Mantidos o vínculo com metas, o armazenamento local e a abertura de dados existentes.
+
+
 ## v0.36.1
 
 - Corrigida a leitura dos códigos de movimento “D” e “C” em extratos bancários CSV.

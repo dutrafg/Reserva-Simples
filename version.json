@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.36.1",
+  "version": "0.37.0",
   "channel": "stable",
   "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Importação de extratos CSV com reconhecimento de datas, valores, categorias e códigos bancários D/C; prévia, deduplicação e inclusão sem substituir registros locais."
+  "notes": "Carteira de pecuária para compra de gado, com quantidade de animais, custos de manejo, avaliação e venda do lote."
 }
