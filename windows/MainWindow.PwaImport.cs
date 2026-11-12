@@ -100,7 +100,7 @@ public partial class MainWindow
         }
     }
 
-    private sealed record ImportedEntry(string Id, string Day, string Kind, string Note, long Cents);
+    private sealed record ImportedEntry(string Id, string Day, string Kind, string Note, long Cents, string Category);
 
     private static List<ImportedEntry> ReadPwaEntries(JsonElement root)
     {
@@ -120,7 +120,7 @@ public partial class MainWindow
                 throw new InvalidDataException("O backup contém um lançamento inválido.");
             var note = row.TryGetProperty("note", out var n) ? n.GetString() : null;
             var category = row.TryGetProperty("category", out var c) ? c.GetString() : null;
-            result.Add(new(id, day!, kind, string.IsNullOrWhiteSpace(note) ? category ?? "" : note, cents));
+            result.Add(new(id, day!, kind, string.IsNullOrWhiteSpace(note) ? category ?? "" : note, cents, string.IsNullOrWhiteSpace(category) || category.Length > 80 ? "Outros" : category));
         }
         return result;
     }
@@ -141,11 +141,12 @@ public partial class MainWindow
             cmd.Parameters.AddWithValue("$id", entry.Id);
             if (cmd.ExecuteNonQuery() == 0) continue;
             cmd.Parameters.Clear();
-            cmd.CommandText = "INSERT INTO entries(day,kind,note,cents) VALUES($day,$kind,$note,$cents)";
+            cmd.CommandText = "INSERT INTO entries(day,kind,note,cents,category) VALUES($day,$kind,$note,$cents,$category)";
             cmd.Parameters.AddWithValue("$day", entry.Day);
             cmd.Parameters.AddWithValue("$kind", entry.Kind);
             cmd.Parameters.AddWithValue("$note", entry.Note);
             cmd.Parameters.AddWithValue("$cents", entry.Cents);
+            cmd.Parameters.AddWithValue("$category", entry.Category);
             count += cmd.ExecuteNonQuery();
         }
         count += WritePwaPortfolio(db, tx, portfolio ?? []);

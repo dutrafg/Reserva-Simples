@@ -54,6 +54,11 @@ public partial class MainWindow
         try
         {
             ExportEncryptedDatabase(source, staged, databaseKey!);
+            using (var migrated = CreateDatabaseConnection(staged, SqliteOpenMode.ReadWrite, databaseKey))
+            {
+                migrated.Open();
+                EnsureCategories(migrated);
+            }
             File.Move(staged, databasePath, overwrite: true);
         }
         finally { if (File.Exists(staged)) File.Delete(staged); }

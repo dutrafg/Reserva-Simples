@@ -36,12 +36,22 @@ public partial class MainWindow : Window
                 CREATE INDEX IF NOT EXISTS entries_by_day ON entries(day);
                 """;
             cmd.ExecuteNonQuery();
+            EnsureCategories(db);
             Refresh();
         }
         catch (Exception ex)
         {
             StatusText.Text = $"Falha ao abrir o banco local: {ex.Message}";
         }
+    }
+
+    private static void EnsureCategories(SqliteConnection db)
+    {
+        using var cmd = db.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM pragma_table_info('entries') WHERE name='category'";
+        if (Convert.ToInt64(cmd.ExecuteScalar()) != 0) return;
+        cmd.CommandText = "ALTER TABLE entries ADD COLUMN category TEXT NOT NULL DEFAULT 'Outros'";
+        cmd.ExecuteNonQuery();
     }
 
     private SqliteConnection Open()
@@ -71,6 +81,7 @@ public partial class MainWindow : Window
     {
         editingId = null;
         SaveEntryButton.Content = "Salvar lançamento";
+        EntryCategory.Text = "";
         EntryNote.Clear();
         EntryAmount.Clear();
         EntryDate.SelectedDate = DateTime.Today;
@@ -89,6 +100,7 @@ public partial class MainWindow : Window
         editingId = row.Id;
         EntryDate.SelectedDate = DateTime.ParseExact(row.Date, "dd/MM/yyyy", Br);
         EntryKind.SelectedIndex = row.Kind == "Receita" ? 1 : 0;
+        EntryCategory.Text = row.Category;
         EntryNote.Text = row.Note;
         EntryAmount.Text = (row.Cents / 100m).ToString("F2", Br);
         SaveEntryButton.Content = "Salvar alterações";
@@ -126,18 +138,21 @@ public partial class MainWindow : Window
             return;
         }
 
+        var category = EntryCategory.Text.Trim();
+        if (category.Length > 80) { StatusText.Text = "A categoria deve ter até 80 caracteres."; return; }
         try
         {
             using var db = Open();
             using var cmd = db.CreateCommand();
             cmd.CommandText = editingId.HasValue
-                ? "UPDATE entries SET day=$day,kind=$kind,note=$note,cents=$cents WHERE id=$id"
-                : "INSERT INTO entries(day,kind,note,cents) VALUES($day,$kind,$note,$cents)";
+                ? "UPDATE entries SET day=$day,kind=$kind,note=$note,cents=$cents,category=$category WHERE id=$id"
+                : "INSERT INTO entries(day,kind,note,cents,category) VALUES($day,$kind,$note,$cents,$category)";
             if (editingId is long id) cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$day", date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
             cmd.Parameters.AddWithValue("$kind", EntryKind.SelectedIndex == 1 ? "income" : "expense");
             cmd.Parameters.AddWithValue("$note", EntryNote.Text.Trim());
             cmd.Parameters.AddWithValue("$cents", (long)(amount * 100));
+            cmd.Parameters.AddWithValue("$category", category.Length == 0 ? "Outros" : category);
             if (cmd.ExecuteNonQuery() != 1) throw new InvalidOperationException("O lançamento não está mais disponível.");
         }
         catch (Exception ex)
@@ -212,7 +227,7 @@ public partial class MainWindow : Window
         long income = 0, expenses = 0;
         using var db = Open();
         using var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT day, kind, note, cents, id FROM entries WHERE day LIKE $month ORDER BY day DESC, id DESC";
+        cmd.CommandText = "SELECT day, kind, note, cents, id, category FROM entries WHERE day LIKE $month ORDER BY day DESC, id DESC";
         cmd.Parameters.AddWithValue("$month", month + "-%");
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
@@ -226,7 +241,7 @@ public partial class MainWindow : Window
                 else expenses += cents;
             }
             rows.Add(new EntryRow(DateTime.ParseExact(day, "yyyy-MM-dd", CultureInfo.InvariantCulture).ToString("dd/MM/yyyy", Br),
-                isIncome ? "Receita" : "Despesa", reader.GetString(2), Money(cents), reader.GetInt64(4), cents));
+                isIncome ? "Receita" : "Despesa", reader.GetString(2), Money(cents), reader.GetInt64(4), cents, reader.GetString(5)));
         }
         Entries.ItemsSource = rows;
         Income.Text = Money(income);
@@ -293,5 +308,5 @@ public partial class MainWindow : Window
         }
     }
 
-    public sealed record EntryRow(string Date, string Kind, string Note, string Amount, long Id, long Cents);
+    public sealed record EntryRow(string Date, string Kind, string Note, string Amount, long Id, long Cents, string Category);
 }
