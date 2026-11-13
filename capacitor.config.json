@@ -1,0 +1,11 @@
+{
+  "appId": "br.com.reservasimples.app",
+  "appName": "Reserva Simples",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
