@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.24",
+  "version": "0.39.25",
   "channel": "rc1",
-  "updatedAt": "2026-11-13T19:47:42.664Z",
+  "updatedAt": "2026-11-13T19:56:01.663Z",
   "source": "same-origin PWA release",
-  "notes": "Melhora espaçamento dos cards do Hoje e bloqueia recarga acidental, liberando o reload controlado durante a atualização."
+  "notes": "Permite pausar lembretes de reserva sem alterar valores e corrige o filtro de Outras categorias para abrir os lançamentos correspondentes."
 }
