@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.19",
+  "version": "0.39.20",
   "channel": "rc1",
-  "updatedAt": "2026-11-13T19:09:45.804Z",
+  "updatedAt": "2026-11-13T19:14:13.306Z",
   "source": "same-origin PWA release",
-  "notes": "Corrige revisão de categorias, reserva vinculada após resgates e limite diário com resgates futuros."
+  "notes": "Insights permite vincular investimentos existentes aos recebimentos sem criar duplicatas."
 }
