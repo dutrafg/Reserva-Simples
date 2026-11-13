@@ -1,0 +1,17 @@
+{
+  "name": "reserva-simples-android",
+  "version": "0.38.17",
+  "private": true,
+  "description": "Empacotamento Android Capacitor do Reserva Simples, sem alterar app web",
+  "scripts": {
+    "android:prepare": "node android-capacitor/prepare.mjs",
+    "android:verify": "node android-capacitor/verify.mjs"
+  },
+  "dependencies": {
+    "@capacitor/core": "8.6.0",
+    "@capacitor/android": "8.6.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.0"
+  }
+}
