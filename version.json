@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.38.5",
+  "version": "0.38.6",
   "channel": "stable",
-  "updatedAt": "2026-11-12T00:00:00Z",
+  "updatedAt": "2026-11-13T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "PDF é gerado sem abrir outra janela; seleção de período e link de download funcionam na própria tela, inclusive no celular."
+  "notes": "Correções de integridade financeira, importação CSV, previsões, relatórios PDF e navegação móvel."
 }

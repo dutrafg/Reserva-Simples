@@ -232,9 +232,9 @@ body.dark .quick-add-option.goal>svg{background:#203855;color:#8bbaff}
 .floating-nav{width:max-content;max-width:calc(100vw - 24px);grid-template-columns:repeat(5,minmax(78px,1fr));align-items:stretch;gap:2px}
 .floating-nav .nav-button{width:100%;min-width:0;padding-inline:5px}
 .nav-add{place-self:center;width:46px;height:46px;align-self:center;justify-self:center;line-height:0;padding:0;margin:0}
-@media(max-width:1050px){.floating-nav{max-width:calc(100vw - 36px);grid-template-columns:repeat(5,minmax(0,1fr))}}
-@media(max-width:760px){.header-intro{width:100%}.header-settings{min-width:56px;min-height:50px}.floating-nav{width:calc(100vw - 20px);max-width:540px;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px;padding:6px}.floating-nav .nav-button{min-height:54px;padding:5px 2px}.nav-add{width:42px;height:42px}}
-@media(max-width:390px){.floating-nav{width:calc(100vw - 12px);max-width:none;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;padding:5px}.floating-nav .nav-button{padding-inline:1px;font-size:8.5px}.nav-short{font-size:8px}.nav-add{width:36px;height:36px}}
+@media(max-width:1050px){.floating-nav{max-width:calc(100vw - 36px);grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media(max-width:760px){.header-intro{width:100%}.header-settings{min-width:56px;min-height:50px}.floating-nav{width:calc(100vw - 20px);max-width:540px;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px;padding:6px}.floating-nav .nav-button{min-height:54px;padding:5px 2px}.nav-add{width:42px;height:42px}}
+@media(max-width:390px){.floating-nav{width:calc(100vw - 12px);max-width:none;grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;padding:5px}.floating-nav .nav-button{padding-inline:1px;font-size:8.5px}.nav-short{font-size:8px}.nav-add{width:36px;height:36px}}
 
 /* v0.20 — engrenagem inspirada no Ajustes do iOS */
 .header-settings svg{width:34px;height:34px;padding:7px;border:1px solid rgba(75,88,102,.16);border-radius:11px;background:linear-gradient(145deg,#fbfcfd,#dfe5eb);box-shadow:0 2px 6px rgba(30,48,70,.14),inset 0 1px 0 rgba(255,255,255,.9);color:#6e7b88;stroke:none}
@@ -392,7 +392,7 @@ body[data-palette="plum"] .btn.primary{background:#7444a5;color:#fff}
   .shell,body.sidebar-compact .shell{display:block}
   #desktopSidebar,.sidebar-control{display:none}
   #headerSettings{display:inline-flex}
-  #mobileNav{display:grid;width:min(520px,calc(100% - 20px));grid-template-columns:repeat(5,minmax(0,1fr));bottom:max(8px,env(safe-area-inset-bottom))}
+  #mobileNav{display:grid;width:min(520px,calc(100% - 20px));grid-template-columns:repeat(6,minmax(0,1fr));bottom:max(8px,env(safe-area-inset-bottom))}
   #mobileNav :is(.nav-button,.nav-add){min-height:44px}
   .main{padding-block:18px calc(100px + env(safe-area-inset-bottom));padding-inline:clamp(12px,3vw,28px)}
   .header{display:flex;flex-wrap:wrap;align-items:center;gap:12px}

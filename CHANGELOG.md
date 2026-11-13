@@ -1,5 +1,15 @@
 # Histórico de alterações
 
+# Histórico de alterações
+
+## v0.38.6
+
+- Corrigidos os vínculos e saldos de investimentos, metas e lotes pecuários, incluindo resgate parcial e remoção de aplicações.
+- Corrigidos sinais do fluxo financeiro, importação/exportação CSV, detecção de duplicados e limites de orçamento.
+- Ajustadas projeções com eventos vencidos, datas de vencimento e fluxo diário.
+- Relatórios PDF agora preservam colunas tabulares, orientação paisagem e dados da carteira.
+- Corrigidos controles de backup, restauração e limpeza de dados; investimentos voltaram à navegação móvel.
+
 ## v0.38.5
 
 - O relatório financeiro é gerado na própria tela, sem abrir outra janela.

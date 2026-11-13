@@ -77,7 +77,7 @@
       savingExample: items.length ? Math.round(items[0].amount * 0.10) : 0 };
   }
   const balanceAt = (db, id, y, m) => sum((db.allocations || [])
-    .filter(x => x.jarId === id && asPeriod(x.date) <= period(y, m)).map(x => x.amount));
+    .filter(x => x.jarId === id && asPeriod(x.date) <= period(y, m)).map(x => x.amount)) + Number(db.goalBalanceAdjustments?.[period(y,m)]?.[id] || 0);
   function goal(db, jar, y, m) {
     const selectedKey=period(y,m),current=balanceAt(db,jar.id,y,m);
     const pending=Math.max(0,jar.target-current),deadline=asPeriod(jar.dueDate),dueYear=Number(deadline.slice(0,4)),dueMonth=Number(deadline.slice(5,7))-1;
@@ -135,3 +135,4 @@
   }
   return Object.freeze({ investmentCashEvents, monthData, history, median, forecast, categories, balanceAt, goal, goals, insights });
 });
+
