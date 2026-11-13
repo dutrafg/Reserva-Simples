@@ -2,6 +2,10 @@
 
 # Histórico de alterações
 
+## v0.38.7
+
+- O relatório PDF ganhou identidade visual do Reserva Simples, cartões de resumo, tabelas alinhadas e paginação consistente.
+
 ## v0.38.6
 
 - Corrigidos os vínculos e saldos de investimentos, metas e lotes pecuários, incluindo resgate parcial e remoção de aplicações.

@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.38.6",
+  "version": "0.38.7",
   "channel": "stable",
-  "updatedAt": "2026-11-13T00:00:00Z",
+  "updatedAt": "2026-11-12T00:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Correções de integridade financeira, importação CSV, previsões, relatórios PDF e navegação móvel."
+  "notes": "Relatório PDF redesenhado com identidade visual do aplicativo, cartões de resumo, tabelas organizadas e paginação para celular e desktop."
 }
