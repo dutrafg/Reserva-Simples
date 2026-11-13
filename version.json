@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.10",
+  "version": "0.39.11",
   "channel": "rc1",
-  "updatedAt": "2026-11-13T17:56:46.127Z",
+  "updatedAt": "2026-11-13T18:16:09.565Z",
   "source": "same-origin PWA release",
-  "notes": "No módulo Hoje, os cards Gastos por categoria e Fluxo mês a mês ficam em duas colunas no desktop e empilhados em telas menores."
+  "notes": "Painel Hoje: resumo e investimentos conectados à reserva mensal; visão geral com detalhes e ações por card; previsto x realizado e agenda lado a lado no desktop; cota compacta e cartões de dica, reserva e metas."
 }
