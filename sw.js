@@ -3,7 +3,7 @@ const FILES = ['./', './index.html', './app.js', './engines.js', './manifest.web
 const assets = new Set(FILES.map(path => new URL(path, self.registration.scope).href));
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES.map(path => new Request(new URL(path, self.registration.scope), {cache:'reload'})))));
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES.map(path => new Request(new URL(path, self.registration.scope), {cache:'reload'})))).then(() => self.skipWaiting()));
 });
 self.addEventListener('message', event => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
