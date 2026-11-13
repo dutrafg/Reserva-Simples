@@ -1,11 +1,18 @@
 <Window x:Class="ReservaSimples.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Reserva Simples" Width="1000" Height="690" MinWidth="640" MinHeight="480" Background="#F3F6FB">
+        Title="Reserva Simples" Width="1000" Height="690" MinWidth="640" MinHeight="480" Background="#F5F8FD" FontFamily="Segoe UI" WindowStartupLocation="CenterScreen">
+
+  <Window.Resources>
+    <Style TargetType="Button"><Setter Property="Background" Value="#1762C4"/><Setter Property="Foreground" Value="White"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="14,9"/><Setter Property="Margin" Value="0,0,8,8"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></ControlTemplate></Setter.Value></Setter></Style>
+    <Style TargetType="TextBox"><Setter Property="Padding" Value="10,8"/><Setter Property="Margin" Value="0,3,0,8"/><Setter Property="BorderBrush" Value="#D8E2F0"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Background" Value="White"/></Style>
+    <Style TargetType="ComboBox"><Setter Property="Padding" Value="8"/><Setter Property="Margin" Value="0,3,0,8"/></Style>
+    <Style TargetType="DataGrid"><Setter Property="Background" Value="White"/><Setter Property="BorderBrush" Value="#D8E2F0"/><Setter Property="RowBackground" Value="White"/><Setter Property="AlternatingRowBackground" Value="#F5F8FD"/><Setter Property="GridLinesVisibility" Value="Horizontal"/><Setter Property="HeadersVisibility" Value="Column"/></Style>
+  </Window.Resources>
   <Grid>
     <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-    <StackPanel Background="#112C55">
+    <StackPanel Background="#102B55">
       <TextBlock Text="Reserva Simples" Margin="18,25" Foreground="White" FontSize="19" FontWeight="Bold"/>
-      <Button Content="Hoje" Margin="14,0,14,8" Padding="12" Click="ShowToday"/>
-      <Button Content="Lançamentos" Margin="14,0,14,8" Padding="12" Click="ShowEntries"/>
+      <Button Content="Hoje" Margin="12,0,12,8" Padding="12" Background="#244B80" Click="ShowToday"/>
+      <Button Content="Lançamentos" Margin="12,0,12,8" Padding="12" Click="ShowEntries"/>
       <Button Content="Metas" Margin="14,0,14,8" Padding="12" Click="ShowGoals"/>
       <Button Content="Investimentos" Margin="14,0,14,8" Padding="12" Click="ShowPortfolio"/>
       <Button Content="Insights e PDF" Margin="14,0,14,8" Padding="12" Click="ShowInsights"/>
@@ -19,10 +26,10 @@
           <Border Background="White" Padding="12" CornerRadius="8"><StackPanel><TextBlock Text="Saldo do mês"/><TextBlock x:Name="Balance" FontSize="18" FontWeight="Bold"/></StackPanel></Border>
         </UniformGrid>
         <WrapPanel Margin="0,0,0,10">
-          <Button Content="Anterior" Click="PreviousMonth" Padding="9,5"/>
+          <Button Content="Anterior" Click="PreviousMonth"/>
           <TextBlock x:Name="MonthLabel" Margin="10,0" VerticalAlignment="Center"/>
-          <Button Content="Próximo" Click="NextMonth" Padding="9,5"/>
-          <Button Content="Mês atual" Click="CurrentMonth" Padding="9,5" Margin="8,0"/>
+          <Button Content="Próximo" Click="NextMonth"/>
+          <Button Content="Mês atual" Click="CurrentMonth"/>
           <Button Content="Importar lançamentos do PWA" Click="ImportPwa" Padding="9,5" Margin="0,0,8,0"/><Button Content="Criar backup" Click="BackupDatabase" Padding="9,5"/><Button Content="Restaurar backup" Click="RestoreDatabase" Padding="9,5" Margin="8,0,0,0"/>
         </WrapPanel>
         <Border Background="White" Padding="12" CornerRadius="8" Margin="0,0,0,12">
@@ -41,7 +48,7 @@
           <WrapPanel><Button x:Name="SaveEntryButton" Content="Salvar lançamento" Padding="10,6" Click="SaveEntry"/><Button Content="Cancelar edição" Margin="8,0" Padding="10,6" Click="CancelEdit"/></WrapPanel>
         </StackPanel>
         <TextBlock x:Name="StatusText" TextWrapping="Wrap" Margin="0,8"/>
-        <WrapPanel Margin="0,0,0,8"><Button Content="Editar selecionado" Padding="10,6" Click="EditEntry"/><Button Content="Excluir selecionado" Margin="8,0" Padding="10,6" Click="DeleteEntry"/></WrapPanel><WrapPanel Margin="0,0,0,8"><Button Content="Tornar despesa recorrente" Click="AddRecurring" Padding="10,6"/><Button Content="Contas recorrentes" Click="ManageRecurring" Margin="8,0" Padding="10,6"/></WrapPanel><DataGrid SelectionMode="Single" SelectionUnit="FullRow" x:Name="Entries" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="340">
+        <WrapPanel x:Name="EntryActions" Margin="0,0,0,8"><Button Content="Editar selecionado" Padding="10,6" Click="EditEntry"/><Button Content="Excluir selecionado" Margin="8,0" Padding="10,6" Click="DeleteEntry"/></WrapPanel><WrapPanel x:Name="RecurringActions" Margin="0,0,0,8"><Button Content="Tornar despesa recorrente" Click="AddRecurring" Padding="10,6"/><Button Content="Contas recorrentes" Click="ManageRecurring" Margin="8,0" Padding="10,6"/></WrapPanel><DataGrid x:Name="EntriesGrid" SelectionMode="Single" SelectionUnit="FullRow" x:Name="Entries" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MaxHeight="340">
           <DataGrid.Columns><DataGridTextColumn Header="Data" Binding="{Binding Date}" Width="85"/><DataGridTextColumn Header="Tipo" Binding="{Binding Kind}" Width="85"/><DataGridTextColumn Header="Categoria" Binding="{Binding Category}" Width="105"/><DataGridTextColumn Header="Descrição" Binding="{Binding Note}" Width="*"/><DataGridTextColumn Header="Valor" Binding="{Binding Amount}" Width="110"/></DataGrid.Columns>
         </DataGrid>
       </StackPanel>
