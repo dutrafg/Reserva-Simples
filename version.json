@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.7",
-  "channel": "rc3",
-  "updatedAt": "2026-11-13T17:43:30.456Z",
+  "version": "0.39.8",
+  "channel": "rc1",
+  "updatedAt": "2026-11-13T17:47:35.849Z",
   "source": "same-origin PWA release",
-  "notes": "Corrige o módulo Hoje para mostrar o saldo disponível do mês; receitas e despesas continuam mostrando o movimento do período selecionado."
+  "notes": "Corrige o contraste do card de saldo na paleta Preto/amarelo no tema claro e mantém a correção do saldo disponível mensal no módulo Hoje."
 }
