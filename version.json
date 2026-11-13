@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.6",
-  "channel": "rc2",
-  "updatedAt": "2026-11-13T14:25:00-03:00",
+  "version": "0.39.7",
+  "channel": "rc3",
+  "updatedAt": "2026-11-13T17:43:30.456Z",
   "source": "same-origin PWA release",
-  "notes": "Barra desktop/tablet integrada ao título do módulo. Configurações reorganizadas com quatro cartões em uma linha ampla, paletas visuais, cofre dentro do backup em pasta e cartões compactos."
+  "notes": "Corrige o módulo Hoje para mostrar o saldo disponível do mês; receitas e despesas continuam mostrando o movimento do período selecionado."
 }
