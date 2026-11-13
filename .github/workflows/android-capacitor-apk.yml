@@ -1,0 +1,57 @@
+name: Android — Reserva Simples Capacitor (APK beta)
+
+on:
+  push:
+    branches:
+      - android/capacitor-beta
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    name: Gerar APK Android para teste
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Android SDK
+        uses: android-actions/setup-android@v4
+      - name: Verificar sintaxe dos módulos originais
+        run: |
+          node --check app.js
+          node --check engines.js
+      - name: Preparar pacote local Android (sem PWA)
+        run: |
+          node android-capacitor/prepare.mjs
+          node --check www/app.js
+          node android-capacitor/verify.mjs
+      - name: Instalar Capacitor 8
+        run: npm install --no-save --package-lock=false @capacitor/core@8.6.0 @capacitor/android@8.6.0 @capacitor/cli@8.6.0
+      - name: Criar e sincronizar projeto Android
+        run: |
+          npx cap add android
+          npx cap sync android
+      - name: Compilar APK debug
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: Publicar APK nos artefatos
+        uses: actions/upload-artifact@v4
+        with:
+          name: Reserva-Simples-Android-Capacitor-Beta
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+          if-no-files-found: error
