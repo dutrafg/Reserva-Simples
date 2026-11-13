@@ -5,15 +5,21 @@ on:
     branches:
       - android/capacitor-beta
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Publicar uma release Android assinada no GitHub (requer secrets de assinatura)"
+        type: boolean
+        required: true
+        default: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   apk:
-    name: Gerar APK Android para teste
+    name: Gerar APK Android e validar atualização nativa
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,30 +34,72 @@ jobs:
           java-version: '21'
       - name: Android SDK
         uses: android-actions/setup-android@v4
+      - name: Instalar Capacitor e empacotador
+        run: npm install --no-package-lock
       - name: Verificar sintaxe dos módulos originais
         run: |
           node --check app.js
           node --check engines.js
-      - name: Preparar pacote local Android (sem PWA)
+      - name: Preparar pacote Android e ponte nativa
         run: |
           node android-capacitor/prepare.mjs
+          npx esbuild android-capacitor/native-updater-bridge.js --bundle --format=iife --platform=browser --outfile=www/android-updater-bridge.js
           node --check www/app.js
+          node --check www/android-updater-bridge.js
           node android-capacitor/verify.mjs
-      - name: Instalar Capacitor 8
-        run: npm install --no-save --package-lock=false @capacitor/core@8.6.0 @capacitor/android@8.6.0 @capacitor/cli@8.6.0
       - name: Criar e sincronizar projeto Android
         run: |
           npx cap add android
           npx cap sync android
-      - name: Compilar APK debug
+      - name: Aplicar WindowInsets, plugin nativo e versionamento
+        env:
+          RESERVA_ANDROID_KEYSTORE_BASE64: ${{ secrets.RESERVA_ANDROID_KEYSTORE_BASE64 }}
+          RESERVA_ANDROID_STORE_PASSWORD: ${{ secrets.RESERVA_ANDROID_STORE_PASSWORD }}
+          RESERVA_ANDROID_KEY_ALIAS: ${{ secrets.RESERVA_ANDROID_KEY_ALIAS }}
+          RESERVA_ANDROID_KEY_PASSWORD: ${{ secrets.RESERVA_ANDROID_KEY_PASSWORD }}
+        run: |
+          if [[ -n "$RESERVA_ANDROID_KEYSTORE_BASE64" ]]; then
+            printf '%s' "$RESERVA_ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release-keystore.jks
+            chmod 600 android/app/release-keystore.jks
+          fi
+          node android-capacitor/patch-native.mjs
+      - name: Compilar APK debug para testes
         working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
-      - name: Publicar APK nos artefatos
+      - name: Publicar APK de teste
         uses: actions/upload-artifact@v4
         with:
           name: Reserva-Simples-Android-Capacitor-Beta
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
           if-no-files-found: error
+      - name: Exigir secrets para publicação Android
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release }}
+        env:
+          RESERVA_ANDROID_KEYSTORE_BASE64: ${{ secrets.RESERVA_ANDROID_KEYSTORE_BASE64 }}
+          RESERVA_ANDROID_STORE_PASSWORD: ${{ secrets.RESERVA_ANDROID_STORE_PASSWORD }}
+          RESERVA_ANDROID_KEY_ALIAS: ${{ secrets.RESERVA_ANDROID_KEY_ALIAS }}
+          RESERVA_ANDROID_KEY_PASSWORD: ${{ secrets.RESERVA_ANDROID_KEY_PASSWORD }}
+        run: |
+          test -n "$RESERVA_ANDROID_KEYSTORE_BASE64"
+          test -n "$RESERVA_ANDROID_STORE_PASSWORD"
+          test -n "$RESERVA_ANDROID_KEY_ALIAS"
+          test -n "$RESERVA_ANDROID_KEY_PASSWORD"
+      - name: Compilar release Android assinada
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release }}
+        working-directory: android
+        env:
+          RESERVA_ANDROID_STORE_PASSWORD: ${{ secrets.RESERVA_ANDROID_STORE_PASSWORD }}
+          RESERVA_ANDROID_KEY_ALIAS: ${{ secrets.RESERVA_ANDROID_KEY_ALIAS }}
+          RESERVA_ANDROID_KEY_PASSWORD: ${{ secrets.RESERVA_ANDROID_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+      - name: Publicar release Android no GitHub
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test -s android/app/build/outputs/apk/release/app-release.apk
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('version.json', 'utf8')).version")
+          gh release create "android-v${VERSION}"             "android/app/build/outputs/apk/release/app-release.apk#reserva-simples-android.apk"             --title "Reserva Simples Android v${VERSION}"             --notes "Atualização Android assinada. O APK é validado por SHA-256 antes da instalação. Faça backup dos seus dados antes de atualizar."             --target "$GITHUB_SHA"
