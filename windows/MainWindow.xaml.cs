@@ -67,7 +67,7 @@ public partial class MainWindow : Window
         EntryEditor.Visibility = Visibility.Collapsed;
         EntryActions.Visibility = Visibility.Collapsed;
         RecurringActions.Visibility = Visibility.Collapsed;
-        EntriesGrid.Visibility = Visibility.Collapsed;
+        Entries.Visibility = Visibility.Collapsed;
     }
 
     private void ShowEntries(object sender, RoutedEventArgs e)
@@ -76,7 +76,7 @@ public partial class MainWindow : Window
         EntryEditor.Visibility = Visibility.Visible;
         EntryActions.Visibility = Visibility.Visible;
         RecurringActions.Visibility = Visibility.Visible;
-        EntriesGrid.Visibility = Visibility.Visible;
+        Entries.Visibility = Visibility.Visible;
     }
 
     private static string Money(long cents) => (cents / 100m).ToString("C2", Br);
