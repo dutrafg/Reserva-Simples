@@ -10,7 +10,7 @@ const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purp
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='0.39.19';
+const APP_VERSION='0.39.20';
 const diagnostics = (() => {
   const key = 'reserva.diagnostics.v1';
   const sessionKey = key + '.active';
@@ -1059,14 +1059,33 @@ function incomeReserveStatus(record){
 function incomeReserveCard(records){
  const entries=records.filter(r=>r.kind==='income'&&r.date<=isoToday());
  if(!entries.length)return '';
- return '<article class="card">'+cardTitle('Você guardou 10% de cada recebimento?','Confirme após guardar e informe a instituição no registro da aplicação.')+entries.map(r=>{
+ return '<article class="card">'+cardTitle('Você guardou 10% de cada recebimento?','O Insights verifica a carteira. Vincule um aporte já cadastrado ou registre um novo.')+entries.map(r=>{
    const status=incomeReserveStatus(r);
    const places=db.investments.filter(item=>item.incomeRecordId===r.id).map(item=>esc(item.institution)).join(', ');
    return '<div class="soft-tip"><strong>'+(r.source==='salary'?'Salário':'Complemento')+' · '+dateBR(r.date)+'</strong><p>Meta '+money(status.target)+' · guardado '+money(status.saved)+(places?' em '+places:'')+'</p>'+
-    (status.remaining?'<p>Falta '+money(status.remaining)+'</p><button type="button" class="btn small" data-reserve-income="'+esc(r.id)+'">Sim, registrar valor guardado</button>':'<p>Meta atingida</p>')+'</div>';
+    (status.remaining?'<p>Falta '+money(status.remaining)+'</p><button type="button" class="btn small" data-reserve-income="'+esc(r.id)+'">Registrar novo aporte</button> <button type="button" class="btn small" data-link-reserve-income="'+esc(r.id)+'">Vincular investimento existente</button>':'<p>Meta atingida</p>')+'</div>';
  }).join('')+'</article>';
 }
-document.addEventListener('click',event=>{
+function showExistingReserveInvestments(record){
+ const remaining=incomeReserveStatus(record).remaining;
+ const candidates=db.investments.filter(item=>item.status!=='sold'&&!item.incomeRecordId&&item.date>=record.date&&item.date<=isoToday()&&item.cost>0&&item.cost<=remaining);
+ let dialog=$('#reserveInvestmentDialog');
+ if(!dialog){dialog=document.createElement('dialog');dialog.id='reserveInvestmentDialog';dialog.className='calendar-day-dialog';document.body.append(dialog)}
+ dialog.innerHTML='<div class="calendar-day-dialog-top"><strong>Vincular investimento existente</strong><button type="button" data-close-reserve-dialog>Fechar</button></div><p>Vincular não cria outro investimento nem altera os valores da carteira.</p><div class="calendar-day-dialog-content">'+(candidates.length?candidates.map(item=>'<button type="button" class="btn" data-select-reserve-investment="'+esc(item.id)+'"><strong>'+esc(item.name)+'</strong><br>'+esc(item.institution)+' · '+money(item.cost)+' · '+dateBR(item.date)+'</button>').join(''):'<p>Não encontrei investimento disponível com valor dentro do restante da meta deste recebimento.</p>')+'</div>';
+ dialog.dataset.incomeId=record.id;dialog.showModal();
+}
+document.addEventListener('click',async event=>{
+ const close=event.target.closest('[data-close-reserve-dialog]');
+ if(close){$('#reserveInvestmentDialog')?.close();return}
+ const select=event.target.closest('[data-select-reserve-investment]');
+ if(select){
+  const dialog=$('#reserveInvestmentDialog'),record=db.records.find(r=>r.id===dialog?.dataset.incomeId),item=db.investments.find(x=>x.id===select.dataset.selectReserveInvestment);
+  if(!record||!item||item.incomeRecordId||item.status==='sold'||item.cost>incomeReserveStatus(record).remaining)return notify('A carteira mudou. Atualizei a confirmação para evitar duplicidade.');
+  if(await mutate(()=>{item.incomeRecordId=record.id}))dialog.close();
+  return;
+ }
+ const link=event.target.closest('[data-link-reserve-income]');
+ if(link){const record=db.records.find(r=>r.kind==='income'&&r.id===link.dataset.linkReserveIncome);if(record&&incomeReserveStatus(record).remaining>0)showExistingReserveInvestments(record);return}
  const button=event.target.closest('[data-reserve-income]');
  if(!button)return;
  const record=db.records.find(r=>r.kind==='income'&&r.id===button.dataset.reserveIncome);
