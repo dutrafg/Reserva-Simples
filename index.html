@@ -510,7 +510,12 @@ body.dark .calendar-day.has-appointment{background:color-mix(in srgb,var(--calen
 
 <style id="saved-ideas-styles">.home-forecast-card .forecast-row{padding:12px 0;border-bottom:1px solid var(--line,#dfe6ef)}.forecast-row>div:first-child{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px}.forecast-row>div:first-child span{font-weight:700;margin-right:auto}.forecast-row small{font-size:.78em;color:var(--muted,#6b7787);font-weight:500}.forecast-track{height:9px;border-radius:20px;background:var(--surface-2,#eaf0f7);position:relative;overflow:hidden}.forecast-track i,.forecast-track em{position:absolute;inset:0 auto 0 0;border-radius:20px}.forecast-track em{height:3px;top:3px;background:var(--text,#14314d);opacity:.75}.monthly-close-card #monthlyCloseChecklist{display:grid;gap:12px}.monthly-close-card label,.csv-reconcile{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line,#dfe6ef);border-radius:12px}.monthly-close-card input,.csv-reconcile input{width:20px;height:20px;accent-color:var(--primary,#1762c4)}.csv-category{max-width:160px;min-height:36px;border:1px solid var(--line,#dfe6ef);border-radius:8px;background:var(--surface,#fff);color:inherit;padding:4px}.csv-reconcile{margin:12px 0}.bank-csv-preview .help{display:block;font-size:.8em}.nav-short{white-space:nowrap}@media(max-width:600px){.forecast-row>div:first-child{gap:7px}.forecast-row>div:first-child span{flex-basis:100%}.csv-category{max-width:125px;font-size:.82rem}}
 </style>
-</head>
+<style id="carbon-dashboard-contrast-fix">
+body[data-palette="carbon"]:not(.dark) .today-card .today-amount{color:#ffd43b!important;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+body[data-palette="carbon"]:not(.dark) .today-card .today-amount.over-budget{color:#ffb4ab!important}
+body[data-palette="carbon"]:not(.dark) .today-card>p,body[data-palette="carbon"]:not(.dark) .today-card .today-overline{color:#f5efdc!important}
+body[data-palette="carbon"]:not(.dark) .today-card .empty-inline{border-color:rgba(255,255,255,.28);background:#f3ead4;color:#514726}
+</style></head>
 <body>
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
  <defs><linearGradient id="settingsSteel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7f9fb"/><stop offset=".24" stop-color="#aeb8c2"/><stop offset=".48" stop-color="#edf1f4"/><stop offset=".72" stop-color="#8995a1"/><stop offset="1" stop-color="#d7dee4"/></linearGradient></defs>
