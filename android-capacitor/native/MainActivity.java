@@ -40,7 +40,13 @@ public class MainActivity extends BridgeActivity {
                     | WindowInsetsCompat.Type.navigationBars()
                     | WindowInsetsCompat.Type.displayCutout());
             view.setPadding(safe.left, safe.top, safe.right, safe.bottom);
-            return WindowInsetsCompat.CONSUMED;
+            // Consome somente as barras já compensadas; preserva o IME
+            // para que formulários reajam normalmente à abertura do teclado.
+            return new WindowInsetsCompat.Builder(windowInsets)
+                    .setInsets(WindowInsetsCompat.Type.statusBars()
+                        | WindowInsetsCompat.Type.navigationBars()
+                        | WindowInsetsCompat.Type.displayCutout(), Insets.NONE)
+                    .build();
         });
         ViewCompat.requestApplyInsets(content);
     }
