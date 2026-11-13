@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.12",
+  "version": "0.39.13",
   "channel": "rc1",
-  "updatedAt": "2026-11-13T18:24:50.345Z",
+  "updatedAt": "2026-11-13T18:32:21.803Z",
   "source": "same-origin PWA release",
-  "notes": "Corrige a inicialização do aplicativo após a atualização do painel Hoje."
+  "notes": "Painel Hoje com ações principais e atalhos secundários recolhidos."
 }
