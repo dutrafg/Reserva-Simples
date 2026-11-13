@@ -1,4 +1,4 @@
-const CACHE = 'reserva-simples-v0.38.15';
+const CACHE = 'reserva-simples-v0.38.17';
 const FILES = ['./', './index.html', './app.js', './engines.js', './manifest.webmanifest', './version.json', './icon.svg', './icon-192.png', './icon-512.png'];
 const assets = new Set(FILES.map(path => new URL(path, self.registration.scope).href));
 
@@ -26,4 +26,16 @@ self.addEventListener('fetch', event => {
   } else if (assets.has(url.href)) {
     event.respondWith(caches.open(CACHE).then(async cache => (await cache.match(request)) || fetch(request)));
   }
+});
+self.addEventListener('notificationclick', event => {
+  const date = event.notification.data?.date;
+  event.notification.close();
+  const target = new URL('./', self.registration.scope);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date || '')) target.searchParams.set('calendarDate', date);
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async clients => {
+    for (const client of clients) {
+      if ('focus' in client) { await client.navigate(target.href); return client.focus(); }
+    }
+    return self.clients.openWindow(target.href);
+  }));
 });

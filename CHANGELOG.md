@@ -1,5 +1,11 @@
 # Histórico de alterações
 
+## v0.38.17
+
+- A agenda permite editar, concluir/reabrir e excluir compromissos; alterações em lançamentos, movimentações e investimentos pedem duas confirmações com aviso de impacto nos valores.
+- Lançamentos aceitam subcategorias e até oito etiquetas; etiquetas e subcategorias podem filtrar a lista e são mantidas na exportação CSV.
+- A tela inicial mostra vencimentos recorrentes dos próximos dias e permite abrir a data no calendário; notificações configuráveis oferecem aviso no dia, 1, 3 ou 7 dias antes.
+
 ## v0.38.15
 
 - Tocar em uma data abre a agenda e os lançamentos do dia em uma sobreposição, com ações para concluir ou excluir tarefas.

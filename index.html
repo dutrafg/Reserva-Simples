@@ -480,7 +480,7 @@ body.dark .tag.good{background:color-mix(in srgb,var(--accent-mint),transparent 
 .calendar-day.has-appointment .calendar-count{color:var(--calendar-day-accent);font-weight:750}
 body.dark .calendar-day.has-appointment{background:color-mix(in srgb,var(--calendar-day-accent) 28%,var(--card));border-color:color-mix(in srgb,var(--calendar-day-accent) 72%,var(--line))}
 
-/* v0.38.15 — toque no dia abre a agenda em sobreposição */
+/* v0.38.17 — etiquetas, subcategorias e lembretes de vencimento */
 .calendar-day-dialog{width:min(600px,calc(100% - 24px));max-width:600px;max-height:86vh;max-height:86dvh;overflow:auto;margin:auto;padding:16px;border:1px solid var(--line);border-radius:20px;background:var(--card);color:var(--ink);box-shadow:0 24px 72px rgba(5,22,48,.3)}
 .calendar-day-dialog::backdrop{background:rgba(6,18,36,.55);backdrop-filter:blur(3px)}
 .calendar-day-dialog-top{position:sticky;top:-16px;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-16px -16px 12px;padding:13px 16px;background:var(--card);border-bottom:1px solid var(--line)}
@@ -489,6 +489,11 @@ body.dark .calendar-day.has-appointment{background:color-mix(in srgb,var(--calen
 .calendar-day-dialog-content>.calendar-detail{padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
 .calendar-day-dialog-content .calendar-detail-head{margin-bottom:10px}
 @media(max-width:520px){.calendar-day-dialog{width:calc(100% - 20px);max-height:82dvh;padding:14px;border-radius:18px}.calendar-day-dialog-top{top:-14px;margin:-14px -14px 11px;padding:11px 14px}}
+
+.calendar-event-row{flex-wrap:wrap}.calendar-event-actions{display:flex;align-items:center;gap:5px;margin-left:auto;flex-wrap:wrap}.calendar-event-actions .btn.small{padding:6px 8px;font-size:10px}.calendar-event-actions .calendar-delete{padding:4px 7px;border-radius:8px}.calendar-event-actions .calendar-delete:hover{background:var(--bg);color:var(--danger)}
+@media(max-width:620px){.calendar-event-row{gap:7px}.calendar-event-actions{width:calc(100% - 41px);margin-left:41px;justify-content:flex-start}.calendar-event-actions .btn.small{min-height:34px}.calendar-event-row>strong{margin-left:auto}}
+
+.transaction-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}.transaction-tags>span,.tag-filter{display:inline-flex;align-items:center;padding:4px 8px;border:1px solid var(--line);border-radius:999px;background:var(--bg);color:var(--muted);font-size:10px;font-weight:700}.transaction-tag-filters{display:grid;gap:7px;margin:12px 0}.transaction-filter-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.transaction-filter-group>span{margin-right:3px;color:var(--muted);font-size:10px;font-weight:750}.tag-filter{cursor:pointer}.tag-filter.selected{border-color:var(--green);background:var(--mint);color:var(--green)}.upcoming-row{width:100%;appearance:none;border:0;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}.upcoming-row:hover .upcoming-day{background:var(--primary);color:#fff}
 </style>
 </head>
 <body>
