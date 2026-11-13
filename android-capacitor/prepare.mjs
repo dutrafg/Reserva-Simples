@@ -28,6 +28,7 @@ const nativeStyle = [
   'html.android-capacitor .toast{bottom:106px}',
   'html.android-capacitor .modal{padding:16px}',
   'html.android-capacitor .dialog{max-height:calc(100dvh - 32px)}',
+  'html.android-capacitor #androidDownloadProgress{display:block;width:100%;height:12px;accent-color:#2776d9;margin-top:12px}',
   '</style>'
 ].join('\n');
 html = html.replace('</head>', nativeStyle + '\n<script>window.RESERVA_ANDROID_CAPACITOR = true;document.documentElement.classList.add("android-capacitor");</script>\n</head>');
@@ -82,9 +83,22 @@ replaceRequired('async function applyUpdate(){',
     let listener;
     try{
       if(!nativeApkVerified){
+        const updateCard=$('#applyUpdateBtn')?.closest('article');
+        let progressBar=$('#androidDownloadProgress');
+        if(!progressBar&&updateCard){
+          progressBar=document.createElement('progress');
+          progressBar.id='androidDownloadProgress';
+          progressBar.max=100;
+          progressBar.value=0;
+          progressBar.setAttribute('aria-label','Progresso do download do APK Android');
+          const actions=$('#applyUpdateBtn')?.closest('.setting-actions');
+          if(actions)actions.insertAdjacentElement('afterend',progressBar);
+        }
+        if(progressBar)progressBar.value=0;
         setUpdateStatus('Iniciando download seguro do APK…','checking');
         listener=await api.addListener('updateProgress',e=>{
           const percentage=Math.max(0,Math.min(100,Number(e.percent)||0));
+          if(progressBar)progressBar.value=percentage;
           setUpdateStatus('Baixando atualização: '+percentage+'%','checking');
         });
         await api.downloadUpdate();
