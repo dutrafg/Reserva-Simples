@@ -1,6 +1,10 @@
 # Histórico de alterações
 
-# Histórico de alterações
+## v0.38.14
+
+- Agenda acessível pelo cabeçalho em todos os módulos; o início exibe próximos compromissos pendentes.
+- Compromissos com cores próprias destacadas no dia do calendário e na lista da agenda.
+- Corrigido o contraste da data atual e sincronizado o cache do PWA.
 
 ## v0.38.7
 

@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.38.7",
+  "version": "0.38.14",
   "channel": "stable",
-  "updatedAt": "2026-11-12T00:00:00Z",
+  "updatedAt": "2026-11-13T11:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Relatório PDF redesenhado com identidade visual do aplicativo, cartões de resumo, tabelas organizadas e paginação para celular e desktop."
+  "notes": "Agenda acessível em todos os módulos, card de próximos compromissos no início e destaque colorido das datas agendadas. Inclui ajustes de contraste e fluxo do calendário."
 }
