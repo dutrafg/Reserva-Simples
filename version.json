@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.23",
+  "version": "0.39.24",
   "channel": "rc1",
-  "updatedAt": "2026-11-13T19:42:32.585Z",
+  "updatedAt": "2026-11-13T19:47:42.664Z",
   "source": "same-origin PWA release",
-  "notes": "Ajusta os botões do formulário de investimento e permite vincular aplicações existentes à reserva sem alterar os saldos ou duplicar aplicações."
+  "notes": "Melhora espaçamento dos cards do Hoje e bloqueia recarga acidental, liberando o reload controlado durante a atualização."
 }
