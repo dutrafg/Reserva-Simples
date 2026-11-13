@@ -534,7 +534,8 @@ body[data-palette="carbon"]:not(.dark) .today-card .empty-inline{border-color:#e
 .overview-category-list b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .overview-category-list small{color:var(--muted)}
 @media(min-width:1100px){
- #page-home .today-top-grid{grid-template-columns:minmax(0,2fr) minmax(300px,1fr)!important}
+ #page-home .today-top-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;align-items:stretch}
+ #page-home .today-top-grid > .market-budget,#page-home .today-top-grid > .today-card{align-self:stretch;margin-block:0}
  .home-desktop-summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:14px 0}
  .home-mobile-summary{display:none!important}
  .home-planning-grid{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
