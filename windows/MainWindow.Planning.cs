@@ -85,8 +85,12 @@ public partial class MainWindow
         var actions = new WrapPanel();
         DockPanel.SetDock(actions, Dock.Top);
         panel.Children.Add(actions);
-        var list = new ListBox { DisplayMemberPath = "Label" };
-        panel.Children.Add(list);
+        var list = new ListBox { DisplayMemberPath = "Label", BorderThickness = new Thickness(0), Background = Brushes.Transparent };
+        var empty = new TextBlock { Text = goalsMode ? "Nenhuma meta cadastrada. Use “Nova meta” para criar seu primeiro objetivo." : "Nenhum investimento cadastrado. Use “Nova aplicação” para adicionar uma posição.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.SlateGray, Margin = new Thickness(14), Visibility = Visibility.Collapsed };
+        var listArea = new Grid();
+        listArea.Children.Add(list);
+        listArea.Children.Add(empty);
+        panel.Children.Add(listArea);
         var dialog = PlanningWindow(goalsMode ? "Metas" : "Investimentos", panel);
         var kind = goalsMode ? "jars" : "investments";
         void RefreshList()
@@ -95,6 +99,7 @@ public partial class MainWindow
             var positions = goalsMode ? ReadPlanning("investments") : items;
             var movements = goalsMode ? ReadPlanning("allocations") : new List<JsonObject>();
             var goalNames = goalsMode ? new Dictionary<string, string>() : ReadPlanning("jars").ToDictionary(x => Text(x,"id"), x => Text(x,"name"));
+            empty.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             list.ItemsSource = items.Select(item =>
             {
                 var name = Text(item, "name", goalsMode ? "Meta importada" : "Aplicação importada");
