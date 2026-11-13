@@ -232,6 +232,30 @@ public class ReservaUpdaterPlugin extends Plugin {
                     while ((n = in.read(b)) != -1) md.update(b, 0, n);
                 }
                 if (!hex(md.digest()).equals(r.sha256)) throw new Exception("A integridade do APK mudou.");
+                PackageManager pm = getContext().getPackageManager();
+                android.content.pm.PackageInfo candidate = pm.getPackageArchiveInfo(file.getAbsolutePath(), 0);
+                android.content.pm.PackageInfo installed = pm.getPackageInfo(getContext().getPackageName(), 0);
+                if (candidate == null
+                        || !getContext().getPackageName().equals(candidate.packageName)
+                        || !r.version.equals(candidate.versionName)) {
+                    throw new Exception("O pacote baixado não corresponde ao Reserva Simples ou à versão anunciada.");
+                }
+                long currentCode = Build.VERSION.SDK_INT >= 28 ? installed.getLongVersionCode() : installed.versionCode;
+                long candidateCode = Build.VERSION.SDK_INT >= 28 ? candidate.getLongVersionCode() : candidate.versionCode;
+                if (candidateCode <= currentCode) {
+                    throw new Exception("O APK não é uma versão Android mais recente.");
+                }
+                if (Build.VERSION.SDK_INT >= 28) {
+                    android.content.pm.PackageInfo currentSigned = pm.getPackageInfo(
+                            getContext().getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
+                    android.content.pm.PackageInfo nextSigned = pm.getPackageArchiveInfo(
+                            file.getAbsolutePath(), PackageManager.GET_SIGNING_CERTIFICATES);
+                    if (currentSigned.signingInfo == null || nextSigned == null || nextSigned.signingInfo == null
+                        || !java.util.Arrays.equals(currentSigned.signingInfo.getApkContentsSigners(),
+                                                     nextSigned.signingInfo.getApkContentsSigners())) {
+                        throw new Exception("Assinatura diferente da versão instalada. Faça backup e instale uma versão assinada de forma permanente.");
+                    }
+                }
                 getActivity().runOnUiThread(() -> {
                     try {
                         if (Build.VERSION.SDK_INT >= 26 && !getContext().getPackageManager().canRequestPackageInstalls()) {
