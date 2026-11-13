@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.11",
+  "version": "0.39.12",
   "channel": "rc1",
-  "updatedAt": "2026-11-13T18:16:09.565Z",
+  "updatedAt": "2026-11-13T18:24:50.345Z",
   "source": "same-origin PWA release",
-  "notes": "Painel Hoje: resumo e investimentos conectados à reserva mensal; visão geral com detalhes e ações por card; previsto x realizado e agenda lado a lado no desktop; cota compacta e cartões de dica, reserva e metas."
+  "notes": "Corrige a inicialização do aplicativo após a atualização do painel Hoje."
 }
