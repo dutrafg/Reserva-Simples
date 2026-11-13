@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.8",
+  "version": "0.39.9",
   "channel": "rc1",
-  "updatedAt": "2026-11-13T17:47:35.849Z",
+  "updatedAt": "2026-11-13T17:51:07.123Z",
   "source": "same-origin PWA release",
-  "notes": "Corrige o contraste do card de saldo na paleta Preto/amarelo no tema claro e mantém a correção do saldo disponível mensal no módulo Hoje."
+  "notes": "Ajusta o card Você ainda pode gastar no tema claro: superfície clara, texto de alto contraste e destaque dourado; preserva o estilo no tema escuro."
 }
