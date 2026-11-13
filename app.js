@@ -10,7 +10,7 @@ const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purp
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='0.39.16';
+const APP_VERSION='0.39.17';
 const diagnostics = (() => {
   const key = 'reserva.diagnostics.v1';
   const sessionKey = key + '.active';
@@ -184,7 +184,7 @@ function verify(src){if(!src||![2,3,4].includes(src.version)||!Array.isArray(src
    });
    const remainingCostBasis=status==='sold'?0:(Number.isSafeInteger(x.remainingCostBasis)&&x.remainingCostBasis>=0&&x.remainingCostBasis<=10000000000?x.remainingCostBasis:x.cost+extraCosts+sum(expenses.map(e=>e.amount)));
    if(remainingCostBasis>10000000000||status==='sold'&&soldDate<x.date)return null;
-   clean.investments.push({id:x.id,name:x.name,institution:x.institution,product:x.product,cost:x.cost,balance:x.balance,date:x.date,checked:x.checked,redemptions:normalizedRedemptions,existing:x.existing===true,goalId:clean.jars.some(j=>j.id===x.goalId)?x.goalId:null,assetType,livestockKind,headCount,initialHeadCount,extraCosts,expenses:expenses.map(e=>({id:String(e.id||uid()),date:e.date,category:e.category,amount:e.amount,note:String(e.note||'').slice(0,140),recordId:typeof e.recordId==='string'?e.recordId:null})),remainingCostBasis,status,soldDate,saleAmount});
+   clean.investments.push({incomeRecordId:typeof x.incomeRecordId==='string'?x.incomeRecordId:null,id:x.id,name:x.name,institution:x.institution,product:x.product,cost:x.cost,balance:x.balance,date:x.date,checked:x.checked,redemptions:normalizedRedemptions,existing:x.existing===true,goalId:clean.jars.some(j=>j.id===x.goalId)?x.goalId:null,assetType,livestockKind,headCount,initialHeadCount,extraCosts,expenses:expenses.map(e=>({id:String(e.id||uid()),date:e.date,category:e.category,amount:e.amount,note:String(e.note||'').slice(0,140),recordId:typeof e.recordId==='string'?e.recordId:null})),remainingCostBasis,status,soldDate,saleAmount});
  
  }
  const marketBudget=src.prefs?.marketBudget;
@@ -361,7 +361,9 @@ async function mutate(callback) {
   try {
     previous = JSON.stringify(db);
     const oldAlert = groceryAlertLevel();
+    const previousIncomeIds=new Set(db.records.filter(r=>r.kind==='income').map(r=>r.id));
     callback();
+    const newIncome=db.records.filter(r=>r.kind==='income'&&!previousIncomeIds.has(r.id));
     if (!verify(db)) {
       db = JSON.parse(previous);
       diagnostics.record('mutation.invalid', undefined, { module: state.page });
@@ -374,6 +376,7 @@ async function mutate(callback) {
     }
     committed = true;
     render();
+    if(newIncome.length)setTimeout(()=>notify('Recebimento registrado. Confira a reserva de 10% no Insights.'),0);
     const alert = groceryAlertLevel();
     if (db.prefs.budgetSound && alert > oldAlert) playBudgetSound(alert === 2);
     return true;
@@ -593,7 +596,7 @@ $('#sidebarToggle').addEventListener('click', () => {
 });
 const desktopActionSets={home:[['Registrar','quick','plus'],['Agenda','go','calendar','calendar'],['7 dias','period','chart','7d'],['Limites','go','target','goals'],['Relatórios','go','report','reports']],transactions:[['Novo lançamento','quick','plus'],['Receitas','filter','income','income'],['Despesas','filter','expense','expense'],['Importar CSV','click','refresh','#bankCsvBtn'],['Exportar CSV','click','report','#csvBtn'],['Contas fixas','open','refresh','recurring']],calendar:[['Novo compromisso','task','plus'],['Hoje','today','calendar'],['Metas','go','target','goals']],goals:[['Nova meta','open','target','jar'],['Registrar aporte','deposit','plus'],['Resgatar','open','wallet','withdraw'],['PDF de metas','clickPage','report','goals|#shareCdbPdfBtn']],investments:[['Novo investimento','investment','plus'],['Investimento existente','investmentExisting','wallet'],['Aportar em meta','deposit','target'],['Atualizar CDI','clickPage','refresh','investments|#refreshCdiBtn']],analysis:[['Lançamentos','go','wallet','transactions'],['Relatórios','go','report','reports'],['Exportar CSV','clickPage','report','transactions|#csvBtn']],reports:[['Gerar PDF','clickPage','report','reports|#globalPdfBtn'],['Lançamentos','go','wallet','transactions'],['Hoje','go','home']],settings:[['Backup','clickPage','wallet','settings|#exportBtn'],['Importar CSV','clickPage','refresh','transactions|#bankCsvBtn'],['Privacidade','privacy','eye']]};
 function renderDesktopModuleBar(){const root=$('#desktopModuleToolbar');if(!root)return;const page=PAGES.find(x=>x[0]===state.page)||PAGES[0],actions=desktopActionSets[state.page]||[];root.innerHTML=`<div class="desktop-module-title"><span>${icon(page[2])}</span><strong>${page[1]}</strong><small>Atalhos</small></div><div class="desktop-module-actions">${actions.map(([label,type,ic,arg=''])=>`<button type="button" class="desktop-module-action" data-desktop-action="${type}" ${type==='go'?'data-route="'+arg+'"':''} ${type==='open'?'data-kind="'+arg+'"':''} ${type==='filter'?'data-filter="'+arg+'"':''} ${type==='click'||type==='clickPage'?'data-target="'+arg+'"':''} ${type==='period'?'data-period="'+arg+'"':''} title="${label}">${icon(ic)}<span>${label}</span></button>`).join('')}</div>`}
-function desktopNotificationItems(){const items=[],today=isoToday();for(const b of upcomingBillInstances(30)){if(b.daysLate>0||b.daysUntil<=7)items.push({kind:'calendar',date:b.date,title:(b.daysLate?'Vencida: ':'Vence em breve: ')+(b.category||'Conta'),detail:`${dateBR(b.date)} · ${money(b.amount)}`,priority:b.daysLate>0?0:1})}for(const t of db.tasks.filter(x=>!x.done&&x.date<=shiftIso(today,7))){items.push({kind:'calendar',date:t.date,title:'Compromisso: '+t.title,detail:`${dateBR(t.date)}${t.time?' · '+t.time:''}`,priority:t.date<today?0:2})}const m=month();for(const [category,limit] of Object.entries(db.prefs.categoryBudgets||{})){const spent=sum(m.records.filter(x=>x.kind==='expense'&&x.category===category).map(x=>x.amount));if(limit>0&&spent>=limit*.8)items.push({kind:'transactions',title:'Limite de '+category,detail:`${money(spent)} de ${money(limit)} usados`,priority:spent>=limit?0:3,filter:'expense'})}return items.sort((a,b)=>a.priority-b.priority).slice(0,12)}
+function desktopNotificationItems(){const items=[],today=isoToday();for(const r of month().records.filter(r=>r.kind==='income'&&r.date<=today)){const {remaining}=incomeReserveStatus(r);if(remaining>0)items.push({kind:'analysis',title:r.source==='salary'?'Reserva do salário':'Reserva da renda complementar',detail:dateBR(r.date)+' · Falta '+money(remaining),priority:1})}for(const b of upcomingBillInstances(30)){if(b.daysLate>0||b.daysUntil<=7)items.push({kind:'calendar',date:b.date,title:(b.daysLate?'Vencida: ':'Vence em breve: ')+(b.category||'Conta'),detail:`${dateBR(b.date)} · ${money(b.amount)}`,priority:b.daysLate>0?0:1})}for(const t of db.tasks.filter(x=>!x.done&&x.date<=shiftIso(today,7))){items.push({kind:'calendar',date:t.date,title:'Compromisso: '+t.title,detail:`${dateBR(t.date)}${t.time?' · '+t.time:''}`,priority:t.date<today?0:2})}const m=month();for(const [category,limit] of Object.entries(db.prefs.categoryBudgets||{})){const spent=sum(m.records.filter(x=>x.kind==='expense'&&x.category===category).map(x=>x.amount));if(limit>0&&spent>=limit*.8)items.push({kind:'transactions',title:'Limite de '+category,detail:`${money(spent)} de ${money(limit)} usados`,priority:spent>=limit?0:3,filter:'expense'})}return items.sort((a,b)=>a.priority-b.priority).slice(0,12)}
 function renderDesktopNotifications(){const button=$('#desktopNotificationBell'),panel=$('#desktopNotificationPanel'),count=$('#desktopNotificationCount');if(!button||!panel)return;const items=desktopNotificationItems();count.hidden=!items.length;count.textContent=items.length>9?'9+':String(items.length);panel.innerHTML=`<div class="notification-panel-head"><strong>Notificações</strong><span>${items.length} alerta${items.length===1?'':'s'}</span></div>${items.length?items.map((x,i)=>`<button type="button" class="desktop-notification-item" data-notification-index="${i}"><i class="notification-dot ${x.priority===0?'urgent':''}"></i><span><b>${esc(x.title)}</b><small>${esc(x.detail)}</small></span><span class="notification-arrow">›</span></button>`).join(''):'<p class="notification-empty">Tudo em dia. Os próximos vencimentos e compromissos aparecerão aqui.</p>'}`;panel.dataset.items=JSON.stringify(items.map(({kind,date,filter})=>({kind,date,filter})))}
 
 function syncDesktopHeaderControls(){
@@ -660,7 +663,7 @@ document.addEventListener('submit',async event=>{
   if(!CATS.includes(category)||!Number.isSafeInteger(budget)||budget<=0||budget>10000000000)return notify('Informe uma categoria e um limite mensal válidos.');
   if(await mutate(()=>{db.prefs.categoryBudgets={...(db.prefs.categoryBudgets||{}),[category]:budget}}))notify(`Limite de ${category} atualizado.`);
 });
-document.addEventListener('click',event=>{const bell=event.target.closest('#desktopNotificationBell');if(bell){const panel=$('#desktopNotificationPanel');panel.hidden=!panel.hidden;bell.setAttribute('aria-expanded',String(!panel.hidden));return}if(!event.target.closest('#desktopNotificationWrap')&&$('#desktopNotificationPanel')){$('#desktopNotificationPanel').hidden=true;$('#desktopNotificationBell')?.setAttribute('aria-expanded','false')}const note=event.target.closest('[data-notification-index]');if(note){const items=JSON.parse($('#desktopNotificationPanel').dataset.items||'[]'),item=items[Number(note.dataset.notificationIndex)];if(item?.kind==='calendar'){const d=new Date(item.date+'T12:00:00');state.year=d.getFullYear();state.month=d.getMonth();state.calendarDate=item.date;go('calendar')}else if(item?.kind==='transactions'){state.txFilter=item.filter||'all';go('transactions')}$('#desktopNotificationPanel').hidden=true;return}const action=event.target.closest('[data-desktop-action]');if(action){const type=action.dataset.desktopAction;if(type==='quick'){openQuickAdd();return}if(type==='go'){go(action.dataset.route);return}if(type==='open'){openModal(action.dataset.kind);return}if(type==='filter'){state.txFilter=action.dataset.filter;go('transactions');return}if(type==='period'){localStorage.setItem('reserva.home.period',action.dataset.period);go('home');return}if(type==='today'){const d=new Date();state.year=d.getFullYear();state.month=d.getMonth();go('calendar');return}if(type==='deposit'){openDepositPicker();return}if(type==='investment'||type==='investmentExisting'){go('investments');requestAnimationFrame(()=>document.querySelector('[data-investment-edit=""]'+(type==='investmentExisting'?'[data-existing="true"]':''))?.click());return}if(type==='privacy'){hideValues=!hideValues;localStorage.setItem('reserva.hideValues',String(hideValues));render();return}if(type==='task'){const d=new Date();state.year=d.getFullYear();state.month=d.getMonth();state.calendarDate=isoToday();go('calendar');requestAnimationFrame(()=>$('#calendarTaskForm input[name="title"]')?.focus());return}if(type==='click'||type==='clickPage'){const [route,selector]=type==='clickPage'?action.dataset.target.split('|'):[state.page,action.dataset.target];if(route!==state.page)go(route);requestAnimationFrame(()=>document.querySelector(selector)?.click());return}}});
+document.addEventListener('click',event=>{const bell=event.target.closest('#desktopNotificationBell');if(bell){const panel=$('#desktopNotificationPanel');panel.hidden=!panel.hidden;bell.setAttribute('aria-expanded',String(!panel.hidden));return}if(!event.target.closest('#desktopNotificationWrap')&&$('#desktopNotificationPanel')){$('#desktopNotificationPanel').hidden=true;$('#desktopNotificationBell')?.setAttribute('aria-expanded','false')}const note=event.target.closest('[data-notification-index]');if(note){const items=JSON.parse($('#desktopNotificationPanel').dataset.items||'[]'),item=items[Number(note.dataset.notificationIndex)];if(item?.kind==='calendar'){const d=new Date(item.date+'T12:00:00');state.year=d.getFullYear();state.month=d.getMonth();state.calendarDate=item.date;go('calendar')}else if(item?.kind==='analysis'){go('analysis')}else if(item?.kind==='transactions'){state.txFilter=item.filter||'all';go('transactions')}$('#desktopNotificationPanel').hidden=true;return}const action=event.target.closest('[data-desktop-action]');if(action){const type=action.dataset.desktopAction;if(type==='quick'){openQuickAdd();return}if(type==='go'){go(action.dataset.route);return}if(type==='open'){openModal(action.dataset.kind);return}if(type==='filter'){state.txFilter=action.dataset.filter;go('transactions');return}if(type==='period'){localStorage.setItem('reserva.home.period',action.dataset.period);go('home');return}if(type==='today'){const d=new Date();state.year=d.getFullYear();state.month=d.getMonth();go('calendar');return}if(type==='deposit'){openDepositPicker();return}if(type==='investment'||type==='investmentExisting'){go('investments');requestAnimationFrame(()=>document.querySelector('[data-investment-edit=""]'+(type==='investmentExisting'?'[data-existing="true"]':''))?.click());return}if(type==='privacy'){hideValues=!hideValues;localStorage.setItem('reserva.hideValues',String(hideValues));render();return}if(type==='task'){const d=new Date();state.year=d.getFullYear();state.month=d.getMonth();state.calendarDate=isoToday();go('calendar');requestAnimationFrame(()=>$('#calendarTaskForm input[name="title"]')?.focus());return}if(type==='click'||type==='clickPage'){const [route,selector]=type==='clickPage'?action.dataset.target.split('|'):[state.page,action.dataset.target];if(route!==state.page)go(route);requestAnimationFrame(()=>document.querySelector(selector)?.click());return}}});
 document.addEventListener('click',event=>{
  const mode=event.target.closest('[data-home-chart-mode]');if(mode){event.preventDefault();event.stopImmediatePropagation();localStorage.setItem('reserva.home.categoryView',mode.dataset.homeChartMode);home();return}
  const homePeriod=event.target.closest('[data-home-period]');if(homePeriod){localStorage.setItem('reserva.home.period',homePeriod.dataset.homePeriod);home();return}
@@ -918,13 +921,21 @@ function toggleInvestmentAssetFields(){
   form.elements.namedItem('balance').closest('label').querySelector('small').textContent=cattle?'Informe uma estimativa atual para o lote.':'Use o valor líquido, após impostos, na data da conferência.';
   $('#investmentTitle').textContent=cattle?'Registrar investimento em pecuária':investmentExisting?'Investimento já existente':'Investimento com débito no saldo';
 }
-function openInvestment(id,existing=false){
+let reserveIncomeId=null;
+function openInvestment(id,existing=false,income=null){
+  reserveIncomeId=income?.id||null;
   const item=db.investments.find(x=>x.id===id);investmentEditId=item?.id??null;investmentExisting=item?item.existing===true:existing;
   const form=$('#investmentForm');form.reset();const goal=form.elements.namedItem('goalId');
   goal.innerHTML='<option value="">Sem vínculo</option>'+db.jars.filter(j=>!j.archived||j.id===item?.goalId).map(j=>`<option value="${esc(j.id)}">${esc(j.name)}</option>`).join('');goal.value=item?.goalId||'';
   form.elements.namedItem('assetType').value=item?.assetType||'financial';
   for(const key of ['name','institution','product','livestockKind','headCount','extraCosts','date','checked','cost','balance']){
     const value=item?.[key];form.elements.namedItem(key).value=value==null?(key==='checked'?isoToday():key==='headCount'?1:''):['cost','balance','extraCosts'].includes(key)?value/100:value;
+  }
+  if(income){
+    form.elements.namedItem('date').value=isoToday();
+    const remaining=incomeReserveStatus(income).remaining/100;
+    form.elements.namedItem('cost').value=remaining;
+    form.elements.namedItem('balance').value=remaining;
   }
   const heads=form.elements.namedItem('headCount');
   heads.readOnly=!!(item?.redemptions||[]).some(r=>r.kind==='sale');
@@ -938,8 +949,13 @@ async function saveInvestment(event){
   const headCount=cattle?(existingItem?.status==='sold'?0:existingItem?.redemptions?.some(r=>r.kind==='sale')?existingItem.headCount:Number(field('headCount'))):null;
   const cost=Math.round(Number(field('cost'))*100),balance=Math.round(Number(field('balance'))*100);
   if(existingItem?.assetType==='livestock'&&(existingItem.redemptions||[]).some(r=>r.kind==='sale')&&(cost!==existingItem.cost||extraCosts!==existingItem.extraCosts))return notify('Após uma venda parcial, o custo do lote e os custos adicionais ficam bloqueados para preservar o custo das vendas registradas.');
-  const item={id:investmentEditId||uid(),existing:investmentExisting,goalId:field('goalId')||null,name:field('name'),institution:field('institution'),product:cattle?'Pecuária · '+field('livestockKind'):field('product'),date:field('date'),checked:field('checked'),cost,balance,assetType:cattle?'livestock':'financial',livestockKind:cattle?field('livestockKind'):null,headCount,initialHeadCount:cattle?(existingItem?.initialHeadCount||headCount):null,extraCosts,expenses:existingItem?.expenses||[],remainingCostBasis:existingItem?(existingItem.remainingCostBasis+cost-existingItem.cost+extraCosts-existingItem.extraCosts):cost+extraCosts,status:existingItem?.status||'active',soldDate:existingItem?.soldDate||null,saleAmount:existingItem?.saleAmount||null,redemptions:existingItem?.redemptions||[]};
+  const item={incomeRecordId:existingItem?.incomeRecordId||reserveIncomeId,id:investmentEditId||uid(),existing:investmentExisting,goalId:field('goalId')||null,name:field('name'),institution:field('institution'),product:cattle?'Pecuária · '+field('livestockKind'):field('product'),date:field('date'),checked:field('checked'),cost,balance,assetType:cattle?'livestock':'financial',livestockKind:cattle?field('livestockKind'):null,headCount,initialHeadCount:cattle?(existingItem?.initialHeadCount||headCount):null,extraCosts,expenses:existingItem?.expenses||[],remainingCostBasis:existingItem?(existingItem.remainingCostBasis+cost-existingItem.cost+extraCosts-existingItem.extraCosts):cost+extraCosts,status:existingItem?.status||'active',soldDate:existingItem?.soldDate||null,saleAmount:existingItem?.saleAmount||null,redemptions:existingItem?.redemptions||[]};
   if(cattle&&((existingItem?.status!=='sold'&&(!Number.isInteger(headCount)||headCount<1||headCount>100000))||!Number.isSafeInteger(extraCosts)||extraCosts<0||extraCosts>10000000000||!Number.isSafeInteger(item.remainingCostBasis)||item.remainingCostBasis<0||item.remainingCostBasis>10000000000))return notify('Informe a quantidade, os custos e o custo restante válidos.');
+  if(reserveIncomeId){
+    const income=db.records.find(record=>record.kind==='income'&&record.id===reserveIncomeId);
+    if(!income||cattle||cost<=0||cost>incomeReserveStatus(income).remaining||item.date<income.date)
+      return notify('Confira o valor restante da reserva e informe uma aplicação financeira com data igual ou posterior ao recebimento.');
+  }
   if(item.checked<item.date||item.checked>isoToday())return notify('A conferência deve ocorrer entre a data da aplicação e hoje.');
   if(existingItem?.status==='sold'&&item.assetType==='livestock'){item.balance=0;item.headCount=0;item.remainingCostBasis=0;}
   if(calendarInvestmentEditPending&&!confirm('Confirma salvar? Isso mudará os valores registrados neste investimento e poderá alterar totais da carteira e relatórios.'))return;if(await mutate(()=>{const index=db.investments.findIndex(x=>x.id===item.id);if(index<0)db.investments.push(item);else db.investments[index]={...item,redemptions:db.investments[index].redemptions??[]};}))$('#investmentDialog').close();
@@ -1027,6 +1043,27 @@ function paydayPaceCard(m) {
  <p class="help">O cálculo desconta saídas registradas e contas recorrentes pendentes. Receitas futuras ficam fora da estimativa.</p>
  <button class="btn small" data-page="transactions">Conferir gastos</button></article>`;
 }
+function incomeReserveStatus(record){
+ const target=Math.round(record.amount/10);
+ const saved=sum(db.investments.filter(item=>item.incomeRecordId===record.id).map(item=>item.cost));
+ return {target,saved,remaining:Math.max(0,target-saved)};
+}
+function incomeReserveCard(records){
+ const entries=records.filter(r=>r.kind==='income'&&r.date<=isoToday());
+ if(!entries.length)return '';
+ return '<article class="card">'+cardTitle('Você guardou 10% de cada recebimento?','Confirme após guardar e informe a instituição no registro da aplicação.')+entries.map(r=>{
+   const status=incomeReserveStatus(r);
+   const places=db.investments.filter(item=>item.incomeRecordId===r.id).map(item=>esc(item.institution)).join(', ');
+   return '<div class="soft-tip"><strong>'+(r.source==='salary'?'Salário':'Complemento')+' · '+dateBR(r.date)+'</strong><p>Meta '+money(status.target)+' · guardado '+money(status.saved)+(places?' em '+places:'')+'</p>'+
+    (status.remaining?'<p>Falta '+money(status.remaining)+'</p><button type="button" class="btn small" data-reserve-income="'+esc(r.id)+'">Sim, registrar valor guardado</button>':'<p>Meta atingida</p>')+'</div>';
+ }).join('')+'</article>';
+}
+document.addEventListener('click',event=>{
+ const button=event.target.closest('[data-reserve-income]');
+ if(!button)return;
+ const record=db.records.find(r=>r.kind==='income'&&r.id===button.dataset.reserveIncome);
+ if(record&&incomeReserveStatus(record).remaining>0)openInvestment('',false,record);
+});
 function analysis(){
  const m=month(),months=yearly(state.year);const yearIncome=sum(months.map(x=>x.income)),yearExpenses=sum(months.map(x=>x.expenses)),yearSave=sum(months.map(x=>x.saved));
  const result=Engines.insights(goalEngineData(state.year,state.month),state.year,state.month),pred=result.projection,cats=horizontalCategories(m.records),cTotal=sum(cats.map(x=>x[1]));
@@ -1035,6 +1072,7 @@ function analysis(){
  const notices=result.items.slice().sort((a,b)=>({critical:0,attention:1,positive:2,info:3})[a.kind]-({critical:0,attention:1,positive:2,info:3})[b.kind]);
  $('#page-analysis').innerHTML=`
  ${paydayPaceCard(m)}
+ ${incomeReserveCard(m.records)}
  <div class="stats">${stat('Entradas do mês',money(m.income),monthLabel(),'income')}${stat('Despesas do mês',money(m.expenses),monthLabel(),'expense')}${stat('Saldo disponível',money(m.balance),'Após despesas, cofrinhos e novos investimentos','wallet')}</div>
  <details class="card insights-extras" ${matchMedia("(min-width: 761px)").matches?"open":""}><summary>Orçamentos, gastos e metas</summary><div class="insights-extras-grid">
  <div class="card insights-portfolio"><span>Carteira de investimentos · <strong>${money(sum(db.investments.map(x=>x.balance)))}</strong></span><button class="btn small" data-page="investments">Abrir investimentos</button></div>
