@@ -1,0 +1,18 @@
+# Gerados durante builds Capacitor
+node_modules/
+www/
+android/
+
+# Chaves e produtos de distribuição Android
+*.jks
+*.keystore
+*.p12
+*.apk
+*.aab
+
+# Temporários
+*.log
+*.zip
+.gradle/
+.idea/
+.DS_Store
