@@ -1,4 +1,4 @@
-# Reserva Simples — v0.38.14
+# Reserva Simples — v0.38.15
 
 Aplicativo financeiro local para registrar rendas, despesas e movimentações de metas de reserva.
 
@@ -31,6 +31,7 @@ Aplicativo financeiro local para registrar rendas, despesas e movimentações de
 - **Hoje:** resumo de orçamento, saldo disponível, despesas por dia e metas ativas.
 - **Lançamentos:** rendas, despesas, busca, filtros e contas recorrentes.
 - **Calendário e agenda:** compromissos e tarefas com cores, acesso em todos os módulos e card de próximos compromissos no início.
+- **Calendário e agenda:** toque em uma data para abrir a agenda do dia em sobreposição; compromissos coloridos, card de próximos compromissos no Início e acesso em todos os módulos.
 - **Insights:** análises locais e projeções.
 - **Configurações:** aparência, atualização, backup e restauração.
 

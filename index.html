@@ -479,6 +479,16 @@ body.dark .tag.good{background:color-mix(in srgb,var(--accent-mint),transparent 
 .calendar-day.has-appointment.is-today .calendar-day-number{background:var(--calendar-day-accent);color:#fff}
 .calendar-day.has-appointment .calendar-count{color:var(--calendar-day-accent);font-weight:750}
 body.dark .calendar-day.has-appointment{background:color-mix(in srgb,var(--calendar-day-accent) 28%,var(--card));border-color:color-mix(in srgb,var(--calendar-day-accent) 72%,var(--line))}
+
+/* v0.38.15 — toque no dia abre a agenda em sobreposição */
+.calendar-day-dialog{width:min(600px,calc(100% - 24px));max-width:600px;max-height:86vh;max-height:86dvh;overflow:auto;margin:auto;padding:16px;border:1px solid var(--line);border-radius:20px;background:var(--card);color:var(--ink);box-shadow:0 24px 72px rgba(5,22,48,.3)}
+.calendar-day-dialog::backdrop{background:rgba(6,18,36,.55);backdrop-filter:blur(3px)}
+.calendar-day-dialog-top{position:sticky;top:-16px;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-16px -16px 12px;padding:13px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+.calendar-day-dialog-top strong{font-size:14px;letter-spacing:-.2px}
+.calendar-day-dialog-top button{min-height:34px;padding:6px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--muted);font-size:11px;font-weight:750}
+.calendar-day-dialog-content>.calendar-detail{padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
+.calendar-day-dialog-content .calendar-detail-head{margin-bottom:10px}
+@media(max-width:520px){.calendar-day-dialog{width:calc(100% - 20px);max-height:82dvh;padding:14px;border-radius:18px}.calendar-day-dialog-top{top:-14px;margin:-14px -14px 11px;padding:11px 14px}}
 </style>
 </head>
 <body>

@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.38.14",
+  "version": "0.38.15",
   "channel": "stable",
-  "updatedAt": "2026-11-13T11:00:00Z",
+  "updatedAt": "2026-11-13T11:15:00Z",
   "source": "same-origin PWA release",
-  "notes": "Agenda acessível em todos os módulos, card de próximos compromissos no início e destaque colorido das datas agendadas. Inclui ajustes de contraste e fluxo do calendário."
+  "notes": "Ao tocar em uma data, a agenda do dia abre em sobreposição; compromissos mantêm suas cores no calendário e na lista. O card de próximos compromissos continua no Início."
 }
