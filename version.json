@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.15",
+  "version": "0.39.16",
   "channel": "rc1",
-  "updatedAt": "2026-11-13T18:47:47.856Z",
+  "updatedAt": "2026-11-13T18:58:14.247Z",
   "source": "same-origin PWA release",
-  "notes": "Insights ampliado com comparação de contas recorrentes, metas fora do ritmo e revisão de categorias e possíveis duplicados. Ajusta a ordem de agenda e formulário no desktop."
+  "notes": "Limite diário estimado e organização do Insights no celular."
 }
