@@ -613,6 +613,16 @@ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:
  #page-goals.active .simulator,#page-goals.active .goal-support-card{min-width:0;align-self:stretch}
  #page-goals.active .goal-support-card>.card{height:100%}
 }
+</style><style>
+.payday-value{display:block;font-size:clamp(1.45rem,4vw,2rem);margin:.4rem 0}
+.insights-extras-grid{display:grid;gap:12px;margin-top:12px;min-width:0}
+.insights-extras-grid>*{min-width:0}
+@media(min-width:1100px){.insights-extras-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.insights-extras-grid>:not(.desktop-pair){grid-column:1/-1}}
+@media(max-width:760px){
+ #page-analysis .insights-extras summary,#page-analysis .insights-details summary{padding-block:8px;cursor:pointer}
+ #page-home .home-compact-actions details:not([open]){margin-left:auto}
+ #page-home .home-compact-actions button,#page-home .home-compact-actions summary{min-height:40px}
+}
 </style></head>
 <body>
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
