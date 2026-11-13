@@ -27,7 +27,7 @@ import java.util.concurrent.Executors;
 
 @CapacitorPlugin(name = "ReservaUpdater")
 public class ReservaUpdaterPlugin extends Plugin {
-    private static final String API = "https://api.github.com/repos/dutrafg/Reserva-Simples/releases/latest";
+    private static final String API = "https://api.github.com/repos/dutrafg/Reserva-Simples/releases?per_page=30";
     private static final String APK_NAME = "reserva-simples-android.apk";
     private static final long MAX_BYTES = 150L * 1024 * 1024;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -83,37 +83,40 @@ public class ReservaUpdaterPlugin extends Plugin {
         try {
             if (c.getResponseCode() == 404) return null;
             if (c.getResponseCode() != 200) throw new Exception("GitHub não respondeu à consulta (" + c.getResponseCode() + ").");
-            JSONObject result;
-            try (InputStream in = c.getInputStream()) { result = new JSONObject(readUtf8(in)); }
-            String tag = result.optString("tag_name", "");
-            if (!tag.matches("^android-v?[0-9]+\\.[0-9]+\\.[0-9]+$")) {
-                return null; // Não oferecer release de Windows ou de outra plataforma.
-            }
-            Release r = new Release();
-            r.version = tag.replaceFirst("^android-v?", "");
-            JSONArray assets = result.optJSONArray("assets");
-            if (assets == null) return null;
-            for (int i = 0; i < assets.length(); i++) {
-                JSONObject asset = assets.optJSONObject(i);
-                if (asset == null || !APK_NAME.equals(asset.optString("name"))) continue;
-                String digest = asset.optString("digest", "");
-                if (!digest.matches("^sha256:[a-fA-F0-9]{64}$")) {
-                    throw new Exception("Release Android sem SHA-256 verificável.");
+            JSONArray releases;
+            try (InputStream in = c.getInputStream()) { releases = new JSONArray(readUtf8(in)); }
+            Release best = null;
+            for (int j = 0; j < releases.length(); j++) {
+                JSONObject result = releases.optJSONObject(j);
+                if (result == null || result.optBoolean("draft") || result.optBoolean("prerelease")) continue;
+                String tag = result.optString("tag_name", "");
+                if (!tag.matches("^android-v?[0-9]+\\.[0-9]+\\.[0-9]+$")) continue;
+                JSONArray assets = result.optJSONArray("assets");
+                if (assets == null) continue;
+                for (int i = 0; i < assets.length(); i++) {
+                    JSONObject asset = assets.optJSONObject(i);
+                    if (asset == null || !APK_NAME.equals(asset.optString("name"))) continue;
+                    String digest = asset.optString("digest", "");
+                    if (!digest.matches("^sha256:[a-fA-F0-9]{64}$")) {
+                        throw new Exception("Release Android sem SHA-256 verificável.");
+                    }
+                    Release r = new Release();
+                    r.version = tag.replaceFirst("^android-v?", "");
+                    r.sha256 = digest.substring(7).toLowerCase(Locale.ROOT);
+                    r.url = asset.optString("browser_download_url", "");
+                    r.size = asset.optLong("size", -1);
+                    r.notes = result.optString("body", "");
+                    URL url = new URL(r.url);
+                    String path = url.toURI().normalize().getPath();
+                    if (!"https".equals(url.getProtocol()) || !"github.com".equalsIgnoreCase(url.getHost())
+                        || !path.startsWith("/dutrafg/Reserva-Simples/releases/download/")
+                        || !path.endsWith("/" + APK_NAME) || r.size < 1 || r.size > MAX_BYTES) {
+                        throw new Exception("Arquivo da atualização não é autorizado.");
+                    }
+                    if (best == null || compareVersion(r.version, best.version) > 0) best = r;
                 }
-                r.sha256 = digest.substring(7).toLowerCase(Locale.ROOT);
-                r.url = asset.optString("browser_download_url", "");
-                r.size = asset.optLong("size", -1);
-                r.notes = result.optString("body", "");
-                URL url = new URL(r.url);
-                String path = url.toURI().normalize().getPath();
-                if (!"https".equals(url.getProtocol()) || !"github.com".equalsIgnoreCase(url.getHost())
-                    || !path.startsWith("/dutrafg/Reserva-Simples/releases/download/")
-                    || !path.endsWith("/" + APK_NAME) || r.size < 1 || r.size > MAX_BYTES) {
-                    throw new Exception("Arquivo da atualização não é autorizado.");
-                }
-                return r;
             }
-            return null;
+            return best;
         } finally { c.disconnect(); }
     }
 
