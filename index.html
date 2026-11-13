@@ -582,6 +582,13 @@ body[data-palette="carbon"]:not(.dark) .today-card .empty-inline{border-color:#e
 @media(max-width:760px){
  #page-home .overview-card>.home-card-tools button:nth-child(n+7){display:none}
 }
+</style><style>
+#page-home .home-compact-actions{display:flex;flex-wrap:wrap;align-items:start;gap:8px;margin-top:12px}
+.home-compact-actions button,.home-compact-actions summary{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;cursor:pointer;font:inherit;font-size:12px}
+.home-compact-actions button span{display:none}.home-compact-actions small{font-size:inherit}
+.home-secondary-actions{display:flex;flex-wrap:wrap;gap:6px;padding-top:6px}
+@media(max-width:760px){.home-compact-actions details[open]{flex-basis:100%}}
+@media(min-width:900px){#page-home .home-planning-grid>.card,#page-home .overview-card{min-height:0}}
 </style></head>
 <body>
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
