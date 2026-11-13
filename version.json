@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.9",
+  "version": "0.39.10",
   "channel": "rc1",
-  "updatedAt": "2026-11-13T17:51:07.123Z",
+  "updatedAt": "2026-11-13T17:56:46.127Z",
   "source": "same-origin PWA release",
-  "notes": "Ajusta o card Você ainda pode gastar no tema claro: superfície clara, texto de alto contraste e destaque dourado; preserva o estilo no tema escuro."
+  "notes": "No módulo Hoje, os cards Gastos por categoria e Fluxo mês a mês ficam em duas colunas no desktop e empilhados em telas menores."
 }
