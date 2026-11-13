@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.18",
+  "version": "0.39.19",
   "channel": "rc1",
-  "updatedAt": "2026-11-13T19:05:53.859Z",
+  "updatedAt": "2026-11-13T19:09:45.804Z",
   "source": "same-origin PWA release",
-  "notes": "Painel Hoje simplificado no celular com atalhos e detalhes recolhíveis."
+  "notes": "Corrige revisão de categorias, reserva vinculada após resgates e limite diário com resgates futuros."
 }
