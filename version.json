@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.17",
+  "version": "0.39.18",
   "channel": "rc1",
-  "updatedAt": "2026-11-13T19:04:36.350Z",
+  "updatedAt": "2026-11-13T19:05:53.859Z",
   "source": "same-origin PWA release",
-  "notes": "Alertas de recebimento e reserva de 10% vinculada aos investimentos."
+  "notes": "Painel Hoje simplificado no celular com atalhos e detalhes recolhíveis."
 }
