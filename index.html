@@ -605,6 +605,14 @@ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:
 #page-reports.active>:is(.report-period-card,.monthly-close-card,.report-overview-card,.report-categories-card){grid-column:auto}
 #page-calendar .calendar-detail-grid{grid-template-columns:minmax(0,1fr)}
 }
+</style><style id="desktop-module-grouping-fix">
+@media(min-width:1100px){
+ #page-calendar.active .calendar-detail-grid{display:flex;flex-direction:column;gap:12px}
+ #page-calendar.active .calendar-detail-grid .calendar-detail{order:1}
+ #page-calendar.active .calendar-detail-grid .calendar-compose{order:2}
+ #page-goals.active .simulator,#page-goals.active .goal-support-card{min-width:0;align-self:stretch}
+ #page-goals.active .goal-support-card>.card{height:100%}
+}
 </style></head>
 <body>
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
