@@ -1,4 +1,4 @@
-const CACHE = 'reserva-simples-v0.39.13-rc1';
+const CACHE = 'reserva-simples-v0.39.13-rc1-layout2';
 const FILES = ['./', './index.html', './app.js', './engines.js', './manifest.webmanifest', './version.json', './icon.svg', './icon-192.png', './icon-512.png'];
 const assets = new Set(FILES.map(path => new URL(path, self.registration.scope).href));
 
