@@ -10,7 +10,7 @@ const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purp
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='0.39.18';
+const APP_VERSION='0.39.19';
 const diagnostics = (() => {
   const key = 'reserva.diagnostics.v1';
   const sessionKey = key + '.active';
@@ -1021,7 +1021,7 @@ function insightsReviewCards(m,categories){
  const previousDate=new Date(state.year,state.month-1,1),previousKey=mkey(previousDate.getFullYear(),previousDate.getMonth()),currentKey=mkey(state.year,state.month);
  const recurringChanges=db.recurring.filter(item=>item.kind==='expense'&&!item.paused).map(item=>{const before=db.records.filter(r=>r.kind==='expense'&&r.recurringId===item.id&&(r.recurringMonth||r.date.slice(0,7))===previousKey).reduce((n,r)=>n+r.amount,0);const now=db.records.filter(r=>r.kind==='expense'&&r.recurringId===item.id&&(r.recurringMonth||r.date.slice(0,7))===currentKey).reduce((n,r)=>n+r.amount,0);const current=now;return{name:item.note||item.category||'Conta recorrente',before,current,delta:current-before}}).filter(x=>x.before>0&&x.delta>0).sort((x,y)=>y.delta-x.delta).slice(0,4);
  const goals=db.jars.filter(j=>!j.archived&&!j.paused).map(j=>{const plan=Engines.goal(goalEngineData(state.year,state.month),j,state.year,state.month);return{name:j.name,plan,status:plan.status}}).filter(x=>['atrasada','em_risco'].includes(x.status)||x.plan.monthlyPace!==null&&x.plan.perMonth!==null&&x.plan.monthlyPace<x.plan.perMonth).slice(0,4);
- const uncategorized=m.records.filter(r=>['income','expense'].includes(r.kind)&&(!String(r.category||'').trim()||/^(sem categoria|não categorizado)$/i.test(String(r.category).trim())));
+ const uncategorized=m.records.filter(r=>r.kind==='expense'&&(!String(r.category||'').trim()||/^(sem categoria|não categorizado)$/i.test(String(r.category).trim())));
  const groups=new Map();for(const r of m.records){const desc=String(r.note||r.description||'').trim().toLocaleLowerCase('pt-BR').replace(/\s+/g,' ');if(!desc||!r.kind||!r.amount)continue;const key=[r.date,r.kind,r.amount,desc].join('|');const group=groups.get(key)||[];group.push(r);groups.set(key,group)}const duplicates=[...groups.values()].filter(g=>g.length>1);
  return '<article class="card desktop-pair">'+cardTitle('Contas fixas que aumentaram','Comparação com o mês anterior')+(recurringChanges.length?'<ul>'+recurringChanges.map(x=>'<li>'+esc(x.name)+' · '+money(x.before)+' → '+money(x.current)+' (+'+money(x.delta)+')</li>').join('')+'</ul>':'<p>Sem aumento confirmado nas contas recorrentes deste período.</p>')+'</article>'+
  '<article class="card desktop-pair">'+cardTitle('Metas fora do ritmo','Metas atrasadas ou com aporte abaixo do necessário')+(goals.length?'<ul>'+goals.map(x=>'<li>'+esc(x.name)+' · '+(x.status==='atrasada'?'prazo vencido':x.status==='em_risco'?'em risco':'ritmo abaixo do necessário')+'</li>').join('')+'</ul>':'<p>As metas ativas estão no ritmo calculado ou ainda aguardam histórico.</p>')+'<button class="btn small" data-page="goals">Ver metas</button></article>'+
@@ -1036,7 +1036,10 @@ function paydayPaceCard(m) {
  const spent = sum(m.records.filter(r=>r.kind==='expense' && r.date<=today).map(r=>r.amount));
  const futureIncome = sum(m.records.filter(r=>r.kind==='income' && r.date>today).map(r=>r.amount));
  const pendingBills = sum(pendingRecurring().filter(r=>r.kind!=='income').map(r=>r.amount));
- const remaining = m.balance - futureIncome - pendingBills;
+ const key=mkey(state.year,state.month);
+ const futureRedemptions=sum(db.investments.flatMap(item=>item.redemptions||[]).filter(r=>r.date>today&&r.date.slice(0,7)===key).map(r=>r.amount));
+ const futureWithdrawals=sum(db.allocations.filter(r=>r.amount<0&&r.date>today&&r.date.slice(0,7)===key).map(r=>r.netReceived??-r.amount));
+ const remaining = m.balance - futureIncome - futureRedemptions - futureWithdrawals - pendingBills;
  const days = new Date(now.getFullYear(),now.getMonth()+1,0).getDate()-now.getDate()+1;
  const daily = Math.floor(Math.max(0,remaining)/days);
  const salaryShare = salary ? `<p>As despesas já registradas equivalem a <strong>${percent(spent/salary*100)}</strong> do salário recebido neste mês.</p>` : '<p>Registre o salário recebido para acompanhar quanto dele as despesas representam.</p>';
@@ -1050,7 +1053,7 @@ function paydayPaceCard(m) {
 }
 function incomeReserveStatus(record){
  const target=Math.round(record.amount/10);
- const saved=sum(db.investments.filter(item=>item.incomeRecordId===record.id).map(item=>item.cost));
+ const saved=sum(db.investments.filter(item=>item.incomeRecordId===record.id&&item.date<=isoToday()).map(item=>Math.max(0,item.cost-sum((item.redemptions||[]).filter(r=>r.date<=isoToday()).map(r=>r.amount)))));
  return {target,saved,remaining:Math.max(0,target-saved)};
 }
 function incomeReserveCard(records){
