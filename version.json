@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.20",
+  "version": "0.39.21",
   "channel": "rc1",
-  "updatedAt": "2026-11-13T19:14:13.306Z",
+  "updatedAt": "2026-11-13T19:24:26.341Z",
   "source": "same-origin PWA release",
-  "notes": "Insights permite vincular investimentos existentes aos recebimentos sem criar duplicatas."
+  "notes": "Visão Geral mais limpa, quatro cards de apoio em grade no desktop e tipografia de sistema padronizada em todos os módulos."
 }

@@ -637,7 +637,29 @@ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:
  .mobile-home-disclosure>summary{cursor:pointer;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-weight:700}
  .mobile-home-disclosure[open]>summary{margin-bottom:10px}
 }
-</style></head>
+</style>
+<style id="reserva-quality-and-home-layout">
+/* Consistent system typography and native-feeling controls across every module. */
+:root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+html,body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif!important;letter-spacing:normal!important}
+button,input,select,textarea{font-family:inherit!important;letter-spacing:inherit!important}
+/* Hoje: keep the balance prominent and reveal the four related summary cards progressively. */
+#page-home .home-quarter-grid{display:none}
+@media(min-width:761px){
+ #page-home .today-top-grid{grid-template-columns:minmax(0,1fr)!important}
+ #page-home .mobile-cota-disclosure{display:none!important}
+ #page-home .home-quarter-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:14px 0}
+ #page-home .home-quarter-grid>*{min-width:0;margin:0;overflow-wrap:anywhere}
+ #page-home .home-quarter-grid .today-stat{min-height:100%;padding:16px}
+ #page-home .market-budget-editor{margin-top:10px}
+ #page-home .market-budget-editor summary{cursor:pointer;padding:6px 0}
+ #page-home .market-budget-editor form{display:grid;gap:8px;margin-top:8px}
+}
+@media(min-width:1280px){
+ #page-home .home-quarter-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+</style>
+</head>
 <body>
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
  <defs><linearGradient id="settingsSteel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7f9fb"/><stop offset=".24" stop-color="#aeb8c2"/><stop offset=".48" stop-color="#edf1f4"/><stop offset=".72" stop-color="#8995a1"/><stop offset="1" stop-color="#d7dee4"/></linearGradient></defs>
