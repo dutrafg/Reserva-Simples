@@ -1,3 +1,9 @@
+## v0.39.6 RC2
+
+- A barra desktop/tablet reúne o título do módulo, navegação lateral, controles do período e notificações.
+- Configurações reorganizadas: Cofre local dentro de Backup em pasta, seleção visual das seis paletas e cartão de bancos mais compacto.
+- Aparência, Notificações e Atualizações compactadas; em telas largas, Bancos, Aparência, Notificações e Atualizações ocupam uma linha.
+
 # Histórico de alterações
 
 ## v0.38.17

@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.38.17",
-  "channel": "stable",
-  "updatedAt": "2026-11-13T09:20:00Z",
+  "version": "0.39.6",
+  "channel": "rc2",
+  "updatedAt": "2026-11-13T14:25:00-03:00",
   "source": "same-origin PWA release",
-  "notes": "A agenda permite editar, concluir e excluir compromissos; lançamentos e investimentos mostram ações com dupla confirmação. Lançamentos aceitam etiquetas e subcategorias, com filtros e exportação CSV. Contas recorrentes geram lembretes configuráveis e acesso à data no calendário."
+  "notes": "Barra desktop/tablet integrada ao título do módulo. Configurações reorganizadas com quatro cartões em uma linha ampla, paletas visuais, cofre dentro do backup em pasta e cartões compactos."
 }
