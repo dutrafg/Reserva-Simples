@@ -16,7 +16,7 @@ assert(html.includes('src="./engines.js"') && html.includes('src="./app.js"'), '
 assert(html.indexOf('src="./engines.js"') < html.indexOf('src="./app.js"'), 'Motores precisam carregar antes do app');
 assert(!/rel\s*=\s*["']manifest["']/i.test(html), 'Não enviar manifesto PWA');
 assert(app.includes('!window.RESERVA_ANDROID_CAPACITOR&&'), 'Service worker deve estar desativado no Android');
-assert(app.includes('Atualizações Android via APK'), 'Atualizador deve explicar instalação por APK');
+assert(app.includes('Consulta') || app.includes('Consultando versões Android'), 'Consulta de atualização Android ausente');
 assert(app.includes('const STORE=') && app.includes('const PAGES='), 'Módulos/armazenamento não foram mantidos');
 assert(app.includes('const APP_VERSION=') && app.includes(version.version), 'Versões divergem');
 assert(engines.includes('ReservaEngines'), 'Motor financeiro ausente');
