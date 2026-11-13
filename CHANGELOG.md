@@ -1,5 +1,10 @@
 # Histórico de alterações
 
+## v0.38.15
+
+- Tocar em uma data abre a agenda e os lançamentos do dia em uma sobreposição, com ações para concluir ou excluir tarefas.
+- O toque em um compromisso no card do Início abre a mesma data e sobreposição.
+
 ## v0.38.14
 
 - Agenda acessível pelo cabeçalho em todos os módulos; o início exibe próximos compromissos pendentes.
