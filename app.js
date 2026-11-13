@@ -10,7 +10,7 @@ const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purp
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='0.39.15';
+const APP_VERSION='0.39.16';
 const diagnostics = (() => {
   const key = 'reserva.diagnostics.v1';
   const sessionKey = key + '.active';
@@ -1006,6 +1006,27 @@ function insightsReviewCards(m,categories){
  '<article class="card desktop-pair">'+cardTitle('Metas fora do ritmo','Metas atrasadas ou com aporte abaixo do necessário')+(goals.length?'<ul>'+goals.map(x=>'<li>'+esc(x.name)+' · '+(x.status==='atrasada'?'prazo vencido':x.status==='em_risco'?'em risco':'ritmo abaixo do necessário')+'</li>').join('')+'</ul>':'<p>As metas ativas estão no ritmo calculado ou ainda aguardam histórico.</p>')+'<button class="btn small" data-page="goals">Ver metas</button></article>'+
  '<article class="card desktop-pair">'+cardTitle('Revisar antes do fechamento','Categorias ausentes e possíveis lançamentos repetidos')+(uncategorized.length?'<p>'+uncategorized.length+' lançamento(s) sem categoria informada.</p>':'<p>Todos os lançamentos do período têm categoria.</p>')+(duplicates.length?'<p>'+duplicates.length+' grupo(s) com data, tipo, valor e descrição iguais. Confira antes de fechar.</p>':'<p>Nenhum possível duplicado idêntico encontrado neste período.</p>')+'<button class="btn small" data-page="transactions">Revisar lançamentos</button></article>';
 }
+
+function paydayPaceCard(m) {
+ const today = isoToday(), now = new Date();
+ if (today.slice(0,7) !== mkey(state.year,state.month)) return '';
+ const received = m.records.filter(r=>r.kind==='income' && r.date<=today);
+ const salary = sum(received.filter(r=>r.source==='salary').map(r=>r.amount));
+ const spent = sum(m.records.filter(r=>r.kind==='expense' && r.date<=today).map(r=>r.amount));
+ const futureIncome = sum(m.records.filter(r=>r.kind==='income' && r.date>today).map(r=>r.amount));
+ const pendingBills = sum(pendingRecurring().filter(r=>r.kind!=='income').map(r=>r.amount));
+ const remaining = m.balance - futureIncome - pendingBills;
+ const days = new Date(now.getFullYear(),now.getMonth()+1,0).getDate()-now.getDate()+1;
+ const daily = Math.floor(Math.max(0,remaining)/days);
+ const salaryShare = salary ? `<p>As despesas já registradas equivalem a <strong>${percent(spent/salary*100)}</strong> do salário recebido neste mês.</p>` : '<p>Registre o salário recebido para acompanhar quanto dele as despesas representam.</p>';
+ return `<article class="card payday-pace">${cardTitle('Limite diário até o fim do mês','Estimativa com o dinheiro já recebido')}
+ <strong class="payday-value">${money(daily)} por dia</strong>
+ ${salaryShare}
+ <p>Contas recorrentes ainda não lançadas: ${money(pendingBills)}.</p>
+ ${remaining<0?`<p class="danger-text">Faltam ${money(-remaining)} para cobrir as saídas registradas e as contas pendentes. Pause novas compras opcionais e confira os vencimentos.</p>`:'<p>Antes de uma compra opcional, compare o preço com o limite do dia.</p>'}
+ <p class="help">O cálculo desconta saídas registradas e contas recorrentes pendentes. Receitas futuras ficam fora da estimativa.</p>
+ <button class="btn small" data-page="transactions">Conferir gastos</button></article>`;
+}
 function analysis(){
  const m=month(),months=yearly(state.year);const yearIncome=sum(months.map(x=>x.income)),yearExpenses=sum(months.map(x=>x.expenses)),yearSave=sum(months.map(x=>x.saved));
  const result=Engines.insights(goalEngineData(state.year,state.month),state.year,state.month),pred=result.projection,cats=horizontalCategories(m.records),cTotal=sum(cats.map(x=>x[1]));
@@ -1013,7 +1034,9 @@ function analysis(){
  const projectionCard=withHistory?`<div class="prediction-grid"><div><span>Renda provável</span><strong>${money(pred.income)}</strong></div><div><span>Despesas prováveis</span><strong>${money(pred.expenses)}</strong></div><div><span>Sobra após guardar 10%</span><strong class="${pred.afterMinimum<0?'danger-text':''}">${money(pred.afterMinimum)}</strong></div></div><p class="help">Estimativa ${pred.level}. Usa os meses fechados ${pred.monthsUsed.map(k=>{const [y,m]=k.split('-');return MONTHS[Number(m)-1]+' de '+y}).join(', ')}. Método: mediana das rendas e despesas dos mesmos meses. Não é garantia de saldo futuro.</p>`:`<div class="empty"><strong>Histórico ainda insuficiente</strong>Cadastre receitas e despesas de pelo menos dois meses para estimar o próximo mês.</div>`;
  const notices=result.items.slice().sort((a,b)=>({critical:0,attention:1,positive:2,info:3})[a.kind]-({critical:0,attention:1,positive:2,info:3})[b.kind]);
  $('#page-analysis').innerHTML=`
+ ${paydayPaceCard(m)}
  <div class="stats">${stat('Entradas do mês',money(m.income),monthLabel(),'income')}${stat('Despesas do mês',money(m.expenses),monthLabel(),'expense')}${stat('Saldo disponível',money(m.balance),'Após despesas, cofrinhos e novos investimentos','wallet')}</div>
+ <details class="card insights-extras" ${matchMedia("(min-width: 761px)").matches?"open":""}><summary>Orçamentos, gastos e metas</summary><div class="insights-extras-grid">
  <div class="card insights-portfolio"><span>Carteira de investimentos · <strong>${money(sum(db.investments.map(x=>x.balance)))}</strong></span><button class="btn small" data-page="investments">Abrir investimentos</button></div>
  ${marketBudgetCard(m)}
  ${categoryBudgetCard(m)}
@@ -1021,7 +1044,7 @@ function analysis(){
  <article class="card desktop-pair">${cardTitle('Onde você mais gasta','Ranking das categorias em '+monthLabel())}${cats.length?`<div class="bar-list">${cats.map(([name,amt])=>`<div><div class="bar-label"><span>${esc(name)}</span><b>${money(amt)} · ${percent(amt/cTotal*100)}</b></div><div class="bar-track"><span style="width:${amt/cats[0][1]*100}%;background:${CAT_COLORS[CATS.indexOf(name)]||'#8c9bab'}"></span></div></div>`).join('')}</div><div class="soft-tip">Simulação: reduzir 10% de <b>${esc(cats[0][0])}</b> liberaria ${money(result.byCat.savingExample)} neste mês, se o gasto permitir.</div>`:'<div class="empty">Ainda não há despesas neste mês.</div>'}</article>
 
  ${insightsReviewCards(m,cats)}
- ${monthlyInsightCards(m,cats)}
+ ${monthlyInsightCards(m,cats)}</div></details>
  <article class="card">${cardTitle('Alertas e sugestões','Comparações e orientações baseadas apenas nos lançamentos')}${notices.length?`<div class="insight-grid">${notices.map(v=>`<div class="insight engine-${v.kind}"><strong>${esc(v.title)}</strong><p>${esc(v.message)}</p></div>`).join('')}</div>`:'<div class="empty">Registre suas movimentações para começar a receber análises.</div>'}</article> <details class="card insights-details"><summary>Ver detalhes</summary><div class="stats">${stat('Renda no ano',money(yearIncome),String(state.year),'income')}${stat('Despesas no ano',money(yearExpenses),String(state.year),'expense')}${stat('Reserva no ano',money(yearSave),'Depósitos menos resgates','piggy')}${stat('Taxa de reserva',yearIncome?percent(yearSave/yearIncome*100):'—','Percentual sobre renda anual','chart')}</div><div class="two-col"><article class="card">${cardTitle('Entradas e saídas','Comparativo de '+state.year)}${yearChart()}</article><article class="card">${cardTitle('De onde vem a renda',monthLabel())}<div class="bar-list">${m.income?`<div><div class="bar-label"><span>Salário</span><b>${money(m.salary)} · ${percent(m.salary/m.income*100)}</b></div><div class="bar-track"><span style="width:${m.salary/m.income*100}%;background:#3488f5"></span></div></div><div><div class="bar-label"><span>Complemento</span><b>${money(m.complement)} · ${percent(m.complement/m.income*100)}</b></div><div class="bar-track"><span style="width:${m.complement/m.income*100}%;background:#7a75e7"></span></div></div>`:'<div class="empty">Adicione salário ou complemento para visualizar.</div>'}</div></article></div>
  
  ${withHistory?`<article class="card">${cardTitle('Previsão para o próximo mês','Estimativa com base no histórico')}${projectionCard}</article>`:''}
