@@ -10,7 +10,7 @@ const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purp
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='0.39.8';
+const APP_VERSION='0.39.9';
 const diagnostics = (() => {
   const key = 'reserva.diagnostics.v1';
   const sessionKey = key + '.active';
