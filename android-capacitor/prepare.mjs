@@ -20,7 +20,19 @@ if (!html.includes('src="./app.js"') || !html.includes('src="./engines.js"')) {
   throw new Error('Ponto de entrada do app mudou: revise o empacotamento Android.');
 }
 html = html.replace(/<link\s+rel=["']manifest["'][^>]*>\s*/i, '');
-html = html.replace('</head>', '<script>window.RESERVA_ANDROID_CAPACITOR = true;</script>\n</head>');
+const nativeStyle = [
+  '<style id="reserva-android-safe-areas">',
+  'html.android-capacitor,html.android-capacitor body{min-height:100dvh}',
+  'html.android-capacitor .main{padding-top:24px;padding-bottom:128px}',
+  'html.android-capacitor .floating-nav{bottom:14px}',
+  'html.android-capacitor .toast{bottom:106px}',
+  'html.android-capacitor .modal{padding:16px}',
+  'html.android-capacitor .dialog{max-height:calc(100dvh - 32px)}',
+  '</style>'
+].join('\n');
+html = html.replace('</head>', nativeStyle + '\n<script>window.RESERVA_ANDROID_CAPACITOR = true;document.documentElement.classList.add("android-capacitor");</script>\n</head>');
+html = html.replace('<script src="./engines.js"></script>',
+  '<script src="./android-updater-bridge.js"></script>\n<script src="./engines.js"></script>');
 writeFileSync(join(target, 'index.html'), html, 'utf8');
 
 let app = readFileSync(join(target, 'app.js'), 'utf8');
@@ -33,13 +45,70 @@ replaceRequired("if('serviceWorker' in navigator&&location.protocol!=='file:')",
   "if(!window.RESERVA_ANDROID_CAPACITOR&&'serviceWorker' in navigator&&location.protocol!=='file:')",
   'registro de Service Worker');
 replaceRequired('let updateRegistration=null;',
-  "let updateRegistration=null;\nif(window.RESERVA_ANDROID_CAPACITOR){updateInfo.notes='Nesta versão Android, as atualizações são instaladas por APK. Faça backup antes de trocar uma versão de teste.';updateInfo.status='Atualizações via APK';updateInfo.state='success';}",
+  "let updateRegistration=null;\nlet nativeApkVerified=false;\nif(window.RESERVA_ANDROID_CAPACITOR){updateInfo.notes='Atualizações Android são publicadas no GitHub, com download verificado e confirmação de instalação pelo sistema.';updateInfo.status='Verificando atualização Android';updateInfo.state='checking';}",
   'estado da atualização');
 replaceRequired('async function checkForUpdates(){',
-  "async function checkForUpdates(){if(window.RESERVA_ANDROID_CAPACITOR){updateInfo.available=false;updateInfo.notes='O aplicativo Android é atualizado por instalação de APK, não pelo mecanismo PWA. Faça backup antes de atualizar.';setUpdateStatus('Atualizações Android via APK','success');return;}",
+  `async function checkForUpdates(){if(window.RESERVA_ANDROID_CAPACITOR){
+    const api=window.ReservaNativeUpdater;
+    if(!api){setUpdateStatus('Atualizador Android indisponível','error');return}
+    try{
+      setUpdateStatus('Consultando versões Android no GitHub…','checking');
+      const result=await api.checkUpdate();
+      updateInfo.available=!!result.available;
+      updateInfo.latest=result.latestVersion||APP_VERSION;
+      updateInfo.lastCheck=new Date().toISOString();
+      localStorage.setItem('reserva.update.checkedAt',updateInfo.lastCheck);
+      updateInfo.notes=result.available
+        ?('Nova versão Android v'+result.latestVersion+'. '+(result.notes||'Faça backup antes de instalar.'))
+        :(result.message||'Nenhuma atualização Android disponível.');
+      nativeApkVerified=false;
+      setUpdateStatus(result.available?'Nova versão Android disponível':'Android sem atualização disponível',result.available?'available':'success');
+    }catch(e){
+      updateInfo.available=false;
+      updateInfo.notes=String(e?.message||e);
+      setUpdateStatus('Sem conexão com as versões Android','error');
+    }
+    return;
+  }`,
   'consulta de atualização');
 replaceRequired('async function applyUpdate(){',
-  "async function applyUpdate(){if(window.RESERVA_ANDROID_CAPACITOR)return notify('Atualização Android: instale o próximo APK, preservando os dados com backup.');",
+  `async function applyUpdate(){if(window.RESERVA_ANDROID_CAPACITOR){
+    const api=window.ReservaNativeUpdater;
+    if(!api||!updateInfo.available)return notify('Nenhuma atualização Android pronta.');
+    if(updateInProgress||saving||vaultBusy)return notify('Conclua o salvamento antes da atualização.');
+    updateInProgress=true;
+    const button=$('#applyUpdateBtn');
+    if(button)button.disabled=true;
+    let listener;
+    try{
+      if(!nativeApkVerified){
+        setUpdateStatus('Iniciando download seguro do APK…','checking');
+        listener=await api.addListener('updateProgress',e=>{
+          const percentage=Math.max(0,Math.min(100,Number(e.percent)||0));
+          setUpdateStatus('Baixando atualização: '+percentage+'%','checking');
+        });
+        await api.downloadUpdate();
+        nativeApkVerified=true;
+      }
+      setUpdateStatus('APK verificado. Abrindo instalador Android…','available');
+      const result=await api.installUpdate();
+      if(result.permissionRequired){
+        updateInfo.notes='Autorize o Reserva Simples a instalar atualizações e volte a tocar em Atualizar agora. O APK já está verificado.';
+        setUpdateStatus('Autorize a instalação nas configurações Android','available');
+      }else if(result.installerOpened){
+        updateInfo.notes='Confira o nome e versão exibidos pelo Android e confirme a instalação. Os dados só são mantidos se a assinatura do APK for compatível.';
+        setUpdateStatus('Confirme a instalação no Android','available');
+      }
+    }catch(e){
+      updateInfo.notes=String(e?.message||e);
+      setUpdateStatus('Falha na atualização Android','error');
+    }finally{
+      if(listener)await listener.remove();
+      updateInProgress=false;
+      if(button)button.disabled=false;
+    }
+    return;
+  }`,
   'aplicação de atualização');
 replaceRequired('function billNotificationPermission(){',
   "function billNotificationPermission(){if(window.RESERVA_ANDROID_CAPACITOR)return 'Notificações nativas ainda não disponíveis nesta versão de teste Android.';",
