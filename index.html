@@ -687,6 +687,13 @@ button,input,select,textarea{font-family:var(--app-system-font)!important;letter
 }
 @media(max-width:520px){.month-jump-fields{grid-template-columns:minmax(0,1.3fr) minmax(100px,.8fr);gap:8px}}
 </style>
+
+<style id="reserva-investment-form-fix">
+#investmentDialog #investmentForm{align-items:start}
+#investmentDialog #investmentForm>.actions{grid-column:1/-1;width:100%;justify-content:flex-end;align-self:start;margin-top:4px}
+#investmentDialog #investmentForm>.actions>.btn{height:auto;min-height:44px;flex:0 0 auto}
+@media(max-width:520px){#investmentDialog #investmentForm>.actions>.btn{flex:1 1 140px}}
+</style>
 </head>
 <body>
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">

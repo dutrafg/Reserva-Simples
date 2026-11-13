@@ -10,7 +10,7 @@ const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purp
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='0.39.22';
+const APP_VERSION='0.39.23';
 const diagnostics = (() => {
   const key = 'reserva.diagnostics.v1';
   const sessionKey = key + '.active';
@@ -1078,10 +1078,10 @@ function incomeReserveCard(records){
 }
 function showExistingReserveInvestments(record){
  const remaining=incomeReserveStatus(record).remaining;
- const candidates=db.investments.filter(item=>item.status!=='sold'&&!item.incomeRecordId&&item.date>=record.date&&item.date<=isoToday()&&item.cost>0&&item.cost<=remaining);
+ const candidates=db.investments.filter(item=>item.status!=='sold'&&!item.incomeRecordId&&item.date<=isoToday()&&item.cost>0);
  let dialog=$('#reserveInvestmentDialog');
  if(!dialog){dialog=document.createElement('dialog');dialog.id='reserveInvestmentDialog';dialog.className='calendar-day-dialog';document.body.append(dialog)}
- dialog.innerHTML='<div class="calendar-day-dialog-top"><strong>Vincular investimento existente</strong><button type="button" data-close-reserve-dialog>Fechar</button></div><p>Vincular não cria outro investimento nem altera os valores da carteira.</p><div class="calendar-day-dialog-content">'+(candidates.length?candidates.map(item=>'<button type="button" class="btn" data-select-reserve-investment="'+esc(item.id)+'"><strong>'+esc(item.name)+'</strong><br>'+esc(item.institution)+' · '+money(item.cost)+' · '+dateBR(item.date)+'</button>').join(''):'<p>Não encontrei investimento disponível com valor dentro do restante da meta deste recebimento.</p>')+'</div>';
+ dialog.innerHTML='<div class="calendar-day-dialog-top"><strong>Vincular investimento existente</strong><button type="button" data-close-reserve-dialog>Fechar</button></div><p>Vincular associa uma aplicação completa à reserva deste recebimento, sem criar outro investimento nem alterar os valores da carteira. Confira o nome, a instituição e a data: cada aplicação só pode ser vinculada a um recebimento para evitar contagem duplicada.</p><div class="calendar-day-dialog-content">'+(candidates.length?candidates.map(item=>'<button type="button" class="btn" data-select-reserve-investment="'+esc(item.id)+'"><strong>'+esc(item.name)+'</strong><br>'+esc(item.institution)+' · '+money(item.cost)+' · '+dateBR(item.date)+'</button>').join(''):'<p>Não encontrei aplicação sem vínculo registrada até hoje. Aplicações já vinculadas ficam bloqueadas para evitar contagem duplicada.</p>')+'</div>';
  dialog.dataset.incomeId=record.id;dialog.showModal();
 }
 document.addEventListener('click',async event=>{
@@ -1090,7 +1090,7 @@ document.addEventListener('click',async event=>{
  const select=event.target.closest('[data-select-reserve-investment]');
  if(select){
   const dialog=$('#reserveInvestmentDialog'),record=db.records.find(r=>r.id===dialog?.dataset.incomeId),item=db.investments.find(x=>x.id===select.dataset.selectReserveInvestment);
-  if(!record||!item||item.incomeRecordId||item.status==='sold'||item.cost>incomeReserveStatus(record).remaining)return notify('A carteira mudou. Atualizei a confirmação para evitar duplicidade.');
+  if(!record||record.kind!=='income'||!item||item.incomeRecordId||item.status==='sold'||item.cost<=0||item.date>isoToday()||incomeReserveStatus(record).remaining<=0)return notify('A carteira ou a meta mudou. Atualizei as opções para evitar duplicidade.');
   if(await mutate(()=>{item.incomeRecordId=record.id}))dialog.close();
   return;
  }

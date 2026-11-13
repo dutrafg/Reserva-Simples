@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.22",
+  "version": "0.39.23",
   "channel": "rc1",
-  "updatedAt": "2026-11-13T19:35:03.696Z",
+  "updatedAt": "2026-11-13T19:42:32.585Z",
   "source": "same-origin PWA release",
-  "notes": "Tipografia global padronizada, cards da Visão Geral alinhados, seleção explícita de mês e ano e limpeza de notificações sem apagar os registros relacionados."
+  "notes": "Ajusta os botões do formulário de investimento e permite vincular aplicações existentes à reserva sem alterar os saldos ou duplicar aplicações."
 }
