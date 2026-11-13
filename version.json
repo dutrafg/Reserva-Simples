@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.14",
+  "version": "0.39.15",
   "channel": "rc1",
-  "updatedAt": "2026-11-13T18:37:57.398Z",
+  "updatedAt": "2026-11-13T18:47:47.856Z",
   "source": "same-origin PWA release",
-  "notes": "Insights com economia, renda complementar e risco de caixa; cards agrupados no desktop."
+  "notes": "Insights ampliado com comparação de contas recorrentes, metas fora do ritmo e revisão de categorias e possíveis duplicados. Ajusta a ordem de agenda e formulário no desktop."
 }
