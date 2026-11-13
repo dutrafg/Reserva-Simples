@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.21",
+  "version": "0.39.22",
   "channel": "rc1",
-  "updatedAt": "2026-11-13T19:24:26.341Z",
+  "updatedAt": "2026-11-13T19:35:03.696Z",
   "source": "same-origin PWA release",
-  "notes": "Visão Geral mais limpa, quatro cards de apoio em grade no desktop e tipografia de sistema padronizada em todos os módulos."
+  "notes": "Tipografia global padronizada, cards da Visão Geral alinhados, seleção explícita de mês e ano e limpeza de notificações sem apagar os registros relacionados."
 }
