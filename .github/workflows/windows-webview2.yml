@@ -1,0 +1,80 @@
+name: Reserva Simples Desktop WebView2 x64
+on:
+  workflow_dispatch:
+  push:
+    branches: [windows-webview2]
+    paths:
+      - 'windows-webview2/**'
+      - 'index.html'
+      - 'app.js'
+      - 'engines.js'
+      - 'sw.js'
+      - 'manifest.webmanifest'
+      - 'version.json'
+      - 'icon*'
+      - '.github/workflows/windows-webview2.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'windows-webview2/**'
+      - '.github/workflows/windows-webview2.yml'
+permissions:
+  contents: read
+
+jobs:
+  windows-build:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Publicar aplicativo Windows x64
+        shell: pwsh
+        run: dotnet publish windows-webview2/ReservaSimplesDesktop.csproj -c Release -r win-x64 --self-contained true -o artifacts/desktop-win-x64
+      - name: Confirmar inclusão do PWA da branch
+        shell: pwsh
+        run: |
+          $web = "artifacts/desktop-win-x64/web"
+          foreach ($file in @('index.html','app.js','engines.js','version.json','sw.js','manifest.webmanifest')) {
+            if (!(Test-Path (Join-Path $web $file))) { throw "Falta recurso PWA: $file" }
+          }
+          $sourceHash = (Get-FileHash app.js -Algorithm SHA256).Hash
+          $packageHash = (Get-FileHash (Join-Path $web 'app.js') -Algorithm SHA256).Hash
+          if ($sourceHash -ne $packageHash) { throw 'O PWA do instalador difere do código-fonte da branch' }
+      - name: Instalar Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Gerar instalador
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" windows-webview2/installer/ReservaSimplesDesktop.iss
+          exit $LASTEXITCODE
+      - name: Instalar e validar PWA e persistência em duas aberturas
+        shell: pwsh
+        run: |
+          $setup = (Resolve-Path "artifacts/desktop-installer/Reserva-Simples-Desktop-Setup-x64.exe").Path
+          $target = Join-Path $env:RUNNER_TEMP "ReservaDesktopWebView2"
+          $result = Start-Process $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',("/DIR=`"$target`"") -Wait -PassThru
+          if ($result.ExitCode -ne 0) { throw "Falha ao instalar: $($result.ExitCode)" }
+          $exe = Join-Path $target 'ReservaSimplesDesktop.exe'
+          if (!(Test-Path $exe)) { throw "Executável ausente" }
+          foreach ($mode in @('--smoke-write','--smoke-read')) {
+            $p = Start-Process $exe -ArgumentList $mode -PassThru
+            if (!$p.WaitForExit(120000)) { Stop-Process -Id $p.Id -Force; throw "Timeout: $mode" }
+            if ($p.ExitCode -ne 0) {
+              Get-Content (Join-Path $env:TEMP 'ReservaSimplesDesktop-smoke-error.txt') -ErrorAction SilentlyContinue
+              throw "Smoke falhou $mode : $($p.ExitCode)"
+            }
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Reserva-Simples-Desktop-WebView2-x64
+          path: artifacts/desktop-installer/*.exe
+          if-no-files-found: error
