@@ -10,7 +10,7 @@ const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purp
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='0.39.33';
+const APP_VERSION='0.39.34';
 const diagnosticFixtureStorages = new WeakSet();
 const diagnostics = (() => {
   const key = 'reserva.diagnostics.v1';
@@ -215,7 +215,18 @@ async function sealVault(data, key, salt) {
   const encrypted = await crypto.subtle.encrypt({name:'AES-GCM',iv}, key, encoder.encode(JSON.stringify(data)));
   return {format:'reserva-vault-1', salt, iv:bytesTo64(iv), data:bytesTo64(new Uint8Array(encrypted))};
 }
+function validateVaultEnvelope(envelope) {
+  if (!envelope || envelope.format !== 'reserva-vault-1' ||
+      typeof envelope.salt !== 'string' || typeof envelope.iv !== 'string' ||
+      typeof envelope.data !== 'string') throw Error('Envelope do cofre inválido');
+  const salt = from64(envelope.salt), iv = from64(envelope.iv), data = from64(envelope.data);
+  if (salt.length !== 16 || iv.length !== 12 || data.length < 16 ||
+      Object.keys(envelope).some(key => !['format','salt','iv','data'].includes(key)))
+    throw Error('Estrutura do cofre inválida');
+  return envelope;
+}
 async function openVault(envelope,key) {
+  validateVaultEnvelope(envelope);
   const clear = await crypto.subtle.decrypt({name:'AES-GCM',iv:from64(envelope.iv)},key,from64(envelope.data));
   const result = verify(JSON.parse(new TextDecoder().decode(clear)));
   if (!result) throw Error('Dados inválidos');
@@ -311,9 +322,12 @@ function load(){let raw=null;try{raw=localStorage.getItem(STORE);if(!raw){const 
 let db=load();diagnostics.step('app.initialized', 'home');const todayAtStart=new Date();let state={page:preferredStartPage(),year:todayAtStart.getFullYear(),month:todayAtStart.getMonth(),modal:'',editJarId:null,editRecordId:null,editInstitutionId:null,editAllocationId:null,simGoal:'',simAmount:'200',txFilter:'all',txSearch:'',txTag:'',txSubcategory:'',txCategorySet:null,copyCandidates:[],modalTrigger:null,calendarDate:''};let toastTimer;
 let backupDirectory=null,backupConflict=false,backupTimer=null,persistenceStatus='Consultando a proteção de armazenamento…';const BACKUP_DB='reserva-simples-backup-handles',BACKUP_FILE='Reserva_Simples_backup.json';
 const backupPayload=()=>({...db,appVersion:APP_VERSION,savedAt:new Date().toISOString()});const canonicalData=value=>JSON.stringify(verify(value)||value);const hasSavedData=value=>!!(value&&(value.investments?.length||value.records?.length||value.jars?.length||value.allocations?.length||value.recurring?.length||value.tasks?.length||(value.institutions||[]).some(x=>!x.isDefault)));
-async function save({folderBackup=true,recover=false}={}){if(storageRecoveryRaw&&!recover){notify('Salvamento pausado para proteger dados inválidos. Exporte a cópia ou restaure um backup em Configurações.');return false}try{
+async function save({folderBackup=true,recover=false}={}){if(integrityContainmentLock){notify('Gravação bloqueada pela Central de Integridade. Revise o banco antes de continuar.');return false}if(storageRecoveryRaw&&!recover){notify('Salvamento pausado para proteger dados inválidos. Exporte a cópia ou restaure um backup em Configurações.');return false}try{
 if(vault&&!vaultKey) return false;
+const previousRaw=localStorage.getItem(STORE);
 const candidate=vault?await sealVault(db,vaultKey,vault.salt):db;
+if(localStorage.getItem(STORE)!==previousRaw){diagnostics.record('storage.conflict_prevented');integrityRecord('storage.conflict_prevented','alerta',{reason:'Banco alterado em outra aba antes da gravação'});notify('Outra aba alterou os dados. Recarregue antes de salvar.');return false}
+if(integrityContainmentLock)return false;
 localStorage.setItem(STORE,JSON.stringify(candidate));
 if(vault) vault=candidate;if(recover){storageRecoveryRaw=null;recoveryArchived=false}if(folderBackup&&folderKey)scheduleFolderBackup();return true}catch(e){diagnostics.record('storage.save_failed',e);notify('Não foi possível salvar os dados neste navegador.');return false}}
 let budgetAudio;
@@ -358,6 +372,7 @@ document.addEventListener('change',async e=>{
   }
 });
 async function mutate(callback) {
+  if (integrityContainmentLock) {notify('Edição bloqueada pela Central de Integridade até revisar o estado do banco.');return false}
   if (saving || vaultBusy || (vault && !vaultKey)) return false;
   saving = true;
   diagnostics.step('mutation.started', state.page);
@@ -417,11 +432,14 @@ function requestFolderPassword(title, confirmPassword, action) {
 async function readEncryptedFolder(handle = backupDirectory) {
   const file = await (await handle.getFileHandle(ENCRYPTED_FOLDER_FILE)).getFile();
   const envelope = JSON.parse(await file.text());
-  if (envelope.format !== 'reserva-vault-1') throw Error('Backup inválido');
+  validateVaultEnvelope(envelope);
   return envelope;
 }
 async function writeEncryptedFolder(handle, name, key, salt) {
-  const envelope = await sealVault(backupPayload(),key,salt);
+  const payload = backupPayload();
+  const envelope = await sealVault(payload,key,salt);
+  const checked = await openVault(envelope,key);
+  if (JSON.stringify(checked) !== JSON.stringify(verify(payload))) throw Error('A validação do backup falhou');
   await writeBackupEnvelope(handle,name,envelope);
 }
 async function writeBackupEnvelope(handle,name,envelope){
@@ -1403,7 +1421,7 @@ document.addEventListener('change', event=>{
 });
 function settings(){
  const total=db.records.length+db.allocations.length;const institutionsCard=institutionRegistryCard();const recoveryCard=storageRecoveryRaw?`<article class="card settings-card settings-danger"><div class="settings-card-head"><span class="settings-icon">${icon('expense')}</span><div><h2>Recuperação de dados</h2><p>Os dados salvos não puderam ser lidos. O app pausou gravações para não sobrescrever o arquivo original.</p></div></div><div class="setting-actions"><button class="btn primary" id="exportCorruptBtn">Baixar cópia dos dados</button><button class="btn negative" id="startFreshAfterCorruptBtn">Iniciar base nova</button></div><p class="settings-note">${recoveryArchived?'Uma cópia também foi guardada neste navegador.':'Não foi possível arquivar a cópia automaticamente; exporte o arquivo antes de iniciar uma base nova.'}</p></article>`:'';
- $('#page-settings').innerHTML=`${heading('Configurações','Ajuste a aparência e organize seus dados.')}<div class="settings-grid">${recoveryCard}${institutionsCard}
+ $('#page-settings').innerHTML=`${heading('Configurações','Ajuste a aparência e organize seus dados.')}<div class="settings-grid">${recoveryCard}<article class="card settings-card"><div class="settings-card-head"><div><h2>Central de Integridade</h2><p>Verifique o banco e gere um relatório técnico.</p></div></div><button class="btn primary" id="integrityScanBtn">Escanear</button><p id="integritySummary" role="status"></p></article>${institutionsCard}
  <article class="card settings-card"><div class="settings-card-head"><span class="settings-icon">${icon('settings')}</span><div><h2>Aparência</h2><p>Escolha como o aplicativo aparece neste aparelho.</p></div></div><div class="setting-row"><div><h3>Tema escuro</h3><p>Reduz o brilho da tela.</p></div><label class="switch"><input id="darkMode" type="checkbox" ${db.prefs.dark?'checked':''}>Ativar</label></div><div class="field"><span>Paleta de cores</span><div class="theme-palette-grid" role="group" aria-label="Selecione a paleta de cores">${[['blue','Azul','#1762c4'],['emerald','Esmeralda','#16834b'],['petrol','Petróleo','#08796e'],['plum','Ameixa','#7444a5'],['graphite','Grafite','#525d70'],['carbon','Preto/amarelo','#ffd43b']].map(([id,label,color])=>`<button type="button" class="theme-palette-choice ${(db.prefs.palette||'blue')===id?'selected':''}" data-palette-pick="${id}" aria-pressed="${(db.prefs.palette||'blue')===id}" title="${label}"><i style="--palette-chip:${color}"></i><span>${label}</span></button>`).join('')}</div></div></article><article class="card settings-card"><h2>Notificações</h2><p>Som ao atingir 75% ou 100% da cota de Mercado no mês atual, com o app aberto.</p><label class="switch"><input type="checkbox" id="budgetSound" ${db.prefs.budgetSound?'checked':''}>Ativar som</label> <button type="button" class="btn small" id="testBudgetSound">Testar som</button><div class="setting-row"><div><h3>Lembretes de contas</h3><p>Usa as contas recorrentes e as datas exibidas na agenda.</p></div><label class="switch"><input type="checkbox" id="billReminders" ${db.prefs.billReminders?'checked':''}>Ativar</label></div><label class="field">Avisar com antecedência<select id="billReminderDays">${[[0,'No dia do vencimento'],[1,'1 dia antes'],[3,'3 dias antes'],[7,'7 dias antes']].map(([value,label])=>`<option value="${value}" ${db.prefs.billReminderDays===value?'selected':''}>${label}</option>`).join('')}</select></label><div class="setting-actions"><button type="button" class="btn" id="enableBillNotifications">Permitir avisos no aparelho</button></div><p class="settings-note" id="billNotificationStatus">${esc(billNotificationPermission())} Os avisos automáticos são verificados quando o app está aberto.</p></article>
  <article class="card settings-card update-card"><div class="settings-card-head"><span class="settings-icon">${icon('refresh')}</span><div><h2>Atualizações</h2><p>Consulte a versão publicada e atualize o aplicativo sem apagar seus registros.</p></div></div><div id="updateState" class="update-status" data-state="${esc(updateInfo.state)}" role="status" aria-live="polite">${esc(updateInfo.status)}</div><div class="update-metrics"><div class="update-metric"><span>VERSÃO INSTALADA</span><strong>v${APP_VERSION}</strong></div><div class="update-metric"><span>VERSÃO PUBLICADA</span><strong id="updateLatest">v${esc(updateInfo.latest)}</strong></div><div class="update-metric"><span>ÚLTIMA CONSULTA</span><strong id="updateLastCheck">${updateInfo.lastCheck?esc(new Date(updateInfo.lastCheck).toLocaleString('pt-BR')):'Ainda não consultado'}</strong></div></div><div class="setting-actions"><button class="btn" id="checkUpdatesBtn">Verificar agora</button><button class="btn primary" id="applyUpdateBtn" ${updateInfo.available?'':'hidden'}>Atualizar agora</button></div><p class="update-help" id="updateNotes">${esc(updateInfo.notes||'O app preserva o banco local. A atualização do PWA requer conexão com o endereço publicado.')}</p></article>
  <article class="card settings-card backup-panel"><div class="settings-card-head"><span class="settings-icon">${icon('wallet')}</span><div><h2>Backup e exportação</h2><p>Proteja seus registros e gere relatórios.</p></div></div><div class="backup-grid">
@@ -1414,7 +1432,7 @@ function settings(){
  <article class="card settings-card"><h2>Privacidade</h2><p>Controle a exibição dos valores financeiros neste aparelho.</p><div class="setting-actions"><button type="button" class="btn" id="settingsPrivacyToggle" aria-pressed="${hideValues}">${hideValues?'Mostrar valores':'Ocultar valores'}</button></div></article>
  <article class="card settings-card"><h2>Acessibilidade</h2><p>Personalize a leitura e o movimento da interface.</p><label class="switch"><input type="checkbox" data-accessibility="reduceMotion" ${document.documentElement.classList.contains('reduceMotion')?'checked':''}>Reduzir animações</label><label class="switch"><input type="checkbox" data-accessibility="strongText" ${document.documentElement.classList.contains('strongText')?'checked':''}>Aumentar contraste do texto secundário</label></article>
  <article class="card settings-card"><h2>Painel Hoje e navegação</h2><p>Escolha como o painel apresenta os resultados e como o aplicativo abre.</p><label class="field">Período do painel<select data-view-setting="reserva.home.period">${settingOptions([['today','Hoje'],['7d','Últimos 7 dias'],['month','Mês selecionado'],['12m','Últimos 12 meses'],['custom','Personalizado em Hoje']],localStorage.getItem('reserva.home.period')||'month')}</select></label><label class="field">Gráfico por categoria<select data-view-setting="reserva.home.categoryView">${settingOptions([['distribution','Distribuição'],['comparison','Comparação com mês anterior']],localStorage.getItem('reserva.home.categoryView')||'distribution')}</select></label><label class="field">Tela inicial<select data-view-setting="reserva.startPage">${settingOptions(PAGES.map(([id,label])=>[id,label]),preferredStartPage())}</select></label><label class="switch"><input type="checkbox" data-view-setting="reserva.sidebarCompact" ${sidebarCompact?'checked':''}>Menu lateral compacto no desktop</label></article>
- <article class="card settings-card diagnostic-advanced-card"><div class="settings-card-head"><span class="settings-icon">${icon('report')}</span><div><h2>Diagnóstico avançado</h2><p>Ferramenta de desenvolvimento e QA, destinada a uso com orientação técnica.</p></div></div><p>Varre todos os módulos, estrutura e layout, cálculos, persistência isolada, regressões, acessibilidade, segurança e APIs locais. Os testes sintéticos preservam os registros reais. A análise pode levar até 60 segundos.</p><p>O JSON distingue falhas, erros, pendências e recursos não suportados. Inclui esqueleto técnico do DOM sem textos visíveis, valores de campos ou dados financeiros e pessoais. Para investigar um problema, envie o JSON, um print separado e a descrição do comportamento. Nada é enviado automaticamente.</p><p>${diagnostics.report().events.length} evento(s) técnico(s) no histórico local.</p><div class="setting-actions"><button type="button" class="btn primary" id="runDiagnosticScan">Executar análise completa e baixar JSON</button><button type="button" class="btn" id="exportDiagnostics">Baixar logs</button><button type="button" class="btn" id="clearDiagnostics">Limpar logs</button></div><p id="diagnosticScanStatus" role="status" aria-live="polite">A análise percorre os módulos; testes que dependem de navegador, aparelho ou serviços externos aparecem como pendentes.</p></article>
+ <article class="card settings-card diagnostic-advanced-card" hidden><div class="settings-card-head"><span class="settings-icon">${icon('report')}</span><div><h2>Diagnóstico avançado</h2><p>Ferramenta de desenvolvimento e QA, destinada a uso com orientação técnica.</p></div></div><p>Varre todos os módulos, estrutura e layout, cálculos, persistência isolada, regressões, acessibilidade, segurança e APIs locais. Os testes sintéticos preservam os registros reais. A análise pode levar até 60 segundos.</p><p>O JSON distingue falhas, erros, pendências e recursos não suportados. Inclui esqueleto técnico do DOM sem textos visíveis, valores de campos ou dados financeiros e pessoais. Para investigar um problema, envie o JSON, um print separado e a descrição do comportamento. Nada é enviado automaticamente.</p><p>${diagnostics.report().events.length} evento(s) técnico(s) no histórico local.</p><div class="setting-actions"><button type="button" class="btn primary" id="runDiagnosticScan">Executar análise completa e baixar JSON</button><button type="button" class="btn" id="exportDiagnostics">Baixar logs</button><button type="button" class="btn" id="clearDiagnostics">Limpar logs</button></div><p id="diagnosticScanStatus" role="status" aria-live="polite">A análise percorre os módulos; testes que dependem de navegador, aparelho ou serviços externos aparecem como pendentes.</p></article>
  <article class="card settings-card settings-danger"><div class="settings-card-head"><span class="settings-icon">${icon('expense')}</span><div><h2>Apagar dados</h2><p>Remove ${total} movimentações e ${db.jars.length} cofrinhos salvos neste navegador.</p></div></div><div class="setting-actions"><button class="btn negative" id="clearBtn">Apagar todos os dados</button></div></article>
  </div><div class="notice">Versão ${APP_VERSION}. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
 }
@@ -1984,7 +2002,7 @@ async function runAdditionalLocalTests(scan) {
     let envelope, key;
     await record(21, async () => {
       key = await deriveVaultKey(password,salt);
-      envelope = await sealVault({...empty(),records:[sample({note:'marcador fictício'})]},key,'teste');
+      envelope = await sealVault({...empty(),records:[sample({note:'marcador fictício'})]},key,bytesTo64(new Uint8Array(16)));
       const restored = await openVault(envelope,key);
       return envelope.format === 'reserva-vault-1' &&
         !JSON.stringify(envelope).includes('marcador fictício') &&
@@ -2208,8 +2226,8 @@ async function runDataSecurityTests() {
   await check('SEG-04','Chave derivada não pode ser exportada e o cofre usa AES-GCM', async () => {
     if (!globalThis.crypto?.subtle) return null;
     key = await deriveVaultKey('senha fictícia de diagnóstico',salt);
-    envelope = await sealVault(empty(),key,'teste');
-    second = await sealVault(empty(),key,'teste');
+    envelope = await sealVault(empty(),key,bytesTo64(new Uint8Array(16)));
+    second = await sealVault(empty(),key,bytesTo64(new Uint8Array(16)));
     return key.extractable === false && key.algorithm.name === 'AES-GCM';
   });
   await check('SEG-05','Cifragens sucessivas geram IVs distintos de 12 bytes', () =>
@@ -2237,9 +2255,33 @@ async function runDataSecurityTests() {
   });
   await check('SEG-09','Cofre rejeita esquema inválido mesmo após decifrar', async () => {
     if (!key) return null;
-    const invalid = await sealVault({...empty(),version:99},key,'teste');
+    const invalid = await sealVault({...empty(),version:99},key,bytesTo64(new Uint8Array(16)));
     try { await openVault(invalid,key); return false; }
     catch (error) { return error.message === 'Dados inválidos'; }
+  });
+  await check('SEG-11','Validador aceita envelope cifrado com salt, IV e dados no tamanho esperado', () => {
+    if (!envelope) return null;
+    return validateVaultEnvelope(envelope) === envelope &&
+      from64(envelope.salt).length === 16 && from64(envelope.iv).length === 12 &&
+      from64(envelope.data).length >= 16;
+  });
+  await check('SEG-12','Validador rejeita envelope com salt ou IV inválido e campos extras', () => {
+    if (!envelope) return null;
+    const rejectsStructure = candidate => {
+      try { validateVaultEnvelope(candidate); return false; }
+      catch { return true; }
+    };
+    return rejectsStructure({...envelope,salt:bytesTo64(new Uint8Array(8))}) &&
+      rejectsStructure({...envelope,iv:bytesTo64(new Uint8Array(8))}) &&
+      rejectsStructure({...envelope,records:[{amount:999}]});
+  });
+  await check('SEG-13','Pré-validação de backup confirma os dados fictícios antes de persistir', async () => {
+    if (!key) return null;
+    const fixture = {...empty(),records:[{id:'seg13-fixture',kind:'expense',category:'Outros',amount:100,date:'2027-02-01',note:'QA_BACKUP_FIXTURE'}]};
+    const candidate = await sealVault(fixture,key,bytesTo64(new Uint8Array(16)));
+    const reopened = await openVault(candidate,key);
+    return JSON.stringify(reopened) === JSON.stringify(verify(fixture)) &&
+      !JSON.stringify(candidate).includes('QA_BACKUP_FIXTURE');
   });
   await check('SEG-10','Esqueleto do app não exporta texto, links, atributos de dados ou valores de campos', () => {
     const marker='QA_DOM_SECRET_6a31';
@@ -2277,7 +2319,7 @@ async function runProposalTests(scan) {
       if (!globalThis.crypto?.subtle) return null;
       const fixture = verify(legacy(4));
       const key = await deriveVaultKey('senha fictícia',new Uint8Array(16));
-      return JSON.stringify(await openVault(await sealVault(fixture,key,'teste'),key)) === JSON.stringify(fixture);
+      return JSON.stringify(await openVault(await sealVault(fixture,key,bytesTo64(new Uint8Array(16))),key)) === JSON.stringify(fixture);
     }],
     12: ['Parser real de dois formatos de separador; arquivo misto fica fora', () =>
       [';',','].every(sep => {
@@ -2851,7 +2893,7 @@ function openBankCsvPreview(fileName,records,meta){pendingBankCsvRecords=records
 async function importBankCsv(file){if(file)diagnostics.step('csv.requested');if(!file||saving||vaultBusy||(vault&&!vaultKey))return;if(file.size>8000000)return notify('CSV muito grande; o limite é 8 MB.');let text='';try{text=(await file.text()).replace(/^\uFEFF/,'')}catch(e){diagnostics.record('csv.read_failed',e);return notify('Não foi possível ler esse arquivo CSV.')}const rows=bankCsvParseRows(text,bankCsvDelimiter(text));if(rows.length<2)return notify('O CSV não contém linhas de dados.');let headerAt=-1,map=null;for(let i=0;i<Math.min(rows.length,10);i++){const h=rows[i],candidate={date:bankCsvHeaderIndex(h,['data','date','dt','data lancamento','data transacao','data movimento','transaction date','posting date']),amount:bankCsvHeaderIndex(h,['valor','amount','value','montante','valor lancado','valor transacao']),debit:bankCsvHeaderIndex(h,['debito','debit','saida','outflow','valor debitado']),credit:bankCsvHeaderIndex(h,['credito','credit','entrada','inflow','valor creditado']),description:bankCsvHeaderIndex(h,['descricao','description','historico','history','memo','merchant','estabelecimento','detalhe','lancamento']),category:bankCsvHeaderIndex(h,['categoria','category','grupo','classificacao']),type:bankCsvHeaderIndex(h,['tipo','type','natureza','operacao','operation','dc'])};if(candidate.date>=0&&(candidate.amount>=0||candidate.debit>=0||candidate.credit>=0)){headerAt=i;map=candidate;break}}if(!map)return notify('Não identifiquei as colunas de data e valor. Use um CSV com cabeçalhos como Data, Descrição e Valor.');if(db.records.length>=50000)return notify('A base atingiu o limite de lançamentos aceito pelo aplicativo.');const existingInDb=new Set(db.records.map(bankCsvRecordKey)),records=[];let invalid=0,duplicates=0;const append=(date,cents,kind,description,bankCategory)=>{if(!cents)return;const isIncome=kind==='income',note=String(description||bankCategory||(isIncome?'Entrada importada':'Saída importada')).trim().slice(0,140),record={id:uid(),date,kind,amount:Math.abs(cents),note,source:isIncome?(/salario|folha|payroll|remuneracao|provento/.test(bankCsvNorm(note))?'salary':'complement'):'',category:isIncome?'Outros':bankCsvCategory(bankCategory,note)},key=bankCsvRecordKey(record);if(existingInDb.has(key)){duplicates++;return}records.push(record)};for(const row of rows.slice(headerAt+1)){if(!row.some(x=>String(x||'').trim()))continue;const date=bankCsvDate(row[map.date]);if(!date){invalid++;continue}const description=map.description>=0?row[map.description]:'',bankCategory=map.category>=0?row[map.category]:'',type=bankCsvNorm(map.type>=0?row[map.type]:'');if(map.debit>=0||map.credit>=0){let made=false;if(map.debit>=0){const v=bankCsvMoney(row[map.debit]);if(v){append(date,Math.abs(v),'expense',description,bankCategory);made=true}}if(map.credit>=0){const v=bankCsvMoney(row[map.credit]);if(v){append(date,Math.abs(v),'income',description,bankCategory);made=true}}if(!made)invalid++;continue}const signed=bankCsvMoney(row[map.amount]);if(signed===null||signed===0){invalid++;continue}let kind=signed<0?'expense':'income';const debitType=/(^| )(d|debito|debit|saida|outflow|compra|pagamento|despesa|saque|withdrawal)( |$)/.test(type),creditType=/(^| )(c|credito|credit|entrada|inflow|deposito|recebimento|renda)( |$)/.test(type);if(kind==='income'&&debitType&&!creditType)kind='expense';else if(kind==='expense'&&creditType&&!debitType)kind='income';append(date,signed,kind,description,bankCategory);if(records.length>5000)return notify('O arquivo excede o limite de 5.000 lançamentos por importação. Divida o extrato em arquivos menores.')}if(!records.length)return notify('Não encontrei lançamentos válidos para importar. Confira as datas e os valores do CSV.');openBankCsvPreview(file.name,records,{duplicates,invalid})}
 async function submitBankCsvImport(event){event.preventDefault();if(!pendingBankCsvRecords.length)return closeModal();if(storageRecoveryRaw&&!recoveryArchived)return notify('Exporte primeiro a cópia bruta antes de importar.');const records=pendingBankCsvRecords.slice(),form=event.currentTarget,learned={};form.querySelectorAll('[data-csv-category]').forEach(select=>{const i=Number(select.dataset.csvCategory),r=records[i];if(r&&r.kind==='expense'&&CATS.includes(select.value)){if(select.value!==r.category&&r.note)learned[bankCsvNorm(r.note)]=select.value;r.category=select.value}});if(form.elements.reconcile?.checked){const linked=new Set();for(const r of records){const t=csvRecurringMatch(r),key=t&&t.id+'|'+r.date.slice(0,7);if(t&&!linked.has(key)){r.recurringId=t.id;r.recurringMonth=r.date.slice(0,7);linked.add(key)}}}if(db.records.length+records.length>50000)return notify('A importação excede o limite de lançamentos do aplicativo.');const count=records.length;if(await mutate(()=>{db.records.push(...records)})){try{const rules=JSON.parse(localStorage.getItem('reserva.bankCsvRules')||'{}');Object.assign(rules,learned);localStorage.setItem('reserva.bankCsvRules',JSON.stringify(rules))}catch{}pendingBankCsvRecords=[];closeModal(true);notify(count+' lançamento(s) importado(s); categorias corrigidas serão sugeridas nas próximas importações.')}}
 
-async function importFile(file){if(!file||saving||vaultBusy||(vault&&!vaultKey))return;if(file.size>8000000)return notify('Backup muito grande; máximo de 8 MB.');let restored=null;try{const source=JSON.parse(await file.text());if(source?.format==='reserva-vault-1'){pendingVaultImport=source;showVaultDialog('import');return}restored=verify(source)}catch(e){}if(!restored)return notify('Backup inválido ou incompatível.');if(!confirm('Importar o backup? Ele substituirá todos os dados atuais.'))return;if(storageRecoveryRaw&&!recoveryArchived)return notify('Exporte primeiro a cópia bruta; não foi possível arquivá-la automaticamente.');if(!await preserveBeforeDestructiveAction('antes-de-importar'))return notify('Reconecte a pasta para preservar a base atual.');if(backupDirectory)backupConflict=true;const before=db;db=restored;if(!await save({recover:!!storageRecoveryRaw})){db=before;return}render();notify('Backup importado.')}
+async function importFile(file){if(!file||saving||vaultBusy||(vault&&!vaultKey))return;if(file.size>8000000)return notify('Backup muito grande; máximo de 8 MB.');let restored=null;try{const source=JSON.parse(await file.text());if(source?.format==='reserva-vault-1'){validateVaultEnvelope(source);pendingVaultImport=source;showVaultDialog('import');return}restored=verify(source)}catch(e){}if(!restored)return notify('Backup inválido ou incompatível.');if(!confirm('Importar o backup? Ele substituirá todos os dados atuais.'))return;if(storageRecoveryRaw&&!recoveryArchived)return notify('Exporte primeiro a cópia bruta; não foi possível arquivá-la automaticamente.');if(!await preserveBeforeDestructiveAction('antes-de-importar'))return notify('Reconecte a pasta para preservar a base atual.');if(backupDirectory)backupConflict=true;const before=db;db=restored;if(!await save({recover:!!storageRecoveryRaw})){db=before;return}render();notify('Backup importado.')}
 async function demo(){if(!confirm('Carregar dados fictícios de 2027? Os dados atuais serão substituídos.'))return;if(!await preserveBeforeDestructiveAction('antes-do-exemplo'))return;const d=empty();const add=(mo,kind,amount,details={})=>d.records.push({id:uid(),date:`2027-${String(mo).padStart(2,'0')}-05`,kind,amount:Math.round(amount*100),note:'',source:'complement',category:'Outros',...details});for(let m=1;m<=5;m++){add(m,'income',3400,{source:'salary'});add(m,'income',[700,400,850,500,750][m-1]);for(const [cat,value] of [['Água',96],['Luz',178],['Internet',110],['Faculdade',560],['Farmácia',105],['Cartões',430],['Telefone',55],['Mercado',770],['Transporte',210]])add(m,'expense',value+((m+1)%3)*10,{category:cat})}const j1={id:uid(),name:'Reserva de emergência',target:1000000,dueDate:'2027-12-31'},j2={id:uid(),name:'Viagem',target:350000,dueDate:'2028-07-31'};d.jars.push(j1,j2);for(let m=1;m<=5;m++){d.allocations.push({id:uid(),jarId:j1.id,date:`2027-${String(m).padStart(2,'0')}-10`,amount:[40000,55000,60000,45000,70000][m-1],note:''});if(m%2)d.allocations.push({id:uid(),jarId:j2.id,date:`2027-${String(m).padStart(2,'0')}-12`,amount:20000,note:''})}d.prefs.dark=db.prefs.dark;const prev=db;db=d;if(!await save({folderBackup:false})){db=prev;return}state.year=2027;state.month=4;go('home');notify('Exemplo fictício carregado.')}
 async function clearAll(){
   if(saving||vaultBusy||(vault&&!vaultKey))return;
@@ -2908,5 +2950,254 @@ window.addEventListener('beforeunload',event=>{
   event.returnValue='';
 });
 
+const integrityJournal = STORE + '.integrity.v1';
+const integrityRetention = 30 * 86400000;
+const integrityEvents = [];
+let integrityRunning = false, integrityQueue = Promise.resolve(), integrityLast;
+let integrityContainmentLock = false;
+function integrityRecord(check, status, detail = {}) {
+  integrityEvents.push({check,status,...detail,time:Date.now()});
+}
+async function integrityHistory() {
+  const key = vaultKey;
+  const salt = vault?.salt;
+  const run = async () => {
+    const since = Date.now()-integrityRetention;
+    while (integrityEvents[0]?.time <= since) integrityEvents.shift();
+    if (!key) return {status:'pendente',events:integrityEvents.slice()};
+    const raw = localStorage.getItem(integrityJournal);
+    const aad = encoder.encode('reserva.integrity.v1');
+    let previous = [];
+    if (raw) {
+      const entry = JSON.parse(raw);
+      const clear = await crypto.subtle.decrypt({name:'AES-GCM',iv:from64(entry.iv),additionalData:aad},key,from64(entry.data));
+      previous = JSON.parse(new TextDecoder().decode(clear));
+      if (!Array.isArray(previous)) throw Error();
+    }
+    const batch = integrityEvents.slice();
+    const events = [...previous,...batch].filter(item=>Number.isFinite(item.time)&&item.time>since);
+    if (batch.length || events.length !== previous.length) {
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const data = await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:aad},key,encoder.encode(JSON.stringify(events)));
+      if (vaultKey !== key || vault?.salt !== salt || localStorage.getItem(integrityJournal)!==raw) throw Error();
+      localStorage.setItem(integrityJournal,JSON.stringify({iv:bytesTo64(iv),data:bytesTo64(new Uint8Array(data))}));
+      integrityEvents.splice(0,batch.length);
+    }
+    return {status:'aprovada',events};
+  };
+  const result = integrityQueue.then(()=>navigator.locks ? navigator.locks.request(integrityJournal,run) : run())
+    .catch(()=>({status:'alerta',events:integrityEvents.slice()}));
+  integrityQueue = result;
+  return result;
+}
+async function integrityBank() {
+  if (saving || vaultBusy) return 'pendente';
+  const raw = localStorage.getItem(STORE);
+  if (!raw) return vault ? 'alerta' : 'pendente';
+  try {
+    const data = JSON.parse(raw);
+    if (data?.format !== 'reserva-vault-1') return vault ? 'alerta' : verify(data) ? 'sem_cofre' : 'alerta';
+    if (!vaultKey) return 'pendente';
+    await openVault(data,vaultKey);
+    return raw === localStorage.getItem(STORE) ? 'aprovada' : 'pendente';
+  } catch {return 'alerta';}
+}
+const integrityHashes = {"./engines.js": "9a18060f2c4cbf58f79cdf23f2b98de9efe307b8ceadb5ef93ae6c7f5cdd7b2f", "./index.html": "16a59316dd36dda27ae9ddf436e2c3cd930fa95eeb7323ba14b8092af9ae1abe"};
+async function integrityAssets(repair = false) {
+  if (!/^https?:$/.test(location.protocol) || !navigator.serviceWorker?.controller || !globalThis.caches)
+    return [{check:'cache_pwa',status:'pendente',reason:'Service Worker ou cache da versão indisponível'}];
+  const name = 'reserva-simples-v0.39.33-rc1';
+  if (!(await caches.has(name))) return [{check:'cache_pwa',status:'pendente',reason:'Service Worker ou cache da versão indisponível'}];
+  const cache = await caches.open(name);
+  const matches = async (response,hash) => {
+    if (!response?.ok) return false;
+    const digest = await crypto.subtle.digest('SHA-256',await response.arrayBuffer());
+    return [...new Uint8Array(digest)].map(value=>value.toString(16).padStart(2,'0')).join('')===hash;
+  };
+  const results = [];
+  const replacements = [];
+  for (const [path,hash] of Object.entries(integrityHashes)) {
+    const url = new URL(path,location.href);
+    let status;
+    try {
+      if (await matches(await cache.match(url),hash)) status = repair ? 'sem_correcao_aplicavel' : 'aprovada';
+      else if (!repair) status = 'alerta';
+      else if (!navigator.onLine) status = 'pendente';
+      else {
+        const response = await fetch(url,{cache:'no-store',redirect:'error'});
+        if (!await matches(response.clone(),hash)) status='alerta';
+        else {
+          replacements.push({url,hash,response,resultIndex:results.length});
+          status = 'validada_para_reparo';
+        }
+      }
+    } catch {status='alerta';}
+    results.push({check:path,status,action:repair?'validar_reposicao':'comparar_sha256'});
+  }
+  const canRepair = results.every(item=>['sem_correcao_aplicavel','validada_para_reparo'].includes(item.status));
+  for (const {url,hash,response,resultIndex} of replacements) {
+    const result = results[resultIndex];
+    if (!canRepair) {
+      Object.assign(result,{status:'pendente',reason:'Outro arquivo da versão ficou sem validação'});
+      continue;
+    }
+    try {
+      await cache.put(url,response);
+      Object.assign(result,{status:await matches(await cache.match(url),hash)?'corrigida':'alerta',action:'repor_e_reverificar'});
+    } catch {Object.assign(result,{status:'alerta',reason:'Falha ao gravar ou reler o cache'});}
+  }
+  return results;
+}
+function integrityInterface() {
+  return PAGES.map(([id])=>({
+    check:'interface.'+id,
+    status:document.querySelectorAll('#page-'+id).length===1?'aprovada':'alerta',
+    action:'verificar_presenca_e_unicidade'
+  }));
+}
+async function integrityRepairJournal() {
+  const before = localStorage.getItem(integrityJournal);
+  const result = await integrityHistory();
+  if (result.status!=='aprovada') return {check:'diario',status:result.status,
+    reason:result.status==='pendente'?'Cofre fechado ou desativado':'Falha ao abrir ou atualizar diário cifrado'};
+  return {check:'diario',status:'aprovada',action:'autenticar_e_aplicar_retencao',
+    reason:before===localStorage.getItem(integrityJournal)?'Diário sem alteração necessária':'Diário cifrado atualizado'};
+}
+let integrityMonitoring = false;
+let integrityLastCache = 0;
+function integrityStoreCheck(results) {
+  for (const {check,status,reason,action,recheckOf} of results)
+    integrityRecord(check,status,{reason,action,recheckOf});
+  if (results.some(item=>item.status==='alerta')) notify('Central de Integridade detectou uma anomalia. Consulte Ajustes.');
+}
+async function integrityMonitor() {
+  if (integrityRunning || diagnosticRunning || integrityMonitoring) return;
+  integrityMonitoring = true;
+  try {
+    const status = await integrityBank().catch(()=> 'pendente');
+    if (status !== integrityLast) {
+      integrityLast = status;
+      integrityContainmentLock = status==='alerta';
+      integrityStoreCheck([{check:'banco.monitoramento',status,
+        reason:status==='alerta'?'Falha na validação do banco':'Estado do banco verificado',
+        action:status==='alerta'?'suspender_gravacoes':'manter_operacao'}]);
+    }
+    if (Date.now()-integrityLastCache >= 60000) {
+      integrityLastCache = Date.now();
+      integrityStoreCheck(await integrityAssets());
+    }
+    await integrityHistory();
+  } catch {integrityRecord('monitoramento','alerta');}
+  finally {integrityMonitoring = false;}
+
+}
+async function integrityScan() {
+  if (integrityRunning || diagnosticRunning) return;
+  integrityRunning = diagnosticRunning = true;
+  const dialog = document.createElement('dialog');
+  const names = ['Varredura de integridade','Autocorreção','Monitoramento e checagem','Diagnóstico'];
+  dialog.setAttribute('aria-label','Central de Integridade');
+  dialog.className = 'card integrity-progress';
+  dialog.innerHTML = '<div class="settings-card-head"><span class="settings-icon">'+icon('refresh')+'</span><div><h2>Central de Integridade</h2><p role="status" class="integrity-screen">Preparando verificações</p></div></div>'+names.map((name,index)=>'<div class="integrity-stage"><div><strong>'+name+'</strong><output>Aguardando</output></div><p class="integrity-stage-detail" id="integrity-stage-detail-'+index+'">Aguardando esta etapa</p><progress max="100" value="0" aria-label="'+name+'"></progress></div>').join('');
+  dialog.addEventListener('cancel',event=>event.preventDefault());
+  document.body.append(dialog);
+  const outputs = dialog.querySelectorAll('output');
+  const bars = dialog.querySelectorAll('progress');
+  const details = [...dialog.querySelectorAll('.integrity-stage-detail')];
+  const stages = [];
+  async function step(index,work) {
+    const duration = [6000,8000,12000,15000][index];
+    const start = performance.now();
+    let frame, timer;
+    const draw = now => {
+      bars[index].value = Math.min(99,(now-start)/duration*100);
+      outputs[index].textContent = Math.floor(bars[index].value)+'%';
+      frame = requestAnimationFrame(draw);
+    };
+    try {
+      outputs[index].textContent='0%';
+      details[index].textContent = ['Conferindo banco, telas e arquivos do cache','Validando diário e tentando reparar arquivos comprovadamente íntegros','Repetindo as verificações e observando alterações','Percorrendo os módulos do diagnóstico normal'][index];
+      frame = requestAnimationFrame(draw);
+      const [result] = await Promise.all([work(message=>{details[index].textContent=message;}),new Promise(resolve=>{timer=setTimeout(resolve,duration);})]);
+      bars[index].value=100;
+      outputs[index].textContent='Concluída';
+      return result;
+    } finally {cancelAnimationFrame(frame);clearTimeout(timer);}
+  }
+  try {
+    dialog.show();
+    const runId = crypto.randomUUID ? crypto.randomUUID() : 'run-'+Date.now()+'-'+Math.random().toString(16).slice(2);
+    stages.push(await step(0,async update=>{
+      update('Autenticando e validando a estrutura do banco');
+      const bank=[{check:'banco',status:await integrityBank()}];
+      update('Conferindo presença das telas do aplicativo');
+      const pages=integrityInterface();
+      update('Comparando os hashes dos arquivos no cache');
+      return [...bank,...pages,...await integrityAssets()];
+    }));
+    stages.push(await step(1,async update=>{
+      update('Preservando os dados financeiros e verificando o diário');
+      const bank={check:'banco',status:'sem_correcao_aplicavel',reason:'Banco preservado para evitar sobrescrever registros'};
+      const journal=await integrityRepairJournal();
+      update('Buscando cópias válidas para reparar o cache');
+      const assets=await integrityAssets(true);
+      return [bank,journal,...assets];
+    }));
+    stages.push(await step(2,async update=>{
+      update('Reautenticando o banco após as ações de correção');
+      const bank={check:'banco.rechecagem',status:await integrityBank()};
+      update('Rechecando as telas e os arquivos do cache');
+      return [bank,...integrityInterface(),...await integrityAssets()];
+    }));
+    stages.flat().forEach(({check,status,action,reason})=>integrityRecord(check,status,{action,reason,runId}));
+    const scan = await step(3,async()=>{
+      const screen = dialog.querySelector('.integrity-screen');
+      const started = performance.now();
+      const result = await runDiagnosticScan(async(_step,title,percent)=>{
+        await new Promise(resolve=>setTimeout(resolve,Math.max(0,14500*percent/100-(performance.now()-started))));
+        screen.textContent = title;
+        await new Promise(resolve=>requestAnimationFrame(resolve));
+      });
+      const checks = result.modules.flatMap(module=>module.checks||[]);
+      stages.push([{check:'diagnostico.integrado',status:'aprovada',runId,
+        durationMs:result.durationMs,modules:result.modules.length,checks:checks.length,
+        action:'executar_diagnostico_normal_tela_a_tela'}]);
+      return result;
+    });
+    const checks = stages.flat();
+    const totals = {
+      aprovadas:checks.filter(item=>item.status==='aprovada'||item.status==='ok').length,
+      corrigidas:checks.filter(item=>item.status==='corrigida').length,
+      alertas:checks.filter(item=>['alerta','falha','erro'].includes(item.status)).length,
+      pendentes:checks.filter(item=>['pendente','sem_cofre','ignorado','não_suportado'].includes(item.status)).length
+    };
+    const history = await integrityHistory();
+    const summary = $('#integritySummary');
+    if (summary) summary.textContent = Object.entries(totals).map(([label,count])=>count+' '+label).join(' · ') +
+      (checks.some(item=>item.status==='sem_cofre')?' · Banco sem cofre ativo.':'') +
+      (checks.some(item=>item.check==='cache_pwa'&&item.status==='pendente')?' · Cache da PWA indisponível.':'') +
+      (history.status!=='aprovada'?' · Histórico cifrado não confirmado.':'');
+    download(JSON.stringify({...diagnosticReport(scan),centralDeIntegridade:{schemaVersion:'reserva.integrity.report.v2',runId,stages,history,totals}},null,2),'application/json','Reserva_Simples_Diagnostico_Integridade.json');
+    notify('Diagnóstico da Central de Integridade gerado.');
+  } catch {
+    integrityRecord('central.execucao','alerta');
+    notify('Falha ao concluir a Central de Integridade.');
+  } finally {
+    dialog.remove();
+    integrityRunning = diagnosticRunning = false;
+  }
+}
+integrityRecord('app.inicio','observado');
+document.addEventListener('click',event=>{if(event.target.closest('#integrityScanBtn')) void integrityScan();});
+document.addEventListener('securitypolicyviolation',()=>{
+  integrityStoreCheck([{check:'politica.conteudo',status:'alerta'}]);
+  void integrityHistory();
+});
+document.addEventListener('visibilitychange',()=>{if (!document.hidden) void integrityMonitor();});
+window.addEventListener('storage',event=>{if(event.key===STORE) void integrityMonitor();});
+setInterval(integrityMonitor,15000);
+void integrityMonitor();
+
 })();
+
 
