@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.26",
+  "version": "0.39.27",
   "channel": "rc1",
-  "updatedAt": "2026-11-13T20:08:27.019Z",
+  "updatedAt": "2026-11-14T03:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Corrige a ativação do atualizador e reforça o cache offline sem tocar nos dados locais."
+  "notes": "Diagnóstico avançado, painel Hoje revisado e novas preferências em Ajustes."
 }

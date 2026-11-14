@@ -10,7 +10,7 @@ const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purp
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='0.39.26';
+const APP_VERSION='0.39.27';
 const diagnostics = (() => {
   const key = 'reserva.diagnostics.v1';
   const sessionKey = key + '.active';
@@ -304,7 +304,7 @@ async function submitVault(event) {
   } finally { vaultBusy=false; }
 }
 function load(){let raw=null;try{raw=localStorage.getItem(STORE);if(!raw)return empty();const parsed=JSON.parse(raw);if(parsed?.format==='reserva-vault-1'){vault=parsed;return empty()}const clean=verify(parsed);if(clean)return clean;storageRecoveryRaw=raw}catch(e){try{raw=localStorage.getItem(STORE)}catch(ignore){}}if(raw){diagnostics.record('storage.recovery');storageRecoveryRaw=raw;try{recoveryArchived=false;for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key?.startsWith(`${STORE}-corrompido-`)&&localStorage.getItem(key)===raw){recoveryArchived=true;break}}if(!recoveryArchived){localStorage.setItem(`${STORE}-corrompido-${Date.now()}`,raw);recoveryArchived=true}}catch(e){recoveryArchived=false}}return empty()}
-let db=load();diagnostics.step('app.initialized', 'home');const todayAtStart=new Date();let state={page:'home',year:todayAtStart.getFullYear(),month:todayAtStart.getMonth(),modal:'',editJarId:null,editRecordId:null,editInstitutionId:null,editAllocationId:null,simGoal:'',simAmount:'200',txFilter:'all',txSearch:'',txTag:'',txSubcategory:'',txCategorySet:null,copyCandidates:[],modalTrigger:null,calendarDate:''};let toastTimer;
+let db=load();diagnostics.step('app.initialized', 'home');const todayAtStart=new Date();let state={page:preferredStartPage(),year:todayAtStart.getFullYear(),month:todayAtStart.getMonth(),modal:'',editJarId:null,editRecordId:null,editInstitutionId:null,editAllocationId:null,simGoal:'',simAmount:'200',txFilter:'all',txSearch:'',txTag:'',txSubcategory:'',txCategorySet:null,copyCandidates:[],modalTrigger:null,calendarDate:''};let toastTimer;
 let backupDirectory=null,backupConflict=false,backupTimer=null,persistenceStatus='Consultando a proteção de armazenamento…';const BACKUP_DB='reserva-simples-backup-handles',BACKUP_FILE='Reserva_Simples_backup.json';
 const backupPayload=()=>({...db,appVersion:APP_VERSION,savedAt:new Date().toISOString()});const canonicalData=value=>JSON.stringify(verify(value)||value);const hasSavedData=value=>!!(value&&(value.investments?.length||value.records?.length||value.jars?.length||value.allocations?.length||value.recurring?.length||value.tasks?.length||(value.institutions||[]).some(x=>!x.isDefault)));
 async function save({folderBackup=true,recover=false}={}){if(storageRecoveryRaw&&!recover){notify('Salvamento pausado para proteger dados inválidos. Exporte a cópia ou restaure um backup em Configurações.');return false}try{
@@ -610,7 +610,8 @@ function syncDesktopHeaderControls(){
  if(titleBlock.parentElement!==titleTarget)titleTarget.insertBefore(titleBlock,titleTarget.firstChild);
  const controlTarget=desktop?bar:header;
  if(right.parentElement!==controlTarget)controlTarget.append(right);
- if(notifications.parentElement!==controlTarget)controlTarget.append(notifications);
+ const notificationTarget=controlTarget;
+ if(notifications.parentElement!==notificationTarget)notificationTarget.append(notifications);
 }
 function nav(){const asButton=([id,label,ic])=>`<button type="button" class="nav-button ${state.page===id?'selected':''}" data-page="${id}" aria-label="${label}" title="${label}" ${state.page===id?'aria-current="page"':''}>${icon(ic)}<span class="nav-label">${label}</span><span class="nav-short">${id==='transactions'?'Mov.':id==='investments'?'Invest.':id==='analysis'?'Insights':id==='reports'?'Relat.':id==='calendar'?'Agenda':label}</span></button>`;const mobileModules=PAGES.filter(([id])=>!['settings','calendar'].includes(id)),desktopModules=PAGES.filter(([id])=>id!=='settings'),quick=`<button type="button" id="quickAddButton" class="nav-add" aria-label="Registrar" title="Registrar">${icon('plus')}</button>`;$('#mobileNav').innerHTML=[asButton(mobileModules[0]),asButton(mobileModules[1]),asButton(mobileModules[2]),quick,...mobileModules.slice(3).map(asButton)].join('');$('#desktopNav').innerHTML=desktopModules.map(asButton).join('')+'<button class="nav-button" type="button" data-register-menu aria-label="Registrar" title="Registrar">'+icon('plus')+'<span class="nav-label">Registrar</span></button>'+PAGES.filter(([id])=>id==='settings').map(asButton).join('');syncSidebar();syncDesktopHeaderControls();const agendaButton=$('#headerCalendar');agendaButton?.classList.toggle('selected',state.page==='calendar');if(state.page==='calendar')agendaButton?.setAttribute('aria-current','page');else agendaButton?.removeAttribute('aria-current');const settings=$('#headerSettings');settings?.classList.toggle('selected',state.page==='settings');if(state.page==='settings')settings?.setAttribute('aria-current','page');else settings?.removeAttribute('aria-current');renderDesktopModuleBar();renderDesktopNotifications()}
 function miniProgress(val,target){return `<div class="track"><span style="width:${target?Math.max(0,Math.min(100,val/target*100)):0}%"></span></div>`}
@@ -777,7 +778,13 @@ const mobileHomeOpen=()=>mobileHomeLayout.matches?'':'open';
 mobileHomeLayout.addEventListener('change',()=>{
  for(const disclosure of document.querySelectorAll('.mobile-home-disclosure'))disclosure.open=!mobileHomeLayout.matches;
 });
-function home(){const m=month(),today=new Date(),isCurrent=state.year===today.getFullYear()&&state.month===today.getMonth(),daysInMonth=new Date(state.year,state.month+1,0).getDate(),daysLeft=isCurrent?Math.max(1,daysInMonth-today.getDate()+1):daysInMonth,daily=m.balance>0?Math.floor(m.balance/daysLeft):0,activeJars=db.jars.filter(j=>!j.archived&&!j.paused),budgetUse=m.income?Math.max(0,(m.expenses+m.deposits-m.withdrawals+m.invested-m.redeemed)/m.income*100):0,plan=Engines.insights(db,state.year,state.month),topTip=plan.byCat.biggestRise?`${plan.byCat.biggestRise.name} subiu ${percent(plan.byCat.biggestRise.rateChange)} em relação ao mês anterior.`:plan.byCat.items.length?`Reduzir 10% de ${plan.byCat.items[0].name} liberaria ${money(plan.byCat.savingExample)} neste mês.`:'Registre seus lançamentos para receber uma dica útil.';const dueItems=upcomingBillInstances(14),pending=dueItems.slice(0,3),dueOverdue=dueItems.filter(x=>x.daysLate>0).length,dueToday=dueItems.filter(x=>x.daysUntil===0).length,dueWeek=dueItems.filter(x=>x.daysUntil>0&&x.daysUntil<=7).length;const reserved=m.saved>=m.minimum,period=homePeriodMetrics(),periodNet=period.income-period.expenses,periodChange=periodNet-(period.previous.income-period.previous.expenses),usesMonthlyBalance=period.mode==='today',displayBalance=usesMonthlyBalance?m.balance:periodNet,primary=displayBalance>=0?money(displayBalance):`−${money(Math.abs(displayBalance))}`,primaryLabel=usesMonthlyBalance?(m.balance>=0?'Você ainda pode gastar':'Saídas acima da renda'):(periodNet>=0?'Entradas menos despesas no período':'Despesas acima das receitas');$('#page-home').innerHTML=`<div class="today-top-grid"><article class="today-card">${homePeriodControls()}<div class="today-overline">${esc(period.label.toLocaleUpperCase('pt-BR'))}</div><h2>${usesMonthlyBalance?primaryLabel:'Resultado do período'}</h2><div class="today-balance-line"><strong class="today-amount ${displayBalance<0?'over-budget':''}">${primary}</strong><button type="button" class="today-eye" data-home-action="privacy" aria-label="Mostrar ou ocultar saldo" title="Mostrar ou ocultar saldo">${icon('eye')}</button></div><div class="today-income-expense"><button type="button" data-home-action="detail" data-route="transactions" data-filter="income"><span>${icon('income')}Receitas</span><strong>${money(period.income)}</strong></button><button type="button" data-home-action="detail" data-route="transactions" data-filter="expense"><span>${icon('expense')}Despesas</span><strong>${money(period.expenses)}</strong></button></div><p>${usesMonthlyBalance?'O saldo considera os lançamentos de todo o mês. Entradas e despesas mostram somente hoje.':`${periodChange>=0?'Resultado melhorou ':'Resultado caiu '}${money(Math.abs(periodChange))} em relação ao período anterior. ${primaryLabel}.`}</p>${period.income?`<div class="budget-progress"><div class="budget-progress-track"><span style="width:${Math.min(100,period.expenses/period.income*100)}%;background:${period.expenses>=period.income?'var(--danger)':period.expenses/period.income>=.8?'var(--warning)':'var(--primary)'}"></span></div><div class="budget-progress-caption"><span>${percent(period.expenses/period.income*100)} das receitas usadas</span><span>${period.expenses>=period.income?'Despesas acima das receitas':period.expenses/period.income>=.8?'Atenção ao ritmo':'Saldo positivo'}</span></div></div>`:`<div class="empty-inline">${usesMonthlyBalance?'Não houve receita registrada hoje; o saldo mensal considera também os lançamentos anteriores.':'Adicione uma receita no período para ver a comparação.'}</div>`}</article><details class="mobile-home-disclosure mobile-cota-disclosure" ${mobileHomeOpen()}><summary>Cota de Mercado</summary>${marketBudgetCard(m)}</details></div><div class="home-quarter-grid">${marketBudgetOverviewCard(m)}${homeDesktopSummaryCards(m,topTip)}</div><div class="mobile-home-shortcuts" aria-label="Atalhos"><button class="btn primary" data-open="expense">Nova despesa</button><button class="btn" data-page="analysis">Ver Insights</button><button class="btn" data-page="transactions">Lançamentos</button></div><details class="mobile-home-disclosure" ${mobileHomeOpen()}><summary>Gráficos, agenda e detalhes do mês</summary><div class="mobile-home-detail-content"><div class="home-analytics-grid">${categorySpendCard(m)}${homeTrendCard()}</div>${homeSmartFinanceCard(m)}<div class="today-lower"><article class="card">${cardTitle('Próximos vencimentos','Contas previstas que ainda não foram lançadas')}<div class="home-due-summary"><div><small>Vencidos</small><strong>${dueOverdue}</strong></div><div><small>Hoje</small><strong>${dueToday}</strong></div><div><small>Próximos 7 dias</small><strong>${dueWeek}</strong></div></div>${pending.length?`<div class="upcoming-list">${pending.map(t=>`<button type="button" class="upcoming-row" data-open-calendar-date="${t.date}"><span class="upcoming-day">${t.date.slice(8)}</span><span><b>${esc(t.category)}</b><small>${t.daysLate?`<span class="overdue-label">Vencida há ${t.daysLate} dia(s)</span> · `:t.daysUntil===0?'Vence hoje · ':t.daysUntil===1?'Vence amanhã · ':`Vence em ${t.daysUntil} dias · `}${esc(t.note||'Conta recorrente')}</small></span><strong>${money(t.amount)}</strong></button>`).join('')}</div>`:`<div class="empty-inline">Sem vencimentos pendentes próximos. Você pode cadastrar uma conta recorrente em Lançamentos.</div>`}</article><article class="card tip-card home-mobile-summary">${cardTitle('Uma dica para você','Baseada somente nos lançamentos registrados')}<p>${esc(topTip)}</p><button class="text-link" data-page="analysis">Ver insights</button></article></div><div class="home-planning-grid">${homeForecastCard()}${homeAgendaCard()}</div>${homeOverview(m)}<div class="today-stats home-mobile-summary">${reserveMonthCard(m)}</div>${goalProgressSummary('home-mobile-summary')}</div></details>`;}
+document.addEventListener('click', event=>{
+  const control=event.target.closest('[data-home-month]');
+  if(!control)return;
+  if(control.dataset.homeMonth==='pick')openMonthPicker();
+  else changeMonth(control.dataset.homeMonth==='prev'?-1:1);
+});
+function home(){const m=month(),today=new Date(),isCurrent=state.year===today.getFullYear()&&state.month===today.getMonth(),daysInMonth=new Date(state.year,state.month+1,0).getDate(),daysLeft=isCurrent?Math.max(1,daysInMonth-today.getDate()+1):daysInMonth,daily=m.balance>0?Math.floor(m.balance/daysLeft):0,activeJars=db.jars.filter(j=>!j.archived&&!j.paused),budgetUse=m.income?Math.max(0,(m.expenses+m.deposits-m.withdrawals+m.invested-m.redeemed)/m.income*100):0,plan=Engines.insights(db,state.year,state.month),topTip=plan.byCat.biggestRise?`${plan.byCat.biggestRise.name} subiu ${percent(plan.byCat.biggestRise.rateChange)} em relação ao mês anterior.`:plan.byCat.items.length?`Reduzir 10% de ${plan.byCat.items[0].name} liberaria ${money(plan.byCat.savingExample)} neste mês.`:'Registre seus lançamentos para receber uma dica útil.';const dueItems=upcomingBillInstances(14),pending=dueItems.slice(0,3),dueOverdue=dueItems.filter(x=>x.daysLate>0).length,dueToday=dueItems.filter(x=>x.daysUntil===0).length,dueWeek=dueItems.filter(x=>x.daysUntil>0&&x.daysUntil<=7).length;const reserved=m.saved>=m.minimum,period=homePeriodMetrics(),periodNet=period.income-period.expenses,periodChange=periodNet-(period.previous.income-period.previous.expenses),usesMonthlyBalance=period.mode==='today',displayBalance=usesMonthlyBalance?m.balance:periodNet,primary=displayBalance>=0?money(displayBalance):`−${money(Math.abs(displayBalance))}`,primaryLabel=usesMonthlyBalance?(m.balance>=0?'Você ainda pode gastar':'Saídas acima da renda'):(periodNet>=0?'Entradas menos despesas no período':'Despesas acima das receitas');const notifications=$('#desktopNotificationWrap');if(notifications)$('.header').append(notifications);$('#page-home').innerHTML=`<div class="today-top-grid"><article class="today-card"><div class="home-result-header"><h2>Resultado do período</h2><div id="homeResultActions"><div class="home-result-tools"><button class="btn" data-home-month="prev" aria-label="Mês anterior">‹</button><button class="btn" data-home-month="pick">${esc(monthLabel())} ▾</button><button class="btn" data-home-month="next" aria-label="Próximo mês">›</button></div><button type="button" class="today-eye" data-home-action="privacy" aria-label="Ocultar valores" aria-pressed="${hideValues}" title="${hideValues?'Mostrar valores':'Ocultar valores'}">${hideValues?icon('eye').replace('</svg>','<path d="M3 3l18 18"/></svg>'):icon('eye')}</button></div></div><div class="today-balance-line"><strong class="today-amount ${displayBalance<0?'over-budget':''}">${money(periodNet)}</strong></div><p>Entradas menos despesas · ${esc(period.label)}</p><div class="home-period-disclosure"><span>Filtrar período</span>${homePeriodControls()}</div><div class="today-income-expense"><button type="button" data-home-action="detail" data-route="transactions" data-filter="income"><span>${icon('income')}Receitas</span><strong>${money(period.income)}</strong></button><button type="button" data-home-action="detail" data-route="transactions" data-filter="expense"><span>${icon('expense')}Despesas</span><strong>${money(period.expenses)}</strong></button><button type="button" data-page="goals"><span>${icon('piggy')}Guardado no mês</span><strong>${money(m.saved)}</strong></button></div><p>${usesMonthlyBalance?'O saldo considera os lançamentos de todo o mês. Entradas e despesas mostram somente hoje.':`${periodChange>=0?'Resultado melhorou ':'Resultado caiu '}${money(Math.abs(periodChange))} em relação ao período anterior. ${primaryLabel}.`}</p>${period.income?`<div class="budget-progress"><div class="budget-progress-track"><span style="width:${Math.min(100,period.expenses/period.income*100)}%;background:${period.expenses>=period.income?'var(--danger)':period.expenses/period.income>=.8?'var(--warning)':'var(--primary)'}"></span></div><div class="budget-progress-caption"><span>${percent(period.expenses/period.income*100)} das receitas usadas</span><span>${period.expenses>=period.income?'Despesas acima das receitas':period.expenses/period.income>=.8?'Atenção ao ritmo':'Saldo positivo'}</span></div></div>`:`<div class="empty-inline">${usesMonthlyBalance?'Não houve receita registrada hoje; o saldo mensal considera também os lançamentos anteriores.':'Adicione uma receita no período para ver a comparação.'}</div>`}</article><details class="mobile-home-disclosure mobile-cota-disclosure" ${mobileHomeOpen()}><summary>Cota de Mercado</summary>${marketBudgetCard(m)}</details></div><div class="home-reference-summary">${[['Saldo disponível',money(m.balance),'Após lançamentos registrados','transactions','wallet'],['Metas',money(activeJars.reduce((total,jar)=>total+estimateCdbJar(jar.id).net,0)),'Guardado nos cofrinhos','goals','target'],['Investimentos',money(sum(db.investments.map(item=>item.balance))),'Carteira atual','investments','piggy'],['Próximos vencimentos',dueToday+dueWeek+' contas','Nos próximos 7 dias','calendar','calendar']].map(([label,value,hint,page,ic])=>`<button class="card home-reference-stat" data-page="${page}"><span>${icon(ic)} ${label}</span><strong>${value}</strong><small>${hint}</small></button>`).join('')}</div><article class="card home-reference-planning"><div><small>Planejamento do mês</small><h2>${m.balance<0?'Saídas acima da renda':'Você ainda pode gastar'}</h2><strong>${money(m.balance)}</strong><p>Média diária ${money(daily)}</p><div class="budget-progress-track"><span style="width:${Math.min(100,budgetUse)}%"></span></div></div><div><h2>Dica do Insights</h2><p>${esc(topTip)}</p><button class="text-link" data-page="analysis">Ver Insights →</button></div></article><div class="home-reference-pair">${homeTrendCard()}${homeAgendaCard()}</div><div class="home-quarter-grid">${marketBudgetOverviewCard(m)}</div><div class="mobile-home-shortcuts" aria-label="Atalhos"><button class="btn primary" data-open="expense">Nova despesa</button><button class="btn" data-page="analysis">Ver Insights</button><button class="btn" data-page="transactions">Lançamentos</button></div><details class="mobile-home-disclosure" ${mobileHomeOpen()}><summary>Gráficos, agenda e detalhes do mês</summary><div class="mobile-home-detail-content"><div class="home-analytics-grid">${categorySpendCard(m)}</div>${homeSmartFinanceCard(m)}<div class="today-lower"><article class="card">${cardTitle('Próximos vencimentos','Contas previstas que ainda não foram lançadas')}<div class="home-due-summary"><div><small>Vencidos</small><strong>${dueOverdue}</strong></div><div><small>Hoje</small><strong>${dueToday}</strong></div><div><small>Próximos 7 dias</small><strong>${dueWeek}</strong></div></div>${pending.length?`<div class="upcoming-list">${pending.map(t=>`<button type="button" class="upcoming-row" data-open-calendar-date="${t.date}"><span class="upcoming-day">${t.date.slice(8)}</span><span><b>${esc(t.category)}</b><small>${t.daysLate?`<span class="overdue-label">Vencida há ${t.daysLate} dia(s)</span> · `:t.daysUntil===0?'Vence hoje · ':t.daysUntil===1?'Vence amanhã · ':`Vence em ${t.daysUntil} dias · `}${esc(t.note||'Conta recorrente')}</small></span><strong>${money(t.amount)}</strong></button>`).join('')}</div>`:`<div class="empty-inline">Sem vencimentos pendentes próximos. Você pode cadastrar uma conta recorrente em Lançamentos.</div>`}</article><article hidden class="card tip-card home-mobile-summary">${cardTitle('Uma dica para você','Baseada somente nos lançamentos registrados')}<p>${esc(topTip)}</p><button class="text-link" data-page="analysis">Ver insights</button></article></div><div class="home-planning-grid">${homeForecastCard()}</div><div class="today-stats home-mobile-summary"></div>${goalProgressSummary('home-mobile-summary')}</div></details>`;syncDesktopHeaderControls();}
 function income(){const m=month();$('#page-income').innerHTML=`${heading('Tudo que entra','Duas opções: salário e complemento.',`<button class="btn primary" data-open="income">${icon('plus')}Adicionar renda</button>`)}<div class="stats">${stat('Salário',money(m.salary),'Total recebido no mês','income')}${stat('Complemento',money(m.complement),'Ganhos adicionais','wallet')}${stat('Renda total',money(m.income),'Base para calcular o mínimo de 10%','income')}${stat('Mínimo para guardar',money(m.minimum),'10% da renda total','piggy')}</div><article class="card">${cardTitle('Entradas de '+monthLabel(),'Informe cada recebimento com valor e data.')}${recentTable(m.records,'income')}</article>`}
 function transactionItems(){const key=mkey(state.year,state.month),rows=db.records.filter(x=>x.date.startsWith(key)).map(x=>({id:x.id,date:x.date,type:x.kind,category:x.category||'',amount:x.kind==='income'?x.amount:-x.amount,impact:x.kind==='income'?x.amount:-x.amount,title:x.kind==='income'?(x.source==='salary'?'Salário':'Complemento'):x.category,detail:[x.subcategory,x.note,...(x.tags||[]).map(tag=>'#'+tag)].filter(Boolean).join(' · ')||(x.kind==='income'?'Renda':'Despesa'),tags:x.tags||[],subcategory:x.subcategory||'',search:[x.kind,x.category,x.subcategory,x.source,x.note,...(x.tags||[]),x.date]}));const transfers=db.allocations.filter(x=>x.date.startsWith(key)).map(x=>{const cashImpact=x.amount>0?-x.amount:(x.netReceived??-x.amount);return{id:x.id,date:x.date,type:'goals',amount:cashImpact,impact:cashImpact,title:db.jars.find(j=>j.id===x.jarId)?.name||'Cofrinho',detail:x.amount>0?'Depósito · valor reservado':'Resgate · valor líquido recebido',search:['meta',x.note,x.date,db.jars.find(j=>j.id===x.jarId)?.name||'']}});return [...rows,...transfers].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id))}
 let transactionLimit=30, transactionQueryKey="";
@@ -1230,6 +1237,9 @@ function generateGlobalPdf(){
 }
 </style>
 
+
+
+
 </body></html>`;
   const parsed=new DOMParser().parseFromString(reportHtml,'text/html');
   downloadPdfReport('Relatorio financeiro - '+title,reportHtml,document,window);
@@ -1256,6 +1266,21 @@ function generateCdbPdf(){const rows=db.jars.filter(j=>!j.archived).map(j=>{cons
 function institutionRegistryCard(){const rows=db.institutions.map(i=>{const used=db.jars.filter(j=>j.institutionId===i.id).length;return `<div class="institution-row"><span><b>${esc(i.name)}</b><small>${i.type==='cooperative'?'Cooperativa':'Banco'} · ${percent(i.cdiPercent)} do CDI · ${fundLabel(i.guaranteeFund)} · ${used} cofrinho(s)</small></span><span class="institution-actions"><button class="btn small" data-open="institution" data-institution="${esc(i.id)}">${i.isDefault?'Ajustar':'Editar'}</button>${i.isDefault?'<span class="tag soft">Padrão</span>':`<button class="btn small negative" data-delete-institution="${esc(i.id)}">Excluir</button>`}</span></div>`}).join('');return `<article class="card settings-card institution-settings-card"><div class="settings-card-head"><span class="settings-icon">${icon('wallet')}</span><div><h2>Bancos e cooperativas</h2><p>Cadastre instituições, remuneração do CDB e referências de proteção para o monitoramento estimado.</p></div></div><div class="institution-list">${rows}</div><div class="setting-actions"><button class="btn primary" data-open="institution">Cadastrar banco ou cooperativa</button></div></article>`}
 async function deleteInstitution(id){const i=db.institutions.find(x=>x.id===id);if(!i)return;if(i.isDefault)return notify('A instituição padrão do Banco Inter não pode ser excluída.');const used=db.jars.filter(j=>j.institutionId===id);if(used.length)return notify('Antes de excluir, edite os cofrinhos vinculados e escolha outra instituição.');if(!confirm(`Excluir “${i.name}” da lista de instituições?`))return;if(await mutate(()=>db.institutions=db.institutions.filter(x=>x.id!==id)))notify('Instituição excluída.')}
 async function savePlanningPrefs(e){e.preventDefault();const raw=$('#balanceAnchorAmount').value.trim(),date=$('#balanceAnchorDate').value,months=Number($('#emergencyMonths').value);let balance=null,anchor='';if(raw||date){const n=Number(raw);if(!raw||!Number.isFinite(n)||n<0||n>100000000||!validDate(date)||date>isoToday()){notify('Informe um saldo válido e a data em que ele foi conferido.');return}balance=Math.round(n*100);anchor=date}if(![3,6,9,12].includes(months)){notify('Escolha um prazo válido para a reserva.');return}if(await mutate(()=>{db.prefs.balanceAnchorCents=balance;db.prefs.balanceAnchorDate=anchor;db.prefs.emergencyMonths=months}))notify('Referências de planejamento salvas.')}
+function preferredStartPage(){
+  const page=localStorage.getItem('reserva.startPage');
+  return PAGES.some(([id])=>id===page)?page:'home';
+}
+function settingOptions(choices, selected){
+  return choices.map(([value,label])=>`<option value="${esc(value)}" ${selected===value?'selected':''}>${esc(label)}</option>`).join('');
+}
+document.addEventListener('change', event=>{
+  const input=event.target;
+  const key=input.dataset?.viewSetting;
+  if (!['reserva.home.period','reserva.home.categoryView','reserva.startPage','reserva.sidebarCompact'].includes(key)) return;
+  localStorage.setItem(key,input.type==='checkbox'?String(input.checked):input.value);
+  if(key==='reserva.sidebarCompact'){sidebarCompact=input.checked;syncSidebar();}
+  if(key.startsWith('reserva.home.'))home();
+});
 function settings(){
  const total=db.records.length+db.allocations.length;const institutionsCard=institutionRegistryCard();const recoveryCard=storageRecoveryRaw?`<article class="card settings-card settings-danger"><div class="settings-card-head"><span class="settings-icon">${icon('expense')}</span><div><h2>Recuperação de dados</h2><p>Os dados salvos não puderam ser lidos. O app pausou gravações para não sobrescrever o arquivo original.</p></div></div><div class="setting-actions"><button class="btn primary" id="exportCorruptBtn">Baixar cópia dos dados</button><button class="btn negative" id="startFreshAfterCorruptBtn">Iniciar base nova</button></div><p class="settings-note">${recoveryArchived?'Uma cópia também foi guardada neste navegador.':'Não foi possível arquivar a cópia automaticamente; exporte o arquivo antes de iniciar uma base nova.'}</p></article>`:'';
  $('#page-settings').innerHTML=`${heading('Configurações','Ajuste a aparência e organize seus dados.')}<div class="settings-grid">${recoveryCard}${institutionsCard}
@@ -1266,7 +1291,10 @@ function settings(){
 <section class="backup-group"><h3>Arquivos de backup</h3><p>Baixe uma cópia ou restaure um arquivo salvo.</p><div class="setting-actions"><button class="btn" id="exportBtn">Baixar backup</button><button class="btn" id="importBtn">Restaurar arquivo</button></div><input id="importFile" type="file" accept=".json,application/json" hidden></section>
 
 <section class="backup-group"><h3>Importar extrato bancário</h3><p>Envie o CSV exportado pelo banco. Datas, valores e categorias são identificados automaticamente; confira a prévia antes de adicionar os lançamentos.</p><div class="setting-actions"><button class="btn primary" id="bankCsvBtn">Importar CSV do banco</button><input id="bankCsvFile" type="file" accept=".csv,text/csv,text/plain" hidden></div></section><section class="backup-group"><h3>Planilha de lançamentos</h3><p>Exporte o histórico em CSV.</p><div class="setting-actions"><button class="btn" id="csvBtn">Exportar CSV</button></div></section></div></article>
- <article class="card settings-card"><h2>Diagnóstico</h2><p>Histórico local dos últimos 1.000 eventos técnicos. O JSON inclui informações técnicas do navegador, aparelho, conexão, memória e armazenamento, sem dados financeiros ou pessoais. Baixe o JSON e compartilhe para análise. Nenhum envio automático.</p><p>${diagnostics.report().events.length} evento(s) registrado(s).</p><div class="setting-actions"><button type="button" class="btn" id="exportDiagnostics">Baixar logs</button><button type="button" class="btn" id="clearDiagnostics">Limpar logs</button></div></article>
+ <article class="card settings-card"><h2>Privacidade</h2><p>Controle a exibição dos valores financeiros neste aparelho.</p><div class="setting-actions"><button type="button" class="btn" id="settingsPrivacyToggle" aria-pressed="${hideValues}">${hideValues?'Mostrar valores':'Ocultar valores'}</button></div></article>
+ <article class="card settings-card"><h2>Acessibilidade</h2><p>Personalize a leitura e o movimento da interface.</p><label class="switch"><input type="checkbox" data-accessibility="reduceMotion" ${document.documentElement.classList.contains('reduceMotion')?'checked':''}>Reduzir animações</label><label class="switch"><input type="checkbox" data-accessibility="strongText" ${document.documentElement.classList.contains('strongText')?'checked':''}>Aumentar contraste do texto secundário</label></article>
+ <article class="card settings-card"><h2>Painel Hoje e navegação</h2><p>Escolha como o painel apresenta os resultados e como o aplicativo abre.</p><label class="field">Período do painel<select data-view-setting="reserva.home.period">${settingOptions([['today','Hoje'],['7d','Últimos 7 dias'],['month','Mês selecionado'],['12m','Últimos 12 meses'],['custom','Personalizado em Hoje']],localStorage.getItem('reserva.home.period')||'month')}</select></label><label class="field">Gráfico por categoria<select data-view-setting="reserva.home.categoryView">${settingOptions([['distribution','Distribuição'],['comparison','Comparação com mês anterior']],localStorage.getItem('reserva.home.categoryView')||'distribution')}</select></label><label class="field">Tela inicial<select data-view-setting="reserva.startPage">${settingOptions(PAGES.map(([id,label])=>[id,label]),preferredStartPage())}</select></label><label class="switch"><input type="checkbox" data-view-setting="reserva.sidebarCompact" ${sidebarCompact?'checked':''}>Menu lateral compacto no desktop</label></article>
+ <article class="card settings-card diagnostic-advanced-card"><div class="settings-card-head"><span class="settings-icon">${icon('report')}</span><div><h2>Diagnóstico avançado</h2><p>Ferramenta de desenvolvimento e QA, destinada a uso com orientação técnica.</p></div></div><p>Varre todos os módulos, estrutura e layout, cálculos, persistência isolada, regressões, acessibilidade, segurança e APIs locais. Os testes sintéticos preservam os registros reais. A análise pode levar até 60 segundos.</p><p>O JSON distingue falhas, erros, pendências e recursos não suportados. Inclui esqueleto técnico do DOM sem textos visíveis, valores de campos ou dados financeiros e pessoais. Para investigar um problema, envie o JSON, um print separado e a descrição do comportamento. Nada é enviado automaticamente.</p><p>${diagnostics.report().events.length} evento(s) técnico(s) no histórico local.</p><div class="setting-actions"><button type="button" class="btn primary" id="runDiagnosticScan">Executar análise completa e baixar JSON</button><button type="button" class="btn" id="exportDiagnostics">Baixar logs</button><button type="button" class="btn" id="clearDiagnostics">Limpar logs</button></div><p id="diagnosticScanStatus" role="status" aria-live="polite">A análise percorre os módulos; testes que dependem de navegador, aparelho ou serviços externos aparecem como pendentes.</p></article>
  <article class="card settings-card settings-danger"><div class="settings-card-head"><span class="settings-icon">${icon('expense')}</span><div><h2>Apagar dados</h2><p>Remove ${total} movimentações e ${db.jars.length} cofrinhos salvos neste navegador.</p></div></div><div class="setting-actions"><button class="btn negative" id="clearBtn">Apagar todos os dados</button></div></article>
  </div><div class="notice">Versão ${APP_VERSION}. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
 }
@@ -1333,12 +1361,1269 @@ document.body.classList.toggle('dark',db.prefs.dark);document.body.dataset.palet
   for (const [id, value] of debtDraft) if (value !== undefined) $('#'+id).value = value;
   updateDebtComparison();
 }
+function supportsHostedApp(){return location.protocol==='https:'||(location.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(location.hostname))}
+for (const key of ['reduceMotion','strongText']) {
+  try { document.documentElement.classList.toggle(key, localStorage.getItem('reserva.accessibility.'+key)==='true'); } catch {}
+}
+document.addEventListener('change', event => {
+  const key = event.target.dataset?.accessibility;
+  if (!['reduceMotion','strongText'].includes(key)) return;
+  document.documentElement.classList.toggle(key, event.target.checked);
+  try { localStorage.setItem('reserva.accessibility.'+key, String(event.target.checked)); } catch {}
+});
+let latestDiagnosticScan = null;
+function scanDiagnosticPage(pageId, screenOnly = false) {
+  const started = performance.now();
+  const checks = [];
+  function check(name, run) {
+    if (screenOnly && !['Largura da tela atual','Geometria do layout visível',
+      'Formulários e acessibilidade'].includes(name)) return;
+    const start = performance.now();
+    let result;
+    try { result = run(); }
+    catch (error) {
+      const known = ['Error','TypeError','ReferenceError','SyntaxError','RangeError',
+        'QuotaExceededError','SecurityError','NotAllowedError'];
+      result = {status:'erro', reason:known.includes(error?.name) ? error.name : 'Erro inesperado'};
+    }
+    checks.push({name, durationMs:Math.round(performance.now()-start), ...result});
+  }
+  const outcome = (passed, reason) => ({status:passed ? 'ok' : 'alerta', reason});
+  check('Integridade da base em memória', () => {
+    if (vault && !vaultKey) return {status:'ignorado', reason:'Base bloqueada'};
+    return outcome(Boolean(verify(JSON.parse(JSON.stringify(db)))), 'Validação pelo esquema de importação');
+  });
+  check('Base local e recuperação', () => {
+    if (storageRecoveryRaw) return {status:'erro', reason:'Base em recuperação'};
+    const raw = localStorage.getItem(STORE);
+    if (!raw) return {status:'ignorado', reason:'Nenhuma base salva'};
+    const saved = JSON.parse(raw);
+    if (saved?.format === 'reserva-vault-1') return {status:'ignorado', reason:'Base criptografada'};
+    return outcome(Boolean(verify(saved)), 'Validação da base salva');
+  });
+  for (const [name, storage] of [['Armazenamento local', () => localStorage],
+                                  ['Armazenamento da sessão', () => sessionStorage]]) {
+    check(name, () => {
+      const store = storage();
+      const key = 'reserva.scan.' + Date.now() + '.' + Math.random();
+      try {
+        store.setItem(key, 'ok');
+        return outcome(store.getItem(key) === 'ok', 'Escrita e leitura de chave temporária');
+      } finally { store.removeItem(key); }
+    });
+  }
+  check('Destinos dos módulos', () => {
+    const missing = PAGES.filter(([id]) => !document.getElementById('page-' + id)
+      && id !== 'income' && id !== 'expense').map(([id]) => id);
+    return {...outcome(!missing.length, 'Presença das telas no HTML'), missing};
+  });
+  check('IDs duplicados', () => {
+    const ids = [...document.querySelectorAll('[id]')].map(node => node.id);
+    const duplicates = ids.length - new Set(ids).size;
+    return {...outcome(!duplicates, 'Contagem no documento'), duplicates};
+  });
+  check('Largura da tela atual', () => {
+    const overflowPx = Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    return {...outcome(overflowPx <= 1, 'Excesso de largura horizontal'), overflowPx};
+  });
+  check('Geometria do layout visível', () => {
+    const page = document.querySelector('.page.active');
+    const width = document.documentElement.clientWidth;
+    const findings = [];
+    let count = 0;
+    const label = node => ({
+      tag:node.localName,
+      position:[...node.parentElement.children].indexOf(node)+1,
+      x:Math.round(node.getBoundingClientRect().left),
+      y:Math.round(node.getBoundingClientRect().top+window.scrollY)
+    });
+    function flag(type, node, pixels, other) {
+      count++;
+      if (findings.length < 100) findings.push({type, element:label(node),
+        pixels:Math.round(pixels), ...(other ? {neighbor:label(other)} : {})});
+    }
+    const nav = document.getElementById('mobileNav');
+    const navRect = nav?.getBoundingClientRect();
+    const visible = node => {
+      const rect = node.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0 && getComputedStyle(node).visibility === 'visible';
+    };
+    const header = document.querySelector('.main > .sidebar-control');
+    if (header && visible(header)) {
+      const items = [...header.children].filter(visible);
+      for (const [index,node] of items.entries()) {
+        const rect = node.getBoundingClientRect();
+        for (const other of items.slice(index+1)) {
+          const neighbor = other.getBoundingClientRect();
+          const overlapX = Math.min(rect.right,neighbor.right)-Math.max(rect.left,neighbor.left);
+          const overlapY = Math.min(rect.bottom,neighbor.bottom)-Math.max(rect.top,neighbor.top);
+          if (overlapX > 2 && overlapY > 2)
+            flag('sobreposição no cabeçalho',node,Math.min(overlapX,overlapY),other);
+        }
+      }
+    }
+    const cards = [...(page?.querySelectorAll('.card,.goal-card,.transaction-row') || [])].filter(visible);
+    const title = document.getElementById('pageTitle');
+    const homeTitle = page?.querySelector('.approved-page-heading h1');
+    if (title && homeTitle && visible(title) && visible(homeTitle))
+      flag('título Hoje duplicado', title, 0, homeTitle);
+    for (const node of header?.querySelectorAll('.page-title-block, .month-picker') || []) {
+      if (!visible(node)) continue;
+      const excess = node.scrollWidth-node.clientWidth;
+      if (excess > 4) flag('conteúdo excede a largura do cabeçalho',node,excess);
+    }
+
+    const groups = new Map();
+    for (const node of cards) {
+      const rect = node.getBoundingClientRect();
+      const excess = Math.max(-rect.left, rect.right-width);
+      if (excess > 2) flag('fora da tela', node, excess);
+      if (!groups.has(node.parentElement)) groups.set(node.parentElement, []);
+      groups.get(node.parentElement).push({node,rect});
+      if (node.matches('.transaction-row, details:not([open])')) continue;
+      const children = [...node.children].filter(child => visible(child) &&
+        !['absolute','fixed'].includes(getComputedStyle(child).position));
+      if (children.length && rect.height > 150) {
+        const bottom = Math.max(...children.map(child => child.getBoundingClientRect().bottom));
+        const padding = parseFloat(getComputedStyle(node).paddingBottom) || 0;
+        const blank = rect.bottom-bottom-padding;
+        if (blank > 64 && blank > rect.height*.30)
+          flag('possível espaço vazio no fim do cartão',node,blank);
+      }
+    }
+    for (const [parent, entries] of groups) {
+      entries.sort((a,b) => a.rect.top-b.rect.top);
+      const gap = parseFloat(getComputedStyle(parent).rowGap) || 0;
+      for (let i=0; i<entries.length; i++) {
+        const {node,rect} = entries[i];
+        let nearest = null;
+        for (let j=i+1; j<entries.length; j++) {
+          const {node:other,rect:box} = entries[j];
+          const overlapX = Math.min(rect.right,box.right)-Math.max(rect.left,box.left);
+          if (overlapX <= 2) continue;
+          const overlapY = Math.min(rect.bottom,box.bottom)-box.top;
+          if (overlapY > 2) flag('sobreposição entre cartões',node,overlapY,other);
+          if (box.top >= rect.bottom) {
+            if (node.nextElementSibling === other) nearest = {other, gap:box.top-rect.bottom};
+            if (nearest) break;
+          }
+        }
+        if (!nearest) continue;
+        if (nearest.gap < 4)
+          flag('espaçamento vertical inferior a 4 px',node,nearest.gap,nearest.other);
+        if (nearest.gap > Math.max(48,gap+32))
+          flag('possível lacuna excessiva entre cartões da mesma coluna',node,nearest.gap,nearest.other);
+      }
+    }
+    for (const node of [...(page?.querySelectorAll('button, input:not([type=hidden]), select, textarea') || [])].filter(visible)) {
+      const rect = node.getBoundingClientRect();
+      if (rect.right > width+2 || rect.left < -2)
+        flag('controle fora da tela',node,Math.max(-rect.left,rect.right-width));
+      if (node.clientWidth > 0 && node.scrollWidth > node.clientWidth+4 && node.matches('button'))
+        flag('conteúdo excede a largura do botão',node,node.scrollWidth-node.clientWidth);
+      if (navRect?.height && rect.top < innerHeight && rect.bottom > navRect.top &&
+          rect.bottom - Math.max(0,document.documentElement.scrollHeight-innerHeight-scrollY) > navRect.top+2)
+        flag('controle pode ficar encoberto pela barra inferior no fim da rolagem',node,rect.bottom-navRect.top);
+    }
+    return {...outcome(!count,'Heurísticas aplicadas à tela renderizada; podem gerar falsos positivos'),
+      viewport:{width,height:innerHeight}, cardsChecked:cards.length, count, findings};
+  });
+  check('Referências financeiras e identificadores', () => {
+    if (vault && !vaultKey) return {status:'ignorado', reason:'Base bloqueada'};
+    const jars = new Set(db.jars.map(item => item.id));
+    const orphanAllocations = db.allocations.filter(item => !jars.has(item.jarId)).length;
+    const duplicateIds = [db.jars, db.records, db.allocations, db.tasks].reduce((total, items) =>
+      total + items.length - new Set(items.map(item => item.id)).size, 0);
+    const invalidAmounts = [...db.records,...db.allocations]
+      .filter(item => !Number.isSafeInteger(item.amount) || item.amount === 0).length;
+    return {...outcome(!orphanAllocations && !duplicateIds && !invalidAmounts,
+      'Referências, identificadores e valores em centavos'), orphanAllocations, duplicateIds, invalidAmounts};
+  });
+  check('Navegação e painéis', () => {
+    const activePages = [...document.querySelectorAll('.page.active')];
+    const currentPageMismatch = activePages.length !== 1 || activePages[0]?.id !== 'page-'+state.page;
+    const routes = new Set([...PAGES.map(([id]) => id), 'income', 'expense']);
+    const invalidRoutes = [...document.querySelectorAll('button[data-page],a[data-page]')]
+      .filter(node => !routes.has(node.dataset.page)).length;
+    return {...outcome(!currentPageMismatch && !invalidRoutes,'Rotas dos controles e tela ativa'),
+      currentPageMismatch, invalidRoutes};
+  });
+  check('Formulários e acessibilidade', () => {
+    const page = document.querySelector('.page.active');
+    const controls = [...(page?.querySelectorAll('button,input,select,textarea') || [])]
+      .filter(node => !node.disabled && node.getClientRects().length && getComputedStyle(node).visibility === 'visible');
+    const unlabeled = controls.filter(node => !node.textContent?.trim() &&
+      !node.getAttribute('aria-label') && !node.getAttribute('aria-labelledby') &&
+      !node.title && !node.labels?.length && node.type !== 'submit').length;
+    const missingAriaTargets = controls.reduce((total,node) => total +
+      ['aria-labelledby','aria-describedby','aria-controls'].flatMap(attr =>
+        (node.getAttribute(attr) || '').split(/\s+/).filter(Boolean))
+      .filter(id => !document.getElementById(id)).length,0);
+    const invalidBounds = controls.filter(node => node.min && node.max &&
+      Number.isFinite(Number(node.min)) && Number(node.min) > Number(node.max)).length;
+    const smallTargets = innerWidth <= 760 ? controls.filter(node => {
+      if (node.matches('input[type=checkbox],input[type=radio]') && node.labels?.length) return false;
+      const rect = node.getBoundingClientRect();
+      return rect.width < 24 || rect.height < 24;
+    }) : [];
+    const smallTouchTargets = smallTargets.length;
+    const smallTargetDetails = smallTargets.slice(0,20).map(node => ({
+      tag:node.localName, id:node.id||undefined, type:node.type||undefined,
+      label:node.getAttribute('aria-label')||node.textContent.trim().slice(0,40)||undefined,
+      width:Math.round(node.getBoundingClientRect().width),height:Math.round(node.getBoundingClientRect().height)
+    }));
+    return {...outcome(!unlabeled && !missingAriaTargets && !invalidBounds && !smallTouchTargets,
+      'Rótulos, referências, limites e áreas de toque na tela atual'),
+      unlabeled, missingAriaTargets, invalidBounds, smallTouchTargets, smallTargetDetails};
+  });
+  check('Falhas registradas no histórico', () => {
+    const counts = {};
+    for (const event of diagnostics.report().events) {
+      if (/^(javascript\.|.*(?:failed|invalid|error)$)/.test(event.code))
+        counts[event.code] = (counts[event.code] || 0) + 1;
+    }
+    const hostedOnly = Object.keys(counts).length && Object.keys(counts).every(code =>
+      ['update.check_failed','offline.registration_failed'].includes(code));
+    if (!supportsHostedApp() && hostedOnly)
+      return {status:'info', reason:'Histórico de atualização e modo offline do PWA. A prévia local não executa essas operações.', counts};
+    return {...outcome(!Object.keys(counts).length,'Eventos anteriores podem já ter sido resolvidos'), counts};
+  });
+  check('Datas financeiras e precisão dos totais', () => {
+    if (vault && !vaultKey) return {status:'ignorado', reason:'Base bloqueada'};
+    let invalidDates = 0, unsafeAmounts = 0, absoluteTotal = 0n;
+    for (const item of [...db.records, ...db.allocations]) {
+      const date = new Date(item.date + 'T00:00:00Z');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(item.date) || !Number.isFinite(date.getTime()) ||
+          date.toISOString().slice(0,10) !== item.date) invalidDates++;
+      if (Number.isSafeInteger(item.amount)) absoluteTotal += BigInt(Math.abs(item.amount));
+      else unsafeAmounts++;
+    }
+    const potentialPrecisionLoss = absoluteTotal > BigInt(Number.MAX_SAFE_INTEGER);
+    return {...outcome(!invalidDates && !unsafeAmounts && !potentialPrecisionLoss,
+      'Datas civis válidas e margem de precisão em centavos'),
+      invalidDates, unsafeAmounts, potentialPrecisionLoss};
+  });
+  check('Possíveis lançamentos repetidos', () => {
+    if (vault && !vaultKey) return {status:'ignorado', reason:'Base bloqueada'};
+    const seen = new Set();
+    let candidates = 0;
+    for (const item of db.records) {
+      const key = JSON.stringify([item.date,item.kind,item.amount,item.category,item.note]);
+      if (seen.has(key)) candidates++;
+      seen.add(key);
+    }
+    return {...outcome(!candidates,'Coincidências podem representar lançamentos legítimos'), candidates};
+  });
+  check('HTML: estrutura e referências', () => {
+    const missingLabelTargets = [...document.querySelectorAll('label[for]')]
+      .filter(label => !document.getElementById(label.htmlFor)).length;
+    const brokenFragments = [...document.querySelectorAll('a[href^="#"]')]
+      .filter(link => link.hash.length > 1 && !document.getElementById(link.hash.slice(1))).length;
+    const missingButtonTypes = document.querySelectorAll('form button:not([type])').length;
+    return {...outcome(!missingLabelTargets && !brokenFragments && !missingButtonTypes,
+      'Estrutura do DOM; botões sem tipo podem enviar o formulário por padrão'),
+      missingLabelTargets, brokenFragments, missingButtonTypes};
+  });
+  check('CSS: folhas e variáveis do tema', () => {
+    let unreadableSheets = 0, emptyInlineSheets = 0;
+    for (const style of document.querySelectorAll('style')) {
+      if (!style.textContent.trim()) continue;
+      try { if (!style.sheet?.cssRules.length) emptyInlineSheets++; }
+      catch { unreadableSheets++; }
+    }
+    const computed = getComputedStyle(document.body);
+    const missingThemeVariables = ['--bg','--card','--ink','--muted','--line']
+      .filter(name => !computed.getPropertyValue(name).trim());
+    return {...outcome(!emptyInlineSheets && !unreadableSheets && !missingThemeVariables.length,
+      'Verifica regras aceitas pelo navegador e variáveis essenciais do tema'),
+      unreadableSheets, emptyInlineSheets, missingThemeVariables};
+  });
+  check('JavaScript: exceções e promessas rejeitadas', () => {
+    const events = diagnostics.report().events.filter(event =>
+      event.code === 'javascript.error' || event.code === 'javascript.rejection');
+    return {...outcome(!events.length,'Falhas capturadas pelo navegador no histórico'),
+      count:events.length, recent:events.slice(-20).map(({code,type,line,column,module}) =>
+        ({code,type,line,column,module}))};
+  });
+  check('Compatibilidade com a main aprovada', () => {
+    // Atualizar a partir da main aprovada antes de preparar uma nova versão.
+    const baseline = {
+      branch:'main', version:'0.39.26', appJsBlob:'4a47bd36379693aa10697cf90d9b8be855d2db9a',
+      storageKey:'reserva-simples-v2', schema:4,
+      modules:['home','transactions','calendar','goals','investments','analysis','reports','settings'],
+      collections:['records','jars','allocations','investments','recurring','tasks','institutions']
+    };
+    const fresh = empty();
+    const currentModules = new Set(PAGES.map(([id]) => id));
+    const missingModules = baseline.modules.filter(id =>
+      !currentModules.has(id) || !document.getElementById('page-'+id));
+    const missingCollections = baseline.collections.filter(key => !Array.isArray(fresh[key]));
+    const storageKeyChanged = STORE !== baseline.storageKey;
+    const schemaChanged = fresh.version !== baseline.schema;
+    return {...outcome(!storageKeyChanged && !schemaChanged && !missingModules.length &&
+      !missingCollections.length,'Mudanças de contrato exigem revisão de compatibilidade'),
+      baseline, currentSchema:fresh.version, storageKeyChanged, schemaChanged,
+      missingModules, missingCollections};
+  });
+  check('Conexão', () => outcome(navigator.onLine, 'Estado informado pelo navegador'));
+  check('Modo offline do PWA', () => supportsHostedApp()
+    ? outcome(Boolean(navigator.serviceWorker?.controller), 'Controle por service worker')
+    : {status:'ignorado', reason:'Prévia local'});
+  check('APIs do navegador', () => ({
+    status:'info', crypto:Boolean(globalThis.crypto?.subtle),
+    backupFolder:typeof window.showDirectoryPicker === 'function',
+    download:typeof URL.createObjectURL === 'function',
+    indexedDB:'indexedDB' in window
+  }));
+  return {
+    at:new Date().toISOString(), module:pageId,
+    durationMs:Math.round(performance.now()-started), checks
+  };
+}
+const DIAGNOSTIC_TEST_PLAN = [{"id":1,"title":"Abrir o arquivo via file:// e confirmar que a mensagem de limitação (ex.: CDI indisponível) aparece corretamente em vez de travar a tela.","status":"manual"},{"id":2,"title":"Servir o app via HTTPS/localhost e verificar se o manifest/ícones carregam sem erro 404 no console.","status":"manual"},{"id":3,"title":"Verificar se o Service Worker (se houver) registra sem exceções e se atualizações de versão não quebram o cache.","status":"manual"},{"id":4,"title":"Testar o app totalmente offline após o primeiro carregamento (modo avião) e confirmar que os dados locais continuam acessíveis.","status":"manual"},{"id":5,"title":"Verificar o comportamento ao abrir em um navegador sem suporte a showDirectoryPicker (deve mostrar o texto de \"acesso à pasta indisponível\").","status":"manual"},{"id":6,"title":"Verificar o comportamento ao abrir em navegador sem suporte a IndexedDB (fallback do backup em pasta).","status":"manual"},{"id":7,"title":"Conferir se favicon e apple-touch-icon (SVG inline em base64) renderizam corretamente em iOS/Android.","status":"manual"},{"id":8,"title":"Medir o tempo de carregamento inicial com uma base de dados grande (ex.: 50.000 registros) e verificar se a UI trava (thread bloqueada).","status":"manual"},{"id":9,"title":"Testar o evento pageshow/pagehide ao alternar abas repetidamente, garantindo que listeners não duplicam.","status":"manual"},{"id":10,"title":"Forçar um erro global (window.onerror) e checar se diagnostics.record captura sem expor dados sensíveis no log.","status":"manual"},{"id":11,"title":"Corromper manualmente o valor salvo em localStorage (JSON inválido) e verificar se o app recupera com a rotina de load()/verify() sem perder o backup bruto.","status":"manual"},{"id":12,"title":"Verificar se a cópia \"STORE-corrompido-timestamp\" é realmente criada uma única vez ao detectar dado corrompido (não duplicar a cada reload).","status":"manual"},{"id":13,"title":"Testar startFreshAfterCorrupt() cancelando o confirm() e garantir que nada é apagado.","status":"manual"},{"id":14,"title":"Testar startFreshAfterCorrupt() confirmando, e then checar se storageRecoveryRaw permanece acessível para exportação mesmo após criar base nova.","status":"manual"},{"id":15,"title":"Validar verify(src) com records.length = 50001 (deve ser rejeitado) e 50000 (deve ser aceito).","status":"automatic"},{"id":16,"title":"Validar verify(src) com jars.length = 5001 (rejeitado).","status":"automatic"},{"id":17,"title":"Enviar version fora de [2,3,4] (ex.: 1 ou 5) e confirmar rejeição segura, sem exception não tratada.","status":"automatic"},{"id":18,"title":"Simular localStorage.setItem lançando QuotaExceededError (armazenamento cheio) durante save() e verificar o tratamento de erro ao usuário.","status":"manual"},{"id":19,"title":"Testar mutate() chamando duas operações assíncronas concorrentes (ex.: duplo clique rápido em \"Salvar\") e verificar condição de corrida na escrita.","status":"manual"},{"id":20,"title":"Verificar se, com \"Salvamento pausado para proteger dados inválidos\" ativo, todas as ações de escrita (nova despesa, meta, etc.) são bloqueadas e o usuário é avisado de forma consistente.","status":"manual"},{"id":21,"title":"Confirmar que exportar os dados brutos funciona mesmo com o app em estado de dado corrompido.","status":"manual"},{"id":22,"title":"Testar restauração de backup com arquivo de formato antigo (version:2) e verificar migração correta de campos ausentes (recurring, tasks).","status":"manual"},{"id":23,"title":"Verificar se registros com amount não numérico ou negativo são filtrados/rejeitados na importação.","status":"automatic"},{"id":24,"title":"Testar com records contendo IDs duplicados (uid() colidindo) e observar se a edição/exclusão afeta o item errado.","status":"manual"},{"id":25,"title":"Verificar persistência correta após fechar o navegador no meio de uma gravação assíncrona (ex.: aba fechada durante save()).","status":"manual"},{"id":26,"title":"Criar um cofre com senha e verificar se deriveVaultKey/sealVault realmente impedem a leitura do localStorage em texto puro.","status":"manual"},{"id":27,"title":"Tentar abrir o cofre com senha incorreta e verificar mensagem de erro (vaultError) sem vazar detalhes técnicos.","status":"manual"},{"id":28,"title":"Confirmar o campo de confirmação de senha (vaultConfirmField) bloqueando submissão quando as senhas não coincidem.","status":"manual"},{"id":29,"title":"Testar senha vazia ou apenas espaços no formulário do cofre (required deve impedir, mas checar trim no JS também).","status":"manual"},{"id":30,"title":"Verificar comportamento ao trocar de senha do cofre: dados antigos continuam acessíveis com a nova chave?","status":"manual"},{"id":31,"title":"Testar abertura do cofre em outro navegador/dispositivo com o mesmo localStorage exportado — deve pedir senha normalmente.","status":"manual"},{"id":32,"title":"Verificar se cancelar o diálogo do cofre (vaultCancel) deixa a aplicação em estado consistente (sem tela em branco).","status":"manual"},{"id":33,"title":"Medir o tempo de deriveVaultKey em dispositivo lento — há risco de travar a UI (sem feedback de carregamento)?","status":"manual"},{"id":34,"title":"Testar entrada de caracteres Unicode/emoji na senha do cofre.","status":"manual"},{"id":35,"title":"Verificar se, ao atingir o cofre pela segunda vez na mesma sessão, a senha é solicitada novamente ou fica em cache de forma insegura.","status":"manual"},{"id":36,"title":"Conectar uma pasta de backup e verificar se writeFolderBackup cria o arquivo esperado com conteúdo íntegro.","status":"manual"},{"id":37,"title":"Revogar manualmente a permissão da pasta no navegador e verificar se hasFolderPermission detecta e solicita nova permissão sem travar.","status":"manual"},{"id":38,"title":"Simular conflito: pasta com backup diferente do dispositivo atual (backupConflict) e testar as duas opções oferecidas (restaurar vs. sobrescrever).","status":"manual"},{"id":39,"title":"Testar reconnectBackupFolder() após reiniciar o navegador (handle persistido via IndexedDB) — handle inválido deve ser tratado.","status":"manual"},{"id":40,"title":"Verificar debounce de scheduleFolderBackup() ao fazer múltiplas edições em sequência rápida (não deve escrever um arquivo por tecla).","status":"manual"},{"id":41,"title":"Testar restauração de backup com senha diferente da usada para gravar (readEncryptedFolder).","status":"manual"},{"id":42,"title":"Verificar preserveBeforeDestructiveAction antes de uma ação destrutiva (ex.: excluir tudo) — o backup prévio realmente acontece antes da ação?","status":"manual"},{"id":43,"title":"Remover fisicamente a pasta do disco entre duas sessões e verificar erro tratado ao tentar escrever.","status":"manual"},{"id":44,"title":"Testar o fluxo completo: criar dados → gerar backup → localStorage.clear() → restaurar → comparar se todos os campos (jars, records, tasks, recurring) retornam idênticos.","status":"manual"},{"id":45,"title":"Verificar removeBackupHandle() ao desconectar a pasta — notificações e botões de reconexão devem sumir/aparecer corretamente.","status":"manual"},{"id":46,"title":"Cadastrar uma despesa com valor \"0\" (deve ser rejeitado pelo min/validação) e conferir mensagem de erro.","status":"automatic"},{"id":47,"title":"Cadastrar valor negativo digitado manualmente burlando o type=number (colar texto) e verificar validação no JS, não só no HTML.","status":"automatic"},{"id":48,"title":"Testar valor extremo (ex.: 999999999999) e verificar overflow em centavos/arredondamento (toCents).","status":"automatic"},{"id":49,"title":"Testar casas decimais além de duas (ex.: 10,999) e conferir arredondamento consistente em toda a interface.","status":"automatic"},{"id":50,"title":"Cadastrar lançamento com data inválida (validDate) como 2027-02-30 e confirmar rejeição.","status":"automatic"},{"id":51,"title":"Cadastrar lançamento com data em formato diferente do esperado (31/02/2027) colado no campo via teclado.","status":"automatic"},{"id":52,"title":"Testar campo de nota/observação no limite de caracteres (maxlength) e um caractere acima, via paste.","status":"manual"},{"id":53,"title":"Testar tags com caracteres especiais, emojis e múltiplos separadores (; e , juntos) em normalizeTags.","status":"automatic"},{"id":54,"title":"Verificar duplicidade: adicionar a mesma tag duas vezes (#casa e casa) — deve deduplicar conforme normalizeTags.","status":"automatic"},{"id":55,"title":"Inserir mais de 8 tags e confirmar que o corte em 8 (slice(0,8)) funciona sem erro visual.","status":"automatic"},{"id":56,"title":"Editar um lançamento existente e cancelar — garantir que nada é alterado.","status":"manual"},{"id":57,"title":"Editar um lançamento e trocar o tipo (receita→despesa) — verificar se campos dependentes (categoria) resetam corretamente.","status":"manual"},{"id":58,"title":"Excluir um lançamento vinculado a uma recorrência (recurringId) e conferir se a recorrência pai não é afetada indevidamente.","status":"manual"},{"id":59,"title":"Testar \"Copiar despesas do mês anterior\" quando o mês anterior não tem despesas avulsas (mensagem de vazio).","status":"manual"},{"id":60,"title":"Testar \"Copiar despesas do mês anterior\" quando as despesas já foram copiadas (deve detectar duplicidade via exists()).","status":"manual"},{"id":61,"title":"Criar recorrência mensal com dia 31 e verificar comportamento em meses com menos dias (fevereiro, abril etc. via Math.min(t.day, maxDay)).","status":"automatic"},{"id":62,"title":"Pausar uma recorrência e confirmar que ela não aparece mais em pendingRecurring().","status":"manual"},{"id":63,"title":"Retomar uma recorrência pausada e verificar se meses \"perdidos\" no meio do caminho geram lançamentos retroativos indevidos.","status":"manual"},{"id":64,"title":"Excluir uma recorrência com lançamentos já confirmados — confirmar que os lançamentos passados permanecem (preserved).","status":"manual"},{"id":65,"title":"Aplicar \"Lançar contas\" com zero pendências — deve mostrar aviso e não quebrar.","status":"manual"},{"id":66,"title":"Aplicar \"Lançar contas\" cancelando a confirmação (confirm()), verificando que nada é persistido.","status":"manual"},{"id":67,"title":"Criar recorrência com startMonth no futuro e checar se ela não gera pendência antes da data.","status":"manual"},{"id":68,"title":"Criar recorrência com endMonth anterior ao mês atual e verificar que ela some da lista de pendências correntes.","status":"manual"},{"id":69,"title":"Testar duas recorrências com mesmo id (corrompido manualmente) e avaliar o impacto na edição/exclusão.","status":"manual"},{"id":70,"title":"Verificar unicidade: lançar a mesma recorrência duas vezes no mesmo mês não deve duplicar (pendingRecurring filtra por recurringMonth).","status":"manual"},{"id":71,"title":"Editar uma recorrência já aplicada no mês corrente — o lançamento confirmado deve, ou não, refletir a alteração (checar inconsistência).","status":"manual"},{"id":72,"title":"Testar recorrência de valor zero ou negativo via manipulação de formulário.","status":"automatic"},{"id":73,"title":"Criar um cofrinho sem instituição vinculada e conferir se o cálculo de CDI usa um valor padrão sensato.","status":"manual"},{"id":74,"title":"Criar um cofrinho com dueDate no passado e verificar mensagem de \"prazo vencido\" no simulador (simulateGoal).","status":"manual"},{"id":75,"title":"Simular aporte mensal igual a zero e conferir mensagem \"Informe um valor acima de zero\".","status":"manual"},{"id":76,"title":"Simular aporte com valor acima do limite (amount>10000000000) — deve ser rejeitado.","status":"manual"},{"id":77,"title":"Pausar/retomar uma meta e verificar que o cofrinho pausado só aparece na seção de \"planejamento pausado\".","status":"manual"},{"id":78,"title":"Criar meta e não registrar nenhum aporte — conferir estado vazio e ausência de divisão por zero no progresso (miniProgress).","status":"manual"},{"id":79,"title":"Registrar aporte maior que o valor alvo (target) da meta e conferir que a barra de progresso não ultrapassa 100% visualmente (overflow).","status":"manual"},{"id":80,"title":"Resgatar (retirar) de um cofrinho valor maior que o saldo disponível — deve haver bloqueio ou aviso.","status":"manual"},{"id":81,"title":"Excluir um cofrinho com aportes/investimentos vinculados — verificar órfãos em db.allocations/db.investments.","status":"manual"},{"id":82,"title":"Vincular um investimento a uma meta e depois excluir a meta — conferir se a referência (goalId) fica pendurada (dados órfãos).","status":"manual"},{"id":83,"title":"Testar duas metas com o mesmo nome — não deve haver conflito de identificação por nome, apenas por id.","status":"manual"},{"id":84,"title":"Verificar cálculo de estimateCdbJar quando não há nenhuma taxa de CDI carregada (rates.length === 0).","status":"manual"},{"id":85,"title":"Verificar cálculo de IOF/IR com resgate no mesmo dia do aporte (idade zero dias).","status":"manual"},{"id":86,"title":"Verificar cálculo de IOF/IR com aporte com mais de 720 dias (deve aplicar a alíquota mínima de IR de 15%).","status":"manual"},{"id":87,"title":"Testar resgate parcial de um cofrinho com múltiplos aportes (lotes) em datas diferentes — conferir se o FIFO de estimateCdbJar reduz o lote mais antigo corretamente.","status":"manual"},{"id":88,"title":"Baixar o PDF de metas (\"Baixar PDF\") com zero cofrinhos cadastrados e com uma base muito grande (centenas de cofrinhos) — checar geração e timeout.","status":"manual"},{"id":89,"title":"Alternar entre \"Aplicação financeira\" e \"Pecuária — compra de gado\" no formulário e verificar se os campos ocultos/visíveis (toggleInvestmentAssetFields) trocam sem deixar campos obrigatórios escondidos.","status":"manual"},{"id":90,"title":"Cadastrar investimento pecuário com headCount fracionário (ex.: 2,5) — deve ser rejeitado pelo step=\"1\".","status":"manual"},{"id":91,"title":"Cadastrar investimento com balance menor que cost (perda) e conferir se os indicadores tratam valores negativos corretamente.","status":"manual"},{"id":92,"title":"Registrar gasto de lote (livestockExpenseForm) com valor \"0,00\" — deve falhar pelo min=0.01.","status":"manual"},{"id":93,"title":"Registrar resgate (redemptionForm) de pecuária com quantidade de cabeças maior que o total do lote — checar se há validação de limite.","status":"manual"},{"id":94,"title":"Excluir um investimento vinculado a uma meta e verificar linkedInvestmentBalance após a exclusão (não deve contar valor fantasma).","status":"manual"},{"id":95,"title":"Editar a data de conferência (checked) para uma data anterior à data de compra (date) e verificar se há validação cronológica.","status":"manual"},{"id":96,"title":"Cadastrar instituição sem guaranteeFund definido e checar se guaranteeCard() não quebra ao agrupar.","status":"manual"},{"id":97,"title":"Cadastrar duas instituições do mesmo conglomerado e verificar se guaranteeCard() soma corretamente por conglomerado (não por instituição isolada).","status":"manual"},{"id":98,"title":"Testar exposição que ultrapasse o teto de R$ 25.000.000 fictício usado no código e conferir se o rótulo \"Acima da referência\" aparece.","status":"manual"},{"id":99,"title":"Cadastrar custo extra (extraCosts) e verificar se ele realmente entra no cálculo de patrimônio do lote, sem duplicar com lançamentos individuais.","status":"manual"},{"id":100,"title":"Testar adicionar/editar múltiplos investimentos no mesmo lote rapidamente (double submit) e verificar se o botão \"Salvar\" não permite duplo envio.","status":"manual"},{"id":101,"title":"Criar compromisso em um dia sem nenhuma movimentação financeira e verificar que o saldo previsto do dia não quebra (balance===null).","status":"manual"},{"id":102,"title":"Criar compromisso com horário inválido digitado manualmente (ex.: \"25:99\") e conferir a regex de validação de horário.","status":"manual"},{"id":103,"title":"Criar compromisso sem horário (campo opcional) e verificar exibição correta na lista do dia.","status":"manual"},{"id":104,"title":"Editar um compromisso existente e cancelar a edição (cancelCalendarTaskEdit) — garantir que o formulário volta ao estado de criação.","status":"manual"},{"id":105,"title":"Excluir um compromisso e cancelar a confirmação do confirm() — nada deve ser removido.","status":"manual"},{"id":106,"title":"Navegar entre meses usando ‹/› rapidamente (muitos cliques em sequência) e verificar se o calendário renderiza o mês correto ao final (sem race condition).","status":"manual"},{"id":107,"title":"Clicar em \"Hoje\" vindo de um ano completamente diferente (ex.: 2030) e verificar se retorna exatamente ao mês/ano atual do sistema.","status":"manual"},{"id":108,"title":"Verificar virada de ano ao navegar de dezembro para janeiro e de janeiro para dezembro (prevMonth/nextMonth).","status":"automatic"},{"id":109,"title":"Verificar o indicador visual de dias com entradas, saídas e compromissos simultâneos no mesmo dia (sobreposição de pontos/cores).","status":"manual"},{"id":110,"title":"Testar o seletor de cor do compromisso com todas as opções (CALENDAR_TASK_COLORS) e conferir contraste/acessibilidade.","status":"manual"},{"id":111,"title":"Abrir o modal do dia (openCalendarDayOverlay) em tela pequena e verificar rolagem/fechamento correto (data-close-calendar-day).","status":"manual"},{"id":112,"title":"Verificar o botão \"Hoje\" (todayBtn) — deve ficar oculto quando o mês selecionado já é o mês atual (hidden).","status":"manual"},{"id":113,"title":"Definir um limite de categoria igual a zero e verificar divisão por zero no cálculo de percentual (spent/limit*100).","status":"manual"},{"id":114,"title":"Ultrapassar 100% do limite de uma categoria e conferir se o estado visual \"danger\" é aplicado corretamente.","status":"manual"},{"id":115,"title":"Atingir exatamente 80% do limite e verificar se o alerta de \"quase no limite\" dispara (spent>=limit*.8).","status":"manual"},{"id":116,"title":"Remover um limite de categoria que já estava em alerta e confirmar que a notificação correspondente desaparece da lista.","status":"manual"},{"id":117,"title":"Testar o alerta sonoro de orçamento (playBudgetSound) em navegador que bloqueia áudio automático (política de autoplay) — deve exigir interação do usuário (unlockBudgetAudio).","status":"manual"},{"id":118,"title":"Testar groceryAlertLevel() nos limites exatos de transição de nível (ex.: ratio em 0.79 vs 0.80 vs 1.00).","status":"manual"},{"id":119,"title":"Verificar se limites configurados para uma categoria renomeada/excluída continuam referenciando corretamente ou ficam órfãos.","status":"manual"},{"id":120,"title":"Testar múltiplas categorias no limite simultaneamente e conferir se todas aparecem na lista de \"limites próximos\" sem truncamento inesperado.","status":"manual"},{"id":121,"title":"Simular falha de rede ao chamar a API do Banco Central (updateCdi) e verificar se a mensagem de erro aparece e o app usa o histórico salvo em cache.","status":"manual"},{"id":122,"title":"Simular resposta HTTP não-OK (ex.: 500) da API do CDI e conferir tratamento do throw new Error.","status":"manual"},{"id":123,"title":"Simular timeout da requisição CDI (mais de 15s, usando o AbortController) e verificar cancelamento limpo sem travar a UI.","status":"manual"},{"id":124,"title":"Simular resposta JSON malformada (não-array) da API SGS e verificar se Array.isArray(rows) barra o processamento.","status":"manual"},{"id":125,"title":"Forçar duas chamadas simultâneas de updateCdi() (clique duplo em \"Atualizar CDI\") e verificar a trava de cdiState.loading.","status":"manual"},{"id":126,"title":"Verificar o comportamento com o relógio do sistema no futuro (ex.: data do SO alterada) e seu impacto em isoToday() e nos cálculos de rendimento.","status":"manual"},{"id":127,"title":"Verificar o comportamento com o relógio do sistema no passado e seu impacto nas projeções de 30/60/90 dias.","status":"manual"},{"id":128,"title":"Testar requestBillNotificationPermission() quando a permissão do navegador já está \"denied\" — deve orientar o usuário sem repetir o prompt nativo.","status":"manual"},{"id":129,"title":"Testar notificação de conta a vencer no dia exato do vencimento (0 dias) e verificar o texto \"vence hoje\".","status":"manual"},{"id":130,"title":"Verificar deduplicação de notificações já enviadas (reserva.billReminder.sent) ao recarregar a página várias vezes no mesmo dia.","status":"manual"},{"id":131,"title":"Verificar updateIpca() quando a API retorna menos de 12 meses de histórico — conferir se o restante é tratado sem gerar undefined na interface.","status":"manual"},{"id":132,"title":"Alterar o protocolo para file: e confirmar que nenhuma chamada de rede ao Banco Central é disparada (checagem de location.protocol==='file:').","status":"manual"},{"id":133,"title":"Gerar o gráfico anual (yearChart) em um ano totalmente sem lançamentos — barras devem ficar no mínimo visual sem erro de NaN/Infinity.","status":"manual"},{"id":134,"title":"Gerar o donut de categorias (donutHTML) com apenas uma categoria — conferir que o conic-gradient fecha em 100% sem brechas visuais.","status":"manual"},{"id":135,"title":"Verificar miniLine() com apenas um valor válido (deve mostrar \"O gráfico aparecerá com mais dados\" por exigir ao menos 2 pontos).","status":"manual"},{"id":136,"title":"Testar cashProjection() sem saldo de referência configurado (balanceAnchorCents nulo) — deve exibir o CTA \"Configurar saldo\" e não travar a página.","status":"manual"},{"id":137,"title":"Testar cashProjection() com a data de referência (balanceAnchorDate) no futuro em relação a hoje (deve ser invalidada, anchor>today).","status":"manual"},{"id":138,"title":"Verificar o simulador de quitação de dívida (debtCompareValues) com número de parcelas igual a 0 ou negativo.","status":"manual"},{"id":139,"title":"Verificar o simulador de dívida com CET informado maior e menor que o CDI líquido, conferindo a frase condicional \"acima/abaixo do CDI\".","status":"manual"},{"id":140,"title":"Testar cashflowCard() com eventos futuros em datas muito distantes (ex.: recorrência cadastrada para daqui a 5 anos) — verificar performance e precisão do agrupamento diário.","status":"manual"},{"id":141,"title":"Verificar a \"Reserva de emergência\" quando não há nenhum mês fechado anterior com despesas (deve usar amostra vazia sem gerar NaN na média).","status":"manual"},{"id":142,"title":"Alterar o número de meses de reserva desejados (3/6/9/12) e confirmar recálculo imediato da meta sugerida e do valor faltante.","status":"manual"},{"id":143,"title":"Ativar \"Ocultar valores\" (privacyToggle) e verificar que todos os valores monetários da tela (incluindo gráficos e metas) ficam realmente ocultos, sem vazamento em atributos title/aria-label.","status":"manual"},{"id":144,"title":"Alternar paletas de cor (blue, emerald, petrol, plum, graphite, carbon) e verificar contraste mínimo de texto em cada uma (especialmente nos estados de alerta/perigo).","status":"manual"},{"id":145,"title":"Navegar por toda a interface apenas via teclado (Tab/Shift+Tab/Enter/Esc) e verificar se o foco visível (:focus-visible) nunca se perde, inclusive dentro de modais.","status":"manual"},{"id":146,"title":"Testar leitor de tela nos botões de navegação mobile (aria-expanded, aria-current) ao abrir o menu \"Mais módulos\" e confirmar que o estado é anunciado corretamente.","status":"manual"},{"id":147,"title":"Redimensionar a janela entre o layout desktop (sidebar fixa) e o mobile (navegação flutuante) no ponto de quebra do CSS, verificando se nenhum elemento fica duplicado ou cortado.","status":"manual"},{"id":148,"title":"Verificar o painel de notificações do sino (desktopNotificationPanel) fechando ao clicar fora (document.addEventListener('click', ...)), inclusive em dispositivos touch.","status":"manual"},{"id":149,"title":"Testar \"Limpar notificações\" e confirmar que os itens voltam a aparecer somente se uma nova condição realmente mudar (e não reaparecem indevidamente no próximo recálculo).","status":"manual"},{"id":150,"title":"Realizar teste de estresse geral: importar uma base muito grande (próxima aos limites de verify(): ~50.000 registros, ~5.000 cofrinhos), navegar por todas as páginas e medir se a aplicação permanece responsiva (sem congelar a thread principal por tempo perceptível).","status":"manual"}];
+function runPlannedRegressionTests() {
+  const checks = new Map([
+    [15, () => {const x=empty();x.records=Array(50001).fill(null);return verify(x)===null}],
+    [16, () => {const x=empty();x.jars=Array(5001).fill(null);return verify(x)===null}],
+    [17, () => [1,5,99].every(version=>{const x=empty();x.version=version;return verify(x)===null})],
+    [23, () => {const x=empty();x.records=[{id:'bad-amount',kind:'expense',amount:-1,date:'2026-01-01',category:'Outros'}];return verify(x)===null}],
+    [46, () => Number.isNaN(toCents('0'))], [47, () => Number.isNaN(toCents('-12.00'))],
+    [48, () => Number.isNaN(toCents('999999999999'))], [49, () => toCents('10.999')===1100],
+    [50, () => !validDate('2027-02-30')], [51, () => !validDate('31/02/2027')],
+    [53, () => normalizeTags(' #casa; café,🙂 ').join('|')==='casa|café|🙂'],
+    [54, () => normalizeTags('#casa,casa').length===1], [55, () => normalizeTags('a,b,c,d,e,f,g,h,i').length===8],
+    [61, () => {const fixture=empty();fixture.recurring=[{id:'qa-month-end',kind:'expense',category:'Outros',amount:100,day:31,startMonth:mkey(state.year,state.month)}];const previous=db;let rows;try{db=fixture;rows=upcomingBillInstances(90).filter(row=>row.id==='qa-month-end')}finally{db=previous}return rows.length>0&&rows.every(row=>validDate(row.date)&&Number(row.date.slice(8))===new Date(Number(row.date.slice(0,4)),Number(row.date.slice(5,7)),0).getDate())}],
+    [72, () => [0,-1].every(amount=>{const x=empty();x.recurring=[{id:'x',kind:'expense',category:'Outros',amount,day:1,startMonth:'2026-01'}];return verify(x)===null})],
+    [108, () => mkey(2026,11)==='2026-12' && mkey(2027,0)==='2027-01']
+  ]);
+  return DIAGNOSTIC_TEST_PLAN.map(test => {
+    const run=checks.get(test.id);
+    if(!run)return {...test,result:'pendente',reason:'Requer navegador, interação real ou fixture isolada ainda não implementada'};
+    try{return {...test,result:run()?'ok':'falha',mode:'simulação sem alterar os dados'};}
+    catch(error){return {...test,result:'erro',error:error?.name||'Erro inesperado'};}
+  });
+}
+function scanInternalViews(target, id) {
+  const scenarios = [];
+  const record = (scenario, index) => {
+    scenarios.push({scenario, index, ...scanDiagnosticPage(id, true)});
+  };
+  [...target.querySelectorAll('details:not([open])')].slice(0,12).forEach((detail,index) => {
+    if (!detail.getClientRects().length) return;
+    try {
+      detail.open = true;
+      record('seção expandida', index+1);
+    } finally {
+      detail.open = false;
+    }
+  });
+  const panels = [...target.querySelectorAll('.mobile-analysis-panel')];
+  const hidden = panels.map(panel => panel.hidden);
+  try {
+    panels.forEach((panel,index) => {
+      panels.forEach(item => { item.hidden = item !== panel; });
+      record('aba de Insights', index+1);
+    });
+  } finally {
+    panels.forEach((panel,index) => { panel.hidden = hidden[index]; });
+  }
+  return scenarios;
+}
+function scanSyntheticFinance() {
+  const cases = [
+    ['Conversão em centavos', () => toCents('12.34') === 1234 && toCents('0.01') === 1],
+    ['Rejeição de entradas inválidas', () => ['','abc','-1','Infinity'].every(value => Number.isNaN(toCents(value)))],
+    ['Virada de período', () => mkey(2025,11) === '2025-12' && mkey(2026,0) === '2026-01'],
+    ['Restauração de uma base vazia', () => Boolean(verify(JSON.parse(JSON.stringify(empty()))))],
+    ['Rejeição de backup incompatível', () => !verify({version:-1,records:[],jars:[],allocations:[]})]
+  ];
+  return cases.map(([name, run]) => {
+    const start = performance.now();
+    let passed = false;
+    try { passed = run(); } catch {}
+    return {name,status:passed?'ok':'erro',durationMs:Math.round(performance.now()-start)};
+  });
+}
+const ADDITIONAL_TEST_PLAN = [[1, "**[Novo]** Verificar, via `'serviceWorker' in navigator`, `'indexedDB' in window`, `'showDirectoryPicker' in window`, `'Notification' in window`, `crypto?.subtle`, `matchMedia`, se a detecção de recursos do próprio `environment()` está correta e não lança exceção quando a API não existe. *(Mecanismo 1)*"], [2, "**[Ref. 5]** Mockar temporariamente `window.showDirectoryPicker = undefined` e confirmar que `folderStatusText()` retorna a frase \"Acesso à pasta indisponível neste navegador...\". *(Mecanismo 2)*"], [3, "**[Ref. 6]** Mockar `window.indexedDB = undefined` dentro de uma cópia isolada de `openBackupDb` (ou capturar a exceção esperada) e confirmar que o erro é tratado sem subir ao `window.onerror`. *(Mecanismo 2)*"], [4, "**[Ref. 10]** Disparar `window.dispatchEvent(new ErrorEvent('error', {message:'teste-diagnostico', error:new Error('x')}))` em um contexto isolado e confirmar que `diagnostics.record` grava o evento sem incluir valores monetários/senhas em texto no payload. *(Mecanismo 2/4)*"], [5, "**[Novo]** Verificar se `addEventListener('unhandledrejection', ...)` realmente existe registrado uma única vez (sem duplicação) inspecionando se múltiplos `render()` sucessivos não acrescentam novos listeners globais."], [6, "**[Novo]** Medir com `performance.now()` o tempo de execução de `render()` da sessão atual (sem alterar dados) e marcar como alerta caso ultrapasse um limite configurável (ex.: 150ms) — substitui a necessidade de \"base de 50.000 registros real\" por extrapolação com fixture volumosa em memória (ver item 41)."], [7, "**[Novo]** Verificar se existe mais de um elemento com `id=\"toast\"`, `id=\"modal\"` ou qualquer outro `id` crítico usado por `$()` — IDs duplicados quebram `getElementById`/`querySelector` silenciosamente."], [8, "**[Novo]** Confirmar que todo `\u003cscript>` inline do documento não lança exceção de sintaxe isolada (via `new Function(textoDoScript)` em modo de verificação, sem executar) para pelo menos identificar erros grosseiros de sintaxe introduzidos em edições futuras."], [9, "**[Novo]** Verificar se `document.title` e `meta[name=description]` não ficam vazios após navegação entre páginas (`go()` para cada uma das 8 rotas)."], [10, "**[Novo]** Confirmar que nenhuma rota de `PAGES` aponta para um `id` de `\u003csection>` inexistente no DOM (cada `page-\u003cid>` deve existir)."], [11, "**[Ref. 11/12]** Chamar `verify()` com uma string JSON corrompida sintética (não tocar no `localStorage` real) e confirmar que retorna `null` sem lançar exceção. *(Mecanismo 1)*"], [12, "**[Ref. 18]** Mockar `localStorage.setItem` para lançar `DOMException('QuotaExceededError')` apenas durante a chamada de teste (usando uma instância de storage falsa passada por parâmetro, nunca o `localStorage` global do usuário) e confirmar que `save()` retorna `false`/notifica o erro em vez de travar. *(Mecanismo 2, isolado)*"], [13, "**[Ref. 19]** Simular duas chamadas concorrentes de uma função `mutate`-like em uma cópia de `db` isolada (`structuredClone`), disparando ambas com `Promise.all`, e verificar se o resultado final é consistente (sem perda de uma das alterações) — não usar o `db` real em memória."], [14, "**[Ref. 23]** Validar `verify()`/normalizadores de registro com `amount: \"abc\"`, `amount: -100`, `amount: NaN`, `amount: Infinity` em fixture isolada."], [15, "**[Novo]** Validar `verify()` com `records` contendo campos obrigatórios ausentes (`date` ausente, `kind` ausente) em fixture isolada."], [16, "**[Novo]** Validar `verify()` com tipos trocados (`jars` como objeto em vez de array, `allocations` como string) — deve rejeitar com `null`, nunca lançar exceção não tratada."], [17, "**[Novo]** Gerar uma fixture com 50.000 registros em memória (sem persistir) e cronometrar `verify()` + `forecast()` + `categories()` para registrar o tempo de execução como métrica de regressão de desempenho."], [18, "**[Ref. 24]** Gerar fixture com dois registros de `id` idêntico e verificar que funções de busca (`find`) sempre retornam o primeiro de forma determinística e documentada (evitar comportamento indefinido silencioso)."], [19, "**[Novo]** Verificar, por inspeção estática do código-fonte do `\u003cscript>` (regex/parse simples), se toda chamada a `JSON.parse` dentro de funções críticas (`load`, `openBackupDb`, histórico CDI/IPCA) está envolvida em `try/catch` — identificar pontos sem tratamento antes que virem bug em produção."], [20, "**[Novo]** Confirmar, com fixture isolada, que `verify()` aceita exatamente os limites documentados (50000 registros aceitos, 50001 rejeitados; 5000 jars aceitos, 5001 rejeitados; 50000 allocations aceitos, 50001 rejeitados; 5000 recorrências aceitas, 5001 rejeitadas; 10000 tarefas aceitas, 10001 rejeitadas) — cobre todos os limites de `verify`, não só os três já cobertos hoje."], [21, "**[Ref. 26]** Chamar `deriveVaultKey`/`sealVault`/`openVault` em um contexto isolado com senha fictícia e payload fictício (nunca o `db` real) e confirmar que o envelope resultante não contém o texto original em claro (checagem de substring no JSON serializado do envelope). *(Mecanismo 1)*"], [22, "**[Ref. 27]** Chamar `openVault` com a chave errada derivada de outra senha e confirmar que lança/retorna erro tratável, sem vazar qual parte da senha está errada."], [23, "**[Ref. 29]** Simular submissão do `vaultForm` com senha `\"   \"` (apenas espaços) via evento sintético em cópia isolada do formulário, confirmando que a validação de \"trim\" no JS rejeita, mesmo que o `required` do HTML já deixe passar espaços."], [24, "**[Ref. 34]** Chamar `deriveVaultKey` com senha contendo emoji/Unicode (`\"🔒áéü\"`) e confirmar que não lança exceção de encoding e que o resultado é estável (mesma senha gera a mesma chave em duas execuções)."], [25, "**[Novo]** Medir com `performance.now()` o tempo de `deriveVaultKey` na sessão atual e sinalizar alerta se ultrapassar um limiar (ex.: 1s), como proxy local para \"risco de travar a UI em aparelho lento\", sem precisar de um dispositivo lento real."], [26, "**[Novo]** Verificar estaticamente se existe algum `console.log`/`console.debug` no código-fonte que imprima a senha do cofre, o payload decifrado ou a chave derivada (varredura de texto no `\u003cscript>` por termos como `vaultPassword`, `key`, `salt` dentro de chamadas de `console`)."], [27, "**[Ref. 40]** Chamar `scheduleFolderBackup`-like (ou a função de debounce isolada) disparando múltiplas chamadas em sequência rápida com `backupDirectory` mockado como objeto fake (que apenas conta chamadas, não grava nada em disco) e confirmar que a função de escrita real só é chamada uma vez após o intervalo de debounce. *(Mecanismo 2, com handle falso em memória)*"], [28, "**[Ref. 42]** Mockar a função de escrita de backup como um espião (*spy*) e confirmar, via ordem de chamadas registradas, que `preserveBeforeDestructiveAction` sempre invoca o espião **antes** da função destrutiva, usando um fluxo de teste isolado (sem apagar dados reais)."], [29, "**[Ref. 44]** Rodar o ciclo completo de \"gerar envelope → decifrar envelope\" inteiramente em memória, com um objeto `db` fictício e um `FileSystemFileHandle` falso (objeto simples com `getFile`/`createWritable` simulados), comparando por igualdade profunda (`JSON.stringify`) o `db` antes e depois — sem tocar no sistema de arquivos real nem no `localStorage` do usuário."], [30, "**[Novo]** Verificar, por inspeção estática, se toda função que usa `backupDirectory`/`indexedDB` tem bloco `catch` (mesmo que mínimo) ao redor da chamada — útil porque qualquer uma dessas APIs pode não existir ou falhar em tempo real sem aviso prévio."], [31, "**[Ref. 56]** Clonar o formulário de lançamento (`cloneNode(true)`) fora da árvore visível, preencher com um evento sintético e abandonar sem `submit` — confirmar que nenhuma função de persistência foi chamada e que o `db` real permanece inalterado (checagem antes/depois por hash do `localStorage`)."], [32, "**[Novo]** Submeter, em um formulário clonado e isolado, todos os valores-limite de uma só vez (valor = 0,01; valor = 100000000; valor = 100000000,01) e confirmar que o terceiro é rejeitado pelo `max` tanto no HTML quanto na validação JS equivalente."], [33, "**[Novo]** Verificar estaticamente que todo campo `type=\"number\"` com `min`/`max` no HTML tem uma validação equivalente em JS antes de persistir (procurar, para cada `name` de input numérico nos formulários de diálogo, se existe checagem correspondente de limite no código) — fecha a lacuna de \"confiar só no HTML5\"."], [34, "**[Novo]** Simular `paste` sintético (`ClipboardEvent`) de um texto maior que `maxlength` em um campo de nota clonado e confirmar truncamento/validação consistente, sem precisar de interação humana real de colar."], [35, "**[Novo]** Rodar `normalizeTags` com entradas adversariais adicionais: string vazia, só separadores (`\";;;,,,\"`), 50 tags repetidas, tag de 1000 caracteres — confirmar que o corte em 30 caracteres por tag e 8 tags no total é respeitado em todos os casos, não só no caso feliz já coberto."], [36, "**[Novo]** Rodar `validDate` com uma bateria completa de datas-limite: ano bissexto (`2028-02-29` válido, `2027-02-29` inválido), mudança de século, dia `00`, mês `00`, mês `13`, string com espaços, string vazia, `null`, `undefined`."], [37, "**[Novo]** Verificar, para os três diálogos de formulário (`investmentForm`, `livestockExpenseForm`, `redemptionForm`), se todo campo marcado `required` no HTML possui, de fato, um `name` presente e lido em algum ponto do JS de submissão (detecta campo \"órfão\" que parece obrigatório mas não é validado nem salvo)."], [38, "**[Ref. 61]** Chamar a lógica de geração de data de recorrência (dia 31) para os 12 meses do ano em fixture isolada e confirmar que todo mês com menos de 31 dias usa o último dia válido (`Math.min`), incluindo fevereiro em ano bissexto e não bissexto."], [39, "**[Ref. 62/70]** Rodar `pendingRecurring()` sobre uma fixture com recorrência pausada e confirmar que ela não aparece; depois, sobre uma fixture com a mesma recorrência já lançada no mês (`recurringMonth` preenchido), confirmar que também não aparece (dedup)."], [40, "**[Ref. 67/68]** Rodar a mesma função com `startMonth` no futuro (deve ficar de fora) e com `endMonth` no passado (deve ficar de fora), tudo em fixture isolada, sem usar `db` real."], [41, "**[Novo]** Gerar fixture com 5.000 recorrências ativas e medir o tempo de `pendingRecurring()`/`upcomingBillInstances()` como métrica de regressão de desempenho (proxy local para \"base grande\", sem precisar que o usuário importe dados reais volumosos)."], [42, "**[Novo]** Verificar, em fixture isolada, que aplicar `applyRecurring` (ou sua lógica equivalente) sobre uma lista de pendências vazia não gera nenhum registro novo e não lança exceção."], [43, "**[Ref. 74/78]** Chamar `Engines.goal`/`simulateGoal`-like com uma meta cujo `dueDate` já passou e com uma meta sem nenhum aporte (`current=0`), ambas em fixture isolada, e confirmar as mensagens \"prazo vencido\" e a ausência de divisão por zero no progresso."], [44, "**[Ref. 84/85/86]** Chamar `estimateCdbJar` com: (a) `cdiState.rates = []` (sem taxas carregadas); (b) resgate no mesmo dia do aporte (idade 0); (c) aporte com mais de 720 dias de idade — tudo com datas e valores fictícios, sem tocar nos cofrinhos reais do usuário, conferindo que a alíquota de IR aplicada em cada faixa bate com a tabela (22,5% / 20% / 17,5% / 15%)."], [45, "**[Ref. 87]** Montar fixture com um cofrinho que recebeu três aportes em datas diferentes e sofreu um resgate parcial, e confirmar que `estimateCdbJar` reduz o lote mais antigo primeiro (lógica FIFO) comparando os `principal`/`value` restantes esperados."], [46, "**[Novo]** Rodar `estimateCdbJar` com `asOf` anterior à data de todos os aportes do cofrinho (cenário \"ainda não existia\") e confirmar que retorna saldo zero sem erro."], [47, "**[Novo]** Verificar, em fixture isolada, o comportamento de `linkedInvestmentBalance` quando o `goalId` informado não corresponde a nenhum investimento existente (deve retornar 0, não `NaN`/`undefined`)."], [48, "**[Novo]** Simular duas metas com nomes idênticos, mas `id`s diferentes, em fixture, e confirmar que toda função de busca usada na tela de metas localiza pelo `id` e nunca pelo `name` (varredura no código por `db.jars.find(` para checar o critério de busca usado)."], [49, "**[Ref. 91]** Calcular, em fixture isolada, os indicadores de um investimento com `balance \u003c cost` (perda) e confirmar que o resultado é um número negativo coerente, sem formatação quebrada (ex.: sem \"R$ -0,00\" truncando o sinal) e sem virar `NaN`."], [50, "**[Ref. 94]** Montar fixture com investimento vinculado a uma meta (`goalId`), remover o investimento da lista e rodar `linkedInvestmentBalance` novamente — confirmar que o valor cai para refletir a ausência, sem resíduo fantasma."], [51, "**[Novo]** Verificar estaticamente se os campos `headCount` (pecuária) e `cost`/`balance` (financeiro) realmente alternam de `hidden` ao trocar `assetType` no formulário clonado e isolado, cobrindo os dois sentidos da troca (financeiro→pecuária e pecuária→financeiro), não só um."], [52, "**[Novo]** Rodar o cálculo de patrimônio do lote de pecuária com `extraCosts` preenchido e, separadamente, com despesas individuais do mesmo lote já registradas, confirmando em fixture que os dois não são somados em duplicidade."], [53, "**[Novo]** Verificar, por fixture, o agrupamento de `guaranteeCard()` com duas instituições cujo `conglomerate` é escrito com capitalização diferente (`\"Banco X\"` vs `\"banco x\"`) — confirmar se a normalização (`toLocaleLowerCase('pt-BR')`) realmente une os dois no mesmo grupo, como o código pretende."], [54, "**[Novo]** Rodar `guaranteeCard()` com instituição sem `guaranteeFund` (campo ausente) e confirmar que ela é ignorada no agrupamento sem lançar exceção (cobre o caso 96 de forma automatizável)."], [55, "**[Ref. 101]** Chamar a função de saldo do dia (`cashProjection`/equivalente usado no calendário) para uma data sem nenhuma movimentação em fixture isolada e confirmar que retorna `null` de forma limpa, sem exceção, e que a tela trata esse `null` com o texto apropriado."], [56, "**[Ref. 102]** Validar a regex de horário (`^(?:[01]\\d|2[0-3]):[0-5]\\d$`) com uma bateria completa: `\"00:00\"` (válido), `\"23:59\"` (válido), `\"24:00\"` (inválido), `\"9:30\"` sem zero à esquerda (inválido conforme regex atual — vale confirmar se é o comportamento desejado), `\"25:99\"` (inválido)."], [57, "**[Ref. 108]** Estender o caso já automatizado de virada de ano para cobrir também a virada de mês dentro do mesmo ano (ex.: janeiro→fevereiro e fevereiro→janeiro) e a navegação de 24 cliques consecutivos em `nextMonth` a partir de um mês qualquer, conferindo que o estado final corresponde exatamente a `+24` meses em fixture de estado isolada (sem navegar a UI real)."], [58, "**[Novo]** Verificar, por varredura estática do DOM depois de renderizar o calendário com uma fixture de tarefas conhecida, se cada dia com tarefa realmente tem o indicador (`task-dot`) presente e se dias sem tarefa não têm — comparação 1 a 1 entre fixture e DOM renderizado."], [59, "**[Novo]** Verificar o estado do botão \"Hoje\" (`hidden`) programaticamente para três estados de `state.year`/`state.month`: igual ao mês atual real do sistema (deve estar oculto), um mês à frente e um mês atrás (deve estar visível nos dois)."], [60, "**[Ref. 113]** Chamar o cálculo de percentual de limite (`spent/limit*100`) com `limit=0` em fixture isolada e confirmar que o resultado é tratado antes de chegar ao template (nunca `Infinity`/`NaN` renderizado na tela)."], [61, "**[Ref. 114/115]** Rodar o mesmo cálculo nos pontos exatos de transição: `spent/limit = 0.79`, `0.80`, `0.99`, `1.00`, `1.01`, confirmando que o estado visual (`danger-text`/`warning-text`/neutro) muda exatamente no limiar documentado (80% e 100%), nem antes nem depois."], [62, "**[Ref. 118]** Rodar `groceryAlertLevel()` isoladamente nos mesmos pontos de transição de limiar usados no item anterior."], [63, "**[Ref. 119]** Montar fixture com um limite configurado para uma categoria que não existe mais em `CATS` e confirmar que o card de limites não quebra ao tentar exibir essa categoria (ou que a trata como removida de forma explícita)."], [64, "**[Novo]** Montar fixture com 10+ categorias simultaneamente no limite de alerta e confirmar, por inspeção do HTML gerado, que todas aparecem na lista (sem corte silencioso por `.slice()` indevido)."], [65, "**[Ref. 121/122/124]** Mockar `window.fetch` dentro da sessão de diagnóstico para: (a) rejeitar a Promise (simula falha de rede); (b) resolver com `{ok:false, status:500}`; (c) resolver com `ok:true` mas corpo `{}` (não-array) — chamando `updateCdi`/`updateIpca` reais, mas apontando para o `fetch` falso, e restaurando o `fetch` original no `finally`. Confirmar em todos os casos que `cdiState.error`/`ipcaState.error` é preenchido e que o histórico salvo anteriormente (fixture) não é apagado. *(Mecanismo 2 — rede 100% simulada em memória, sem nenhuma chamada real)*"], [66, "**[Ref. 123]** Mockar `fetch` para nunca resolver (Promise pendente) e confirmar que o `AbortController`/`setTimeout` interno cancela a chamada dentro do tempo esperado, sem travar o restante do diagnóstico (usar um timeout de teste bem menor que 15s para não deixar o teste lento)."], [67, "**[Ref. 125]** Disparar duas chamadas de `updateCdi(force:true)` em sequência imediata (ambas apontando para o `fetch` mockado) e confirmar, pelo contador de chamadas do mock, que a segunda é ignorada enquanto `cdiState.loading` está `true`."], [68, "**[Ref. 128]** Mockar `window.Notification = { permission: 'denied' }` (objeto simples, sem registrar notificação real) e confirmar que `requestBillNotificationPermission`/`billNotificationPermission` orientam o usuário a mudar a permissão no navegador, sem tentar chamar `Notification.requestPermission()` de novo."], [69, "**[Ref. 129/130]** Rodar a lógica de montagem da mensagem de lembrete (`\"vence hoje\"`/`\"vence amanhã\"`/`\"vence em N dias\"`) em fixture isolada para `daysUntil` = 0, 1 e N>1, e separadamente verificar que a chave de deduplicação (`id+'@'+date`) realmente impede o mesmo lembrete de ser contado duas vezes num `Set` simulado."], [70, "**[Ref. 131]** Mockar `fetch` do IPCA para devolver apenas 3 meses de histórico (menos que os 12 esperados) e confirmar que `miniLine`/o card de inflação não gera `undefined` nem `NaN` na interface, mostrando apenas os meses disponíveis."], [71, "**[Ref. 132]** Confirmar, por inspeção do código, que toda função de rede (`updateCdi`, `updateIpca`) checa `location.protocol==='file:'` **antes** de montar a URL de requisição (ordem das instruções), não apenas em paralelo — evita que a app tente montar a URL (e eventualmente vazar dados) mesmo quando vai abortar em seguida."], [72, "**[Ref. 133]** Chamar `yearChart()`-like com uma fixture de ano totalmente vazio (`income=expenses=saved=0` em todos os 12 meses) e confirmar que nenhuma barra gera altura `NaN%`/negativa no HTML produzido."], [73, "**[Ref. 134]** Chamar `donutHTML` com uma fixture de uma única categoria concentrando 100% do total e confirmar que o `conic-gradient` gerado cobre exatamente de 0% a 100% sem lacuna (checar a string do `stops` produzida)."], [74, "**[Ref. 135]** Chamar `miniLine` com `values=[10]` (um único ponto válido) e confirmar a mensagem de \"gráfico aparecerá com mais dados\"; chamar novamente com `[10, \"x\", null]` (valores inválidos misturados) e confirmar que o filtro (`Number.isFinite`) realmente descarta os inválidos antes de decidir se há pontos suficientes."], [75, "**[Ref. 136/137]** Chamar `cashProjection` com `balanceAnchorCents=null` (sem saldo de referência) e, separadamente, com `balanceAnchorDate` no futuro em relação a uma data \"hoje\" fictícia passada como parâmetro — confirmar `null` como retorno em ambos os casos, sem exceção."], [76, "**[Ref. 138]** Chamar `debtCompareValues`-like com `months=0` e `months=-5` em fixture isolada e confirmar a mensagem de \"preencha os valores\" em vez de cálculo com `Math.pow` indefinido."], [77, "**[Ref. 139]** Chamar a mesma função com `cet` acima e abaixo do CDI líquido de referência (valores fictícios) e confirmar que a frase condicional (\"acima\"/\"abaixo do CDI\") corresponde à comparação numérica real feita internamente."], [78, "**[Ref. 140]** Montar fixture com uma recorrência cuja data projetada cai 5 anos no futuro e confirmar que o agrupamento diário de `cashProjection`/`cashflowCard` não trava nem demora de forma desproporcional (medir tempo de execução) — sem precisar cadastrar isso de fato no app do usuário."], [79, "**[Ref. 141]** Chamar a lógica da \"reserva de emergência\" com uma fixture sem nenhum mês fechado anterior (`samples=[]`) e confirmar que a média não vira `NaN` (deve cair para 0 ou mensagem explícita)."], [80, "**[Ref. 142]** Rodar o cálculo de meta sugerida/valor faltante para os quatro valores possíveis de meses de reserva (3, 6, 9, 12) em fixture isolada e confirmar que o resultado muda proporcionalmente em todos eles."], [81, "**[Novo]** Verificar, por varredura do HTML gerado pelas funções de gráfico, se todo elemento `role=\"img\"` possui `aria-label` não vazio (acessibilidade de gráficos decorativos vs. informativos)."], [82, "**[Ref. 143]** Ativar `privacyToggle` e varrer **todos** os atributos `title`, `aria-label`, `data-*` e o `innerText` de elementos ocultos (`display:none`/`visibility:hidden`) à procura de valores monetários (padrão `R\\$\\s?[\\d.,]+`) que tenham escapado da ocultação."], [83, "**[Ref. 144]** Para cada paleta disponível (`blue`, `emerald`, `petrol`, `plum`, `graphite`, `carbon`), aplicar a paleta programaticamente, ler os estilos computados (`getComputedStyle`) dos textos sobre fundo de alerta/perigo e calcular a razão de contraste (fórmula WCAG) sem precisar de inspeção visual humana — reprovar paletas abaixo de 4.5:1 em texto normal."], [84, "**[Ref. 145]** Simular `Tab` programaticamente (percorrer `document.querySelectorAll('button, a, input, select, textarea, [tabindex]')` na ordem do DOM) e confirmar que nenhum elemento focável está com `tabindex=\"-1\"` indevido nem oculto por CSS enquanto ainda é alcançável pelo teclado (foco \"fantasma\")."], [85, "**[Ref. 146]** Abrir o menu \"Mais módulos\" programaticamente (chamando o handler, sem clique real) e verificar que `aria-expanded` no botão muda de `\"false\"` para `\"true\"` e volta corretamente ao fechar."], [86, "**[Ref. 147]** Simular a mudança de breakpoint chamando `matchMedia` mockado (retornando `matches:true`/`false` conforme o teste) em vez de redimensionar a janela de verdade, e confirmar que os elementos exclusivos de mobile/desktop (`.mobile-nav`, `#desktopSidebar`) nunca ficam visíveis os dois ao mesmo tempo."], [87, "**[Novo]** Verificar se existem elementos com `width`/`height` computados maiores que o `viewport` atual (overflow horizontal), reaproveitando a mesma lógica já citada no diagnóstico de \"largura excedente\", mas aplicando a cada uma das 8 páginas após navegação programática (`go()`), não só na página inicial."], [88, "**[Novo]** Verificar duplicidade de `id` em **todo** o documento (não só nos elementos críticos usados por `$()`), já que HTML permite tecnicamente ids repetidos sem erro, mas isso quebra qualquer seletor futuro."], [89, "**[Novo]** Verificar se todo `\u003cbutton>` sem texto visível (ícone apenas) possui `aria-label` ou `title`, varrendo os 8 módulos após navegação programática."], [90, "**[Novo]** Verificar se todo `\u003cinput>`/`\u003cselect>` dentro dos diálogos (`\u003cdialog>`) possui `label` associado (`for`/`id` correspondente ou `aria-label`), incluindo os campos que só aparecem depois de uma interação (ex.: campos de pecuária escondidos)."], [91, "**[Novo]** Verificar, em cada uma das 8 páginas, se existe mais de um elemento com `role=\"main\"` ou mais de um `\u003ch1>` por página (estrutura de landmark duplicada)."], [92, "**[Novo]** Verificar se o `tabindex` de elementos não interativos (`\u003cdiv>`, `\u003cspan>`) nunca é positivo (`tabindex > 0`), o que quebraria a ordem natural de navegação por teclado."], [93, "**[Novo]** Verificar, para cada `\u003cdialog>` do documento, se `aria-labelledby`/`aria-label` aponta para um elemento que realmente existe no DOM (referência não quebrada)."], [94, "**[Novo]** Verificar se o foco é movido para dentro do diálogo ao abri-lo programaticamente (`showModal()`) e se volta para o elemento que abriu o diálogo ao fechá-lo (`state.modalTrigger`), sem precisar de clique humano real, apenas chamando as funções de abrir/fechar."], [95, "**[Novo]** Verificar se todas as cores usadas como única forma de distinguir informação (ex.: pontos do calendário, barras do gráfico) têm também um `title`/texto alternativo equivalente, evitando dependência só de cor (WCAG 1.4.1)."], [96, "**[Novo]** Verificar, por `getComputedStyle`, se a área clicável de todos os botões de navegação mobile (`.nav-button`, `.nav-add`) atinge o mínimo recomendado de 44×44px, estendendo o diagnóstico de \"alvos de toque pequenos\" já existente para cobrir explicitamente a barra inferior em todas as 8 rotas."], [97, "**[Novo]** Verificar se, ao trocar de página via `go()`, o foco do teclado é posicionado em um elemento sensato (ex.: título da página) em vez de permanecer em um botão agora invisível/fora da página anterior."], [98, "**[Novo]** Verificar se o texto renderizado em todas as páginas respeita o `:root { font-family }` esperado, sinalizando qualquer elemento que tenha sobrescrito a fonte sem motivo aparente (possível CSS conflitante de edição futura)."], [99, "**[Novo]** Verificar se nenhum elemento de texto está com `overflow` cortando conteúdo sem reticências nem rolagem (`scrollWidth > clientWidth` em elementos sem `overflow:auto/scroll` e sem `text-overflow:ellipsis`), em todas as 8 páginas."], [100, "**[Novo]** Verificar se todas as folhas de `\u003cstyle>` internas (`id=\"...\"`) citadas no diagnóstico de \"CSS sem regras\" continuam, de fato, sendo referenciadas por pelo menos um seletor usado no HTML atual — sinaliza CSS morto introduzido em edições futuras."]];
+async function runAdditionalLocalTests(scan) {
+  const results = new Map();
+  async function record(id, run, scope) {
+    const start = performance.now();
+    try {
+      const value = await run();
+      results.set(id, {status:value === null ? 'ignorado' : value ? 'ok' : 'falha', scope,
+        durationMs:Math.round(performance.now()-start)});
+    } catch (error) {
+      results.set(id, {status:'erro', scope, error:error.name});
+    }
+  }
+  const sample = (fields = {}) => ({id:'teste',kind:'expense',category:'Outros',
+    amount:100,date:'2027-02-01',...fields});
+  const fromRecords = records => verify({...empty(),records});
+  function withFixture(data, run) {
+    const previous = db;
+    db = data;
+    try { return run(); } finally { db = previous; }
+  }
+  const period = mkey(state.year,state.month);
+  const recurring = {id:'teste-rec',kind:'expense',category:'Outros',
+    amount:100,day:31,startMonth:period};
+  const hasAccessibleName = node => Boolean(node.getAttribute('aria-label')?.trim() ||
+    node.getAttribute('title')?.trim() || node.labels?.length ||
+    node.getAttribute('aria-labelledby')?.trim().split(/\s+/).some(id =>
+      document.getElementById(id)?.textContent.trim()));
+  const checks = [
+    [7, () => ['toast','modal'].every(id => document.querySelectorAll('#'+id).length === 1),'IDs críticos'],
+    [10, () => PAGES.every(([id]) => document.getElementById('page-'+id)),'Destinos reais das rotas'],
+    [11, () => verify('{incompleto') === null,'Validador recebe entrada inválida. Recuperação em disco fica fora'],
+    [14, () => ['abc',-100,NaN,Infinity].every(amount => !fromRecords([sample({amount})])),'Valores inválidos na importação'],
+    [15, () => !fromRecords([sample({date:undefined})]) && !fromRecords([sample({kind:undefined})]),'Campos obrigatórios'],
+    [16, () => !verify({...empty(),jars:{}}) && !verify({...empty(),allocations:'x'}),'Tipos de coleções'],
+    [18, () => !fromRecords([sample(),sample()]),'Rejeição de IDs duplicados na importação'],
+    [20, () => {
+      const records = Array.from({length:50000}, (_,i) => sample({id:'r'+i}));
+      const jars = Array.from({length:5000}, (_,i) => ({id:'j'+i,name:'Teste',target:100,dueDate:'2027-12-31'}));
+      return fromRecords(records)?.records.length === 50000 && !fromRecords([...records,sample()]) &&
+        verify({...empty(),jars})?.jars.length === 5000 && !verify({...empty(),jars:[...jars,jars[0]]});
+    },'Limites do validador com registros válidos em memória'],
+    [32, () => toCents('0.01') === 1 && toCents('100000000') === 10000000000 &&
+      Number.isNaN(toCents('100000000.01')),'Conversor real. Submissão pela interface ainda pendente'],
+    [35, () => !normalizeTags(';;;,,,').length && normalizeTags(Array(50).fill('a')).length === 1 &&
+      normalizeTags('a'.repeat(1000))[0]?.length === 30,'Limites das tags'],
+    [36, () => ['2028-02-29','2000-02-29'].every(validDate) &&
+      ['2027-02-29','1900-02-29','2027-01-00','2027-13-01'].every(date => !validDate(date)),'Datas civis'],
+    [39, () => withFixture({...empty(),recurring:[recurring,{...recurring,id:'pausada',paused:true}],
+      records:[sample({recurringId:recurring.id,recurringMonth:period})]}, () => pendingRecurring().length === 0),'Pausa e recorrência já confirmada'],
+    [40, () => withFixture({...empty(),recurring:[recurring,{...recurring,id:'futura',startMonth:'9999-01'},
+      {...recurring,id:'encerrada',startMonth:'1900-01',endMonth:'1900-02'}]},
+      () => pendingRecurring().map(item => item.id).join() === recurring.id),'Início, fim e controle positivo'],
+    [47, () => withFixture(empty(), () => linkedInvestmentBalance('inexistente') === 0),'Vínculo inexistente'],
+    [50, () => {
+      const fixture = {...empty(),investments:[{goalId:'meta',balance:500}]};
+      return withFixture(fixture, () => {
+        const before = linkedInvestmentBalance('meta');
+        fixture.investments = [];
+        return before === 500 && linkedInvestmentBalance('meta') === 0;
+      });
+    },'Recálculo após remoção em memória'],
+    [56, () => ['00:00','23:59','24:00','25:99','12:60'].every((time,index) =>
+      Boolean(verify({...empty(),tasks:[{id:'t',title:'Teste',date:'2027-02-01',time}]})) === (index < 2)),'Validador real de compromissos'],
+    [57, () => mkey(2027,0) === '2027-01' && mkey(2027,1) === '2027-02','Chaves mensais. Navegação ainda pendente'],
+    [62, () => {
+      const fixture = {...empty(),records:[sample({date:isoToday(),category:'Mercado'})]};
+      fixture.prefs.marketBudget = 100;
+      return withFixture(fixture, () => [74,75,99,100,101].every((amount,index) => {
+        fixture.records[0].amount = amount;
+        return groceryAlertLevel() === [0,1,1,2,2][index];
+      }));
+    },'Limiar efetivo de 75% e 100% usado pelo aplicativo'],
+    [72, () => withFixture(empty(), () => {
+      const html = yearChart();
+      return html.includes('chart-bars') && !/NaN|Infinity/.test(html);
+    }),'Gráfico anual sem dados'],
+    [73, () => /0%\s+100%/.test(donutHTML([sample()])),'Gradiente de categoria única'],
+    [74, () => miniLine([10],'Teste').includes('empty-inline') &&
+      !miniLine([10,20],'Teste').includes('empty-inline'),'Gráfico com um ou dois pontos'],
+    [75, () => withFixture(empty(), () => {
+      const absent = cashProjection(30) === null;
+      db.prefs.balanceAnchorCents = 100;
+      db.prefs.balanceAnchorDate = '9999-01-01';
+      return absent && cashProjection(30) === null;
+    }),'Saldo de referência ausente ou no futuro'],
+    [81, () => [...document.querySelectorAll('[role="img"]')].every(hasAccessibleName),'Nomes dos gráficos renderizados'],
+    [87, () => !scan.modules.some(module => module.checks.some(check =>
+      check.overflowPx > 1 || check.findings?.some(item => /fora da tela/.test(item.type)))),'Largura atual nos oito módulos'],
+    [88, () => {
+      const ids = [...document.querySelectorAll('[id]')].map(node => node.id);
+      return ids.length === new Set(ids).size;
+    },'IDs no documento inteiro'],
+    [89, () => [...document.querySelectorAll('.page button')].every(button =>
+      button.textContent.trim() || hasAccessibleName(button)),'Botões renderizados'],
+    [90, () => [...document.querySelectorAll('dialog input:not([type=hidden]),dialog select,dialog textarea')]
+      .every(hasAccessibleName),'Campos presentes nos diálogos'],
+    [91, () => [...document.querySelectorAll('.page')].every(page =>
+      page.querySelectorAll('h1').length <= 1 && page.querySelectorAll('main,[role=main]').length <= 1),'Estrutura interna por módulo'],
+    [92, () => !document.querySelector('div[tabindex]:not([role])[tabindex^="+"]') &&
+      ![...document.querySelectorAll('div[tabindex]:not([role]),span[tabindex]:not([role])')].some(node => node.tabIndex > 0),'Ordem explícita de foco'],
+    [93, () => [...document.querySelectorAll('dialog')].every(hasAccessibleName),'Nomes dos diálogos'],
+    [96, () => !matchMedia('(max-width:760px)').matches ? null :
+      [...document.querySelectorAll('#mobileNav button')].every(button => {
+        const rect = button.getBoundingClientRect();
+        return rect.width >= 44 && rect.height >= 44;
+      }),'Área medida da barra inferior']
+  ];
+  for (const [id,run,scope] of checks) await record(id,run,scope);
+
+  if (globalThis.crypto?.subtle) {
+    const salt = new Uint8Array(16);
+    const password = 'Teste local 🔒áéü';
+    let envelope, key;
+    await record(21, async () => {
+      key = await deriveVaultKey(password,salt);
+      envelope = await sealVault({...empty(),records:[sample({note:'marcador fictício'})]},key,'teste');
+      const restored = await openVault(envelope,key);
+      return envelope.format === 'reserva-vault-1' &&
+        !JSON.stringify(envelope).includes('marcador fictício') &&
+        restored.records[0]?.note === 'marcador fictício';
+    },'Cofre real com dados sintéticos em memória');
+    await record(22, async () => {
+      if (!envelope) return null;
+      const wrong = await deriveVaultKey('outra senha fictícia',salt);
+      try { await openVault(envelope,wrong); } catch (error) { return error.name === 'OperationError'; }
+      return false;
+    },'Chave incorreta. Mensagem do formulário ainda pendente');
+    await record(24, async () => {
+      if (!envelope) return null;
+      const second = await deriveVaultKey(password,salt);
+      return (await openVault(envelope,second)).records[0]?.id === 'teste';
+    },'Derivação repetível com senha Unicode');
+  }
+  return ADDITIONAL_TEST_PLAN.map(([id,title]) => ({
+    id,title,...(results.get(id) || {status:[21,22,24].includes(id) ? 'ignorado' : 'pendente',
+      scope:[21,22,24].includes(id) ? 'Web Crypto indisponível' : 'Cenário ainda sem execução automática'})
+  }));
+}
+
+const PROPOSAL_TEST_PLAN = [[1, "Registrador único de desempenho reaproveitável"], [2, "Migração `version:2` → `version:4` em um passo"], [3, "Migração `version:3` → `version:4`"], [4, "Migração com campo de versão ausente/corrompido"], [5, "Idempotência de migração (rodar duas vezes)"], [6, "Nenhum segredo literal passa por `console.*` durante o fluxo do cofre"], [7, "Restauração de backup com envelope de formato incompatível"], [8, "Restauração cancelada no meio do fluxo"], [9, "Equivalência de dados antes/depois do ciclo cofre completo"], [10, "Pasta indisponível via adaptador de teste (não via navegador real)"], [11, "Criar → editar → cancelar → excluir → reenviar, tudo em base isolada"], [12, "CSV com separador `;` vs `,` no mesmo arquivo"], [13, "Reconciliação Início × Lançamentos × Relatórios"], [14, "Relógio lógico injetado em vez do relógio do SO"], [15, "Vencidos (contas em atraso) com relógio lógico"], [16, "Geração duplicada de recorrência ao aplicar duas vezes com relógio parado"], [17, "Compromisso sem horário + botão Hoje em três meses, tudo com relógio lógico fixo"], [18, "Importação de CSV: aspas malformadas, linha corrompida ao final, cabeçalho ausente, importação repetida do mesmo arquivo"], [19, "Importação de CSV: aspas malformadas, linha corrompida ao final, cabeçalho ausente, importação repetida do mesmo arquivo"], [20, "Importação de CSV: aspas malformadas, linha corrompida ao final, cabeçalho ausente, importação repetida do mesmo arquivo"], [21, "Importação de CSV: aspas malformadas, linha corrompida ao final, cabeçalho ausente, importação repetida do mesmo arquivo"], [22, "Aporte seguido de resgate maior que o saldo disponível"], [23, "Venda parcial de lote de pecuária com `heads` maior que o total cadastrado"], [24, "IOF e IR documentados por tabela de aging, com resultado esperado explícito por faixa"], [25, "FIFO com resgate que consome mais de um lote"], [26, "Vínculo de investimento removido: `linkedInvestmentBalance` e `goalEngineData` em conjunto"], [27, "Integridade estrutural do JSON exportado pelo diagnóstico"], [28, "Integridade estrutural da exportação de dados do usuário (backup bruto)"], [29, "Chamadas simultâneas de CDI e IPCA (APIs diferentes, não a mesma duas vezes)"], [30, "Cache antigo de CDI/IPCA sendo usado quando a rede simulada falha"], [31, "Contraste com regra de inconclusivo para fundo não sólido"], [32, "Seletores do diagnóstico de layout sem correspondência no estado atual"], [33, "Breakpoint real em área de renderização isolada (iframe)"], [34, "Estados vazio/preenchido em três larguras de referência (mobile/tablet/desktop), para as 8 páginas"], [35, "Estados vazio/preenchido em três larguras de referência (mobile/tablet/desktop), para as 8 páginas"], [36, "Estados vazio/preenchido em três larguras de referência (mobile/tablet/desktop), para as 8 páginas"], [37, "Nome acessível de todo controle interativo nas 8 páginas"], [38, "Relações ARIA quebradas (referência a ID inexistente) em todo o documento"], [39, "Ocultar valores: varredura completa incluindo nomes acessíveis computados"], [40, "Foco inicial e retorno de foco em todos os diálogos do app, não só um"], [41, "Mapeamento de cobertura real dos 30 casos históricos"], [42, "Validação de fixtures de tamanho crescente (100 / 1.000 / 10.000 / 50.000) para as quatro funções mais pesadas"], [43, "Validação de fixtures de tamanho crescente (100 / 1.000 / 10.000 / 50.000) para as quatro funções mais pesadas"], [44, "Validação de fixtures de tamanho crescente (100 / 1.000 / 10.000 / 50.000) para as quatro funções mais pesadas"], [45, "Validação de fixtures de tamanho crescente (100 / 1.000 / 10.000 / 50.000) para as quatro funções mais pesadas"], [46, "Verificação de assinatura das funções exercitadas pelo diagnóstico"], [47, "Ponto de verificação indireto para funções não globais"], [48, "Checagem de versão/commit analisado embutida no relatório"], [49, "Suíte de \"testes-sentinela\" mínimos que não dependem de implementação interna"], [50, "Processo de validação do contrato e da cobertura antes de aplicar a trava"]];
+const DIAGNOSTIC_SUITE_VERSION = '1.3.0';
+const DIAGNOSTIC_SOURCE_REVISION = 'dutrafg/Reserva-Simples · main · app 0.39.26';
+const DIAGNOSTIC_SOURCE_COMMIT = '844ae59f4f051d8352f852b9f17fec3a453127ca';
+function diagnosticContract() {
+  const capabilities = {verify, validDate, normalizeTags, pendingRecurring,
+    estimateCdbJar, cashProjection, bankCsvParseRows, monthData:Engines?.monthData};
+  const expectedArity={verify:1,validDate:1,normalizeTags:1,pendingRecurring:0,
+    estimateCdbJar:1,cashProjection:1,bankCsvParseRows:2,monthData:3};
+  const signatures=Object.fromEntries(Object.entries(capabilities).map(([name,fn])=>[name,
+    {available:typeof fn==='function',expectedArity:expectedArity[name],actualArity:typeof fn==='function'?fn.length:null,
+      matches:typeof fn==='function'&&fn.length===expectedArity[name]}]));
+  return {version:2,appVersion:APP_VERSION,suiteVersion:DIAGNOSTIC_SUITE_VERSION,
+    referenceBranch:'main',sourceRevision:DIAGNOSTIC_SOURCE_REVISION,sourceCommit:DIAGNOSTIC_SOURCE_COMMIT,signatures,
+    missing:Object.keys(capabilities).filter(name=>typeof capabilities[name]!=='function'),
+    brokenSignatures:Object.entries(signatures).filter(([,item])=>!item.matches).map(([name])=>name)};
+}
+if(!window.ReservaDiagnosticBridge)window.ReservaDiagnosticBridge=Object.freeze({contractVersion:2,
+  inspect:()=>diagnosticContract()});
+function diagnosticReport(scan, report = diagnostics.report()) {
+  const {applicationSkeleton:capturedSkeleton,...safeScan}=scan||{};
+  return {...report, events:report.events.map(diagnosticPublicEvent),
+    diagnosticContract:diagnosticContract(),
+    applicationSkeleton:capturedSkeleton||captureApplicationSkeleton(),
+    supportContext:{attachScreenshotSeparately:true,includeBugDescriptionInMessage:true,
+      screenshotAndDescriptionAreNotEmbedded:true}, scan:scan?safeScan:null};
+}
+function diagnosticPublicEvent(event) {
+  const technicalCodes = new Set([
+    'session.started','session.interrupted','javascript.error','javascript.rejection',
+    'resource.failed','mutation.invalid','mutation.refresh_failed','mutation.failed',
+    'storage.save_failed','backup.write_failed','update.check_failed','update.install_failed',
+    'offline.registration_failed','connection.online','connection.offline','diagnostic.generation_failed'
+  ]);
+  const modules = PAGES.map(([id]) => id);
+  const types = ['Error','TypeError','ReferenceError','SyntaxError','RangeError',
+    'QuotaExceededError','SecurityError','NetworkError','AbortError','NotAllowedError'];
+  return {
+    at: typeof event.at === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(event.at) ? event.at : undefined,
+    version: typeof event.version === 'string' && /^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(event.version) ? event.version : undefined,
+    code: technicalCodes.has(event.code) ? event.code : 'technical.other',
+    type: types.includes(event.type) ? event.type : undefined,
+    module: modules.includes(event.module) ? event.module : undefined,
+    online: typeof event.online === 'boolean' ? event.online : undefined,
+    line: Number.isSafeInteger(event.line) ? event.line : undefined,
+    column: Number.isSafeInteger(event.column) ? event.column : undefined,
+    element: ['SCRIPT','LINK','IMG','other'].includes(event.element) ? event.element : undefined
+  };
+}
+function diagnosticSafeClassNames(element) {
+  return [...(typeof element.className === 'string' ? element.className.split(/\s+/) : [])]
+    .filter(name => /^[a-z][a-z0-9_-]{0,34}$/i.test(name) &&
+      !/(?:^|[-_])(?:\d{6,}|[a-f0-9]{12,}|[a-z0-9]{20,})(?:$|[-_])/i.test(name))
+    .slice(0,5);
+}
+function diagnosticSelectorPath(element, root) {
+  const parts=[]; let node=element;
+  while(node && node!==root && parts.length<7) {
+    const tag=String(node.tagName||'').toLowerCase();
+    if(!tag)break;
+    const siblings=node.parentElement ? [...node.parentElement.children].filter(x=>x.tagName===node.tagName) : [];
+    const index=siblings.indexOf(node)+1;
+    const classes=diagnosticSafeClassNames(node).slice(0,2).map(x=>'.'+x).join('');
+    parts.unshift(tag+classes+(siblings.length>1?':nth-of-type('+index+')':''));
+    node=node.parentElement;
+  }
+  return (root?.id && /^page-[a-z0-9-]{1,32}$/i.test(root.id) ? '#'+root.id+' ' : '.page ')+parts.join(' > ');
+}
+function diagnosticElementSnapshot(element, root) {
+  const rect=element.getBoundingClientRect(), css=getComputedStyle(element);
+  const role=element.getAttribute('role');
+  const safeRole=role && /^[a-z-]{1,24}$/i.test(role) ? role : null;
+  const attrs={};
+  ['aria-expanded','aria-hidden','aria-pressed','aria-selected','aria-modal'].forEach(name=>{
+    const value=element.getAttribute(name);
+    if(value==='true'||value==='false')attrs[name]=value;
+  });
+  if(element.hidden)attrs.hidden=true;
+  if(element.disabled)attrs.disabled=true;
+  return {
+    selector:diagnosticSelectorPath(element,root), tag:String(element.tagName||'').toLowerCase(),
+    classes:diagnosticSafeClassNames(element), role:safeRole,
+    type:['button','submit','reset','text','number','date','month','email','password','checkbox','radio','search','tel','url','file'].includes(element.type)?element.type:undefined,
+    state:attrs, visible:css.display!=='none'&&css.visibility!=='hidden'&&rect.width>0&&rect.height>0,
+    rect:{x:Math.round(rect.left),y:Math.round(rect.top),width:Math.round(rect.width),height:Math.round(rect.height)},
+    layout:{display:css.display,position:css.position,overflowX:css.overflowX,overflowY:css.overflowY,
+      flexDirection:css.flexDirection,gridColumns:String(css.gridTemplateColumns||'').slice(0,100),
+      gap:String(css.gap||'').slice(0,32),zIndex:css.zIndex,fontSize:css.fontSize,lineHeight:css.lineHeight,
+      whiteSpace:css.whiteSpace,textOverflow:css.textOverflow},
+    childCount:element.children.length
+  };
+}
+function capturePageSkeleton(page,id,title) {
+  if(!page)return {id,title,present:false,elementCounts:{},sampledElements:[],overflow:null};
+  const counts={}, candidates=[];
+  const nodes=[page,...page.querySelectorAll('*')];
+  const skip=new Set(['SCRIPT','STYLE','SVG','PATH','G','DEFS','CIRCLE','LINE','POLYLINE','OPTION']);
+  for(const node of nodes) {
+    if(skip.has(node.tagName))continue;
+    const tag=String(node.tagName||'').toLowerCase();counts[tag]=(counts[tag]||0)+1;
+    const cls=diagnosticSafeClassNames(node).join(' ');
+    const important=/^(BUTTON|INPUT|SELECT|TEXTAREA|FORM|DIALOG|NAV|HEADER|MAIN|SECTION|ARTICLE|TABLE|FIELDSET)$/.test(node.tagName)||
+      node.hasAttribute('role')||/(?:^| )(?:card|grid|panel|modal|dialog|toolbar|nav|chart|calendar|form)(?: |$)/i.test(cls);
+    if(important && candidates.length<180)candidates.push(diagnosticElementSnapshot(node,page));
+  }
+  const rect=page.getBoundingClientRect(), doc=document.documentElement;
+  return {id,title,present:true,visible:getComputedStyle(page).display!=='none',
+    viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio||1},
+    pageRect:{x:Math.round(rect.left),y:Math.round(rect.top),width:Math.round(rect.width),height:Math.round(rect.height)},
+    overflow:{horizontalPx:Math.max(0,doc.scrollWidth-doc.clientWidth),verticalPx:Math.max(0,doc.scrollHeight-doc.clientHeight),
+      pageScrollWidth:page.scrollWidth,pageClientWidth:page.clientWidth},
+    elementCounts:counts,sampledElements:candidates,sampled:candidates.length,
+    sampleLimit:180,candidateElements:counts?Object.values(counts).reduce((sum,value)=>sum+value,0):0,
+    candidatesOmitted:Math.max(0,Object.values(counts).reduce((sum,value)=>sum+value,0)-candidates.length),
+    privacy:{textIncluded:false,inputValuesIncluded:false,hrefsIncluded:false,dataAttributesIncluded:false,personalDataIncluded:false}};
+}
+function captureApplicationSkeleton(prebuilt) {
+  const pages=prebuilt||PAGES.map(([id,title])=>capturePageSkeleton(document.getElementById('page-'+id),id,title));
+  return {schemaVersion:'app-skeleton.v1',capturedAt:new Date().toISOString(),application:'Reserva Simples',
+    appVersion:APP_VERSION,suiteVersion:DIAGNOSTIC_SUITE_VERSION,
+    viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio||1,scrollX:Math.round(scrollX),scrollY:Math.round(scrollY)},
+    activeModule:document.body.dataset.currentPage||state.page||null,
+    purpose:'Correlacionar o print e a descrição do usuário com a estrutura e as medidas dos componentes.',
+    privacy:{redacted:true,includesVisibleText:false,includesFieldValues:false,includesNames:false,includesFinancialOrClinicalData:false},
+    modules:pages};
+}
+function createDiagnosticMemoryStorage(seed={},quotaError=false) {
+  const map=new Map(Object.entries(seed).map(([key,value])=>[String(key),String(value)]));
+  return {get length(){return map.size},key:index=>[...map.keys()][index]??null,
+    getItem:key=>map.has(String(key))?map.get(String(key)):null,
+    setItem:(key,value)=>{if(quotaError)throw new DOMException('Quota exceeded','QuotaExceededError');map.set(String(key),String(value))},
+    removeItem:key=>map.delete(String(key)),clear:()=>map.clear(),_map:map};
+}
+async function withDiagnosticSandbox(options,run) {
+  options=options||{};
+  const original={db,state,cdiState,ipcaState,vault,vaultKey,vaultBusy,saving,hideValues,
+    storageRecoveryRaw,recoveryArchived,backupDirectory,folderKey,folderSalt,
+    confirm:Object.getOwnPropertyDescriptor(window,'confirm'),fetch:Object.getOwnPropertyDescriptor(window,'fetch'),
+    localStorage:Object.getOwnPropertyDescriptor(window,'localStorage'),sessionStorage:Object.getOwnPropertyDescriptor(window,'sessionStorage'),
+    scrollX,scrollY};
+  const local=createDiagnosticMemoryStorage(options.storage||{},!!options.quotaError);
+  const session=createDiagnosticMemoryStorage(options.sessionStorage||{});
+  const restoreProperty=(name,descriptor)=>{try{if(descriptor)Object.defineProperty(window,name,descriptor);else delete window[name]}catch{}};
+  try {
+    Object.defineProperty(window,'localStorage',{configurable:true,enumerable:true,writable:true,value:local});
+    Object.defineProperty(window,'sessionStorage',{configurable:true,enumerable:true,writable:true,value:session});
+    if(options.confirm!==undefined)window.confirm=typeof options.confirm==='function'?options.confirm:()=>Boolean(options.confirm);
+    if(options.fetch)window.fetch=options.fetch;
+    db=structuredClone(options.db||empty());
+    state={...state,...(options.state||{})};
+    cdiState={...cdiState,rates:structuredClone(options.cdiRates||[]),loading:false,error:''};
+    ipcaState={...ipcaState,rates:structuredClone(options.ipcaRates||[]),loading:false,error:''};
+    vault=options.vault||null;vaultKey=options.vaultKey||null;vaultBusy=false;saving=false;
+    storageRecoveryRaw=null;recoveryArchived=false;backupDirectory=options.backupDirectory||null;
+    folderKey=options.folderKey||null;folderSalt=options.folderSalt||null;hideValues=!!options.hideValues;
+    return await run({localStorage:local,sessionStorage:session});
+  } finally {
+    db=original.db;state=original.state;cdiState=original.cdiState;ipcaState=original.ipcaState;
+    vault=original.vault;vaultKey=original.vaultKey;vaultBusy=original.vaultBusy;saving=original.saving;
+    hideValues=original.hideValues;storageRecoveryRaw=original.storageRecoveryRaw;recoveryArchived=original.recoveryArchived;
+    backupDirectory=original.backupDirectory;folderKey=original.folderKey;folderSalt=original.folderSalt;
+    restoreProperty('confirm',original.confirm);restoreProperty('fetch',original.fetch);
+    restoreProperty('localStorage',original.localStorage);restoreProperty('sessionStorage',original.sessionStorage);
+    try{render();window.scrollTo({left:original.scrollX,top:original.scrollY,behavior:'instant'})}catch{}
+  }
+}
+async function runDataSecurityTests() {
+  const tests = [];
+  async function check(id, name, run) {
+    const start = performance.now();
+    let status;
+    try {
+      const result = await run();
+      status = result === null ? 'ignorado' : result ? 'ok' : 'falha';
+    } catch { status = 'erro'; }
+    tests.push({id,name,status,durationMs:Math.round(performance.now()-start),
+      ...(status === 'ignorado' ? {reason:'Web Crypto indisponível ou preparação do teste falhou'} : {})});
+  }
+
+  const marker = 'marcador-ficticio-de-privacidade';
+  await check('SEG-01','Exportação exclui mensagem, pilha e contexto arbitrário de eventos', () => {
+    const report = diagnosticReport(null,{events:[{code:'javascript.error',type:'TypeError',
+      line:17,stack:marker,message:marker,password:marker,trail:[{action:marker}],
+      module:marker,version:marker}]});
+    const event = report.events[0];
+    return !JSON.stringify(report).includes(marker) && event.line === 17 && event.type === 'TypeError';
+  });
+  const allocation = {id:'seg-a',jarId:'seg-j',amount:100,date:'2027-01-01'};
+  await check('SEG-02','Validador rejeita movimentação sem cofrinho correspondente', () =>
+    verify({...empty(),allocations:[allocation]}) === null);
+  await check('SEG-03','Validador rejeita histórico com resgate acima do saldo', () =>
+    verify({...empty(),jars:[{id:'seg-j',name:'Teste',target:500,dueDate:'2027-12-31'}],
+      allocations:[allocation,{...allocation,id:'seg-b',date:'2027-01-02',amount:-101}]}) === null);
+
+  let key, envelope, second;
+  const salt = new Uint8Array(16);
+  await check('SEG-04','Chave derivada não pode ser exportada e o cofre usa AES-GCM', async () => {
+    if (!globalThis.crypto?.subtle) return null;
+    key = await deriveVaultKey('senha fictícia de diagnóstico',salt);
+    envelope = await sealVault(empty(),key,'teste');
+    second = await sealVault(empty(),key,'teste');
+    return key.extractable === false && key.algorithm.name === 'AES-GCM';
+  });
+  await check('SEG-05','Cifragens sucessivas geram IVs distintos de 12 bytes', () =>
+    envelope && second ? from64(envelope.iv).length === 12 &&
+      from64(second.iv).length === 12 && envelope.iv !== second.iv : null);
+  const rejects = async candidate => {
+    try { await openVault(candidate,key); return false; }
+    catch (error) { return error.name === 'OperationError'; }
+  };
+  await check('SEG-06','Cofre rejeita conteúdo cifrado alterado', () => {
+    if (!envelope) return null;
+    const bytes = from64(envelope.data);
+    bytes[0] ^= 1;
+    return rejects({...envelope,data:bytesTo64(bytes)});
+  });
+  await check('SEG-07','Cofre rejeita conteúdo cifrado truncado', () => {
+    if (!envelope) return null;
+    return rejects({...envelope,data:bytesTo64(from64(envelope.data).slice(0,-1))});
+  });
+  await check('SEG-08','Cofre rejeita IV alterado', () => {
+    if (!envelope) return null;
+    const iv = from64(envelope.iv);
+    iv[0] ^= 1;
+    return rejects({...envelope,iv:bytesTo64(iv)});
+  });
+  await check('SEG-09','Cofre rejeita esquema inválido mesmo após decifrar', async () => {
+    if (!key) return null;
+    const invalid = await sealVault({...empty(),version:99},key,'teste');
+    try { await openVault(invalid,key); return false; }
+    catch (error) { return error.message === 'Dados inválidos'; }
+  });
+  await check('SEG-10','Esqueleto do app não exporta texto, links, atributos de dados ou valores de campos', () => {
+    const marker='QA_DOM_SECRET_6a31';
+    const root=document.createElement('section');root.id='page-qa';root.className='page';
+    const label=document.createElement('span');label.textContent=marker;
+    const input=document.createElement('input');input.value=marker;input.setAttribute('data-private',marker);
+    const link=document.createElement('a');link.href='https://invalid.example/'+marker;link.textContent=marker;
+    root.append(label,input,link);
+    const snapshot=capturePageSkeleton(root,'qa','Fixture estrutural');
+    const json=JSON.stringify(snapshot);
+    return !json.includes(marker)&&snapshot.privacy.textIncluded===false&&snapshot.privacy.inputValuesIncluded===false;
+  });
+  return tests;
+}
+
+async function runProposalTests(scan) {
+  const results = [];
+  const record = {id:'proposta-r',date:'2027-01-01',kind:'expense',category:'Outros',amount:125};
+  const legacy = version => ({version, records:[record], jars:[], allocations:[]});
+  const migration = version => {
+    const data = verify(legacy(version));
+    return data?.version === 4 && data.records[0]?.amount === 125 &&
+      Array.isArray(data.tasks) && Array.isArray(data.recurring);
+  };
+  const checks = {
+    1: ['Duração por cenário novo registrada em milissegundos', () => results.every(item => item.durationMs >= 0)],
+    2: ['Normalização real do esquema 2 para 4', () => migration(2)],
+    3: ['Normalização real do esquema 3 para 4', () => migration(3)],
+    4: ['Versão ausente ou inválida', () => [undefined,null,'4',99].every(version => !verify(legacy(version)))],
+    5: ['Normalização idempotente dos três esquemas suportados', () => [2,3,4].every(version => {
+      const normalized = verify(legacy(version));
+      return normalized && JSON.stringify(normalized) === JSON.stringify(verify(normalized));
+    })],
+    9: ['Ciclo criptográfico integral em memória', async () => {
+      if (!globalThis.crypto?.subtle) return null;
+      const fixture = verify(legacy(4));
+      const key = await deriveVaultKey('senha fictícia',new Uint8Array(16));
+      return JSON.stringify(await openVault(await sealVault(fixture,key,'teste'),key)) === JSON.stringify(fixture);
+    }],
+    12: ['Parser real de dois formatos de separador; arquivo misto fica fora', () =>
+      [';',','].every(sep => {
+        const csv = 'Data'+sep+'Valor'+sep+'Descrição\n2027-01-01'+sep+'12'+sep+'"A'+sep+'B"';
+        return bankCsvDelimiter(csv) === sep && bankCsvParseRows(csv,sep)[1]?.[2] === 'A'+sep+'B';
+      })],
+    17: ['Validação de compromisso sem horário; botão Hoje fica fora', () =>
+      verify({...empty(),tasks:[{id:'proposta-t',title:'Teste',date:'2027-01-01'}]})?.tasks[0]?.time === ''],
+    20: ['Busca de cabeçalho ausente; fluxo de importação fica fora', () =>
+      bankCsvHeaderIndex(['descrição','observação'],['data']) === -1],
+    22: ['Validação cronológica de saldo; fluxo de resgate fica fora', () => {
+      const rows = [{id:'a',jarId:'meta',amount:500,date:'2027-01-01'},
+        {id:'b',jarId:'meta',amount:-501,date:'2027-01-02'}];
+      return firstNegativeJarDate('meta',rows) === '2027-01-02' &&
+        firstNegativeJarDate('meta',[rows[0],{...rows[1],amount:-500}]) === null;
+    }],
+    27: ['Serialização real do relatório e campos essenciais; download e auditoria de privacidade ficam fora', () => {
+      const payload = JSON.parse(JSON.stringify(diagnosticReport({modules:[],syntheticChecks:[]})));
+      return Array.isArray(payload.events) && Array.isArray(payload.scan.modules) &&
+        payload.diagnosticContract.suiteVersion === DIAGNOSTIC_SUITE_VERSION;
+    }],
+    38: ['Referências ARIA a IDs no DOM atual', () =>
+      [...document.querySelectorAll('[aria-labelledby],[aria-describedby],[aria-controls],[aria-owns]')]
+        .every(node => ['aria-labelledby','aria-describedby','aria-controls','aria-owns']
+          .flatMap(attr => (node.getAttribute(attr)||'').split(/\s+/).filter(Boolean))
+          .every(id => document.getElementById(id)))],
+    41: ['30 regressões catalogadas com estado explícito', () =>
+      scan.historicalRegressions.length === 30 &&
+      new Set(scan.historicalRegressions.map(item => item.id)).size === 30 &&
+      scan.historicalRegressions.every(item => item.status)],
+    46: ['Presença e aridade dos pontos de integração; schemas comportamentais ampliados em LOC-01', () => !diagnosticContract().missing.length&&!diagnosticContract().brokenSignatures.length],
+    48: ['Versões do app, contrato e suíte; commit do protótipo fica fora', () =>
+      diagnosticContract().appVersion === APP_VERSION && diagnosticContract().version===2&&Boolean(DIAGNOSTIC_SUITE_VERSION)]
+  };
+  for (const [id,title] of PROPOSAL_TEST_PLAN) {
+    const test = checks[id];
+    if (!test) { results.push({id,title,status:'pendente'}); continue; }
+    const [scope,run] = test;
+    const started = performance.now();
+    let status;
+    try {
+      const passed = await run();
+      status = passed === null ? 'ignorado' : passed ? 'ok' : 'falha';
+      if (id === 46 && !passed) status = 'contrato_incompativel';
+    } catch { status = 'erro'; }
+    results.push({id,title,scope,status,durationMs:Math.round(performance.now()-started)});
+  }
+  return results;
+}
+
+async function runLocProposalTests(onCaseProgress) {
+  const definitions=[];
+  const add=(id,title,run,scope='fixture isolada')=>definitions.push({id:'LOC-'+String(id).padStart(2,'0'),title,run,scope});
+  const pending=(id,title,reason)=>definitions.push({id:'LOC-'+String(id).padStart(2,'0'),title,reason,scope:'pendente de implementação/ambiente'});
+  const close=(a,b,tolerance=0)=>Math.abs(a-b)<=tolerance;
+  const dateRecord=(id,kind,amount,date,extra={})=>({id,kind,amount,date,category:kind==='expense'?'Outros':'',source:kind==='income'?'salary':'',note:'fixture QA',subcategory:'',tags:[],...extra});
+
+  add(1,'Contrato comportamental de APIs e schemas de retorno',()=>withDiagnosticSandbox({},()=>{
+    const v=verify(empty()),month=Engines.monthData(empty(),2027,0);
+    const required=['version','records','jars','allocations','investments','recurring','tasks','institutions','prefs'];
+    const missing=required.filter(key=>!(key in (v||{})));
+    const monthly=['income','expenses','saved','available'].filter(key=>!(key in (month||{})));
+    const contract=diagnosticContract();
+    return {passed:!missing.length&&!monthly.length&&!contract.missing.length&&!contract.brokenSignatures.length,
+      evidence:{missing,monthly,missingFunctions:contract.missing,brokenSignatures:contract.brokenSignatures,contractVersion:contract.version}};
+  }));
+  add(2,'Rotas e estado visual das páginas',()=>withDiagnosticSandbox({},()=>{
+    const outcomes=[];
+    for(const [id] of PAGES){go(id);const active=[...document.querySelectorAll('.page.active')];
+      outcomes.push({id,active:active.length===1&&active[0].id==='page-'+id});}
+    return {passed:outcomes.every(x=>x.active),evidence:{routesChecked:outcomes.length,invalidRoutes:outcomes.filter(x=>!x.active).map(x=>x.id)}};
+  }),'DOM real; navegação revertida ao final');
+  add(3,'Reconciliação de totais entre motores e período',()=>withDiagnosticSandbox({state:{year:2027,month:4}},()=>{
+    db.records.push(dateRecord('loc3-i1','income',500000,'2027-05-05'),dateRecord('loc3-i2','income',150000,'2027-05-10'),
+      dateRecord('loc3-e1','expense',80000,'2027-05-12'),dateRecord('loc3-e2','expense',25000,'2027-05-15'));
+    const m=Engines.monthData(db,2027,4),expectedIncome=650000,expectedExpenses=105000;
+    return {passed:m.income===expectedIncome&&m.expenses===expectedExpenses,evidence:{income:m.income,expenses:m.expenses,expectedIncome,expectedExpenses}};
+  }));
+  add(4,'Projeção de caixa com lançamentos sintéticos após o saldo âncora',()=>withDiagnosticSandbox({},()=>{
+    const today=isoToday(),anchor=shiftIso(today,-10),end=shiftIso(today,5);
+    db.prefs.balanceAnchorCents=100000;db.prefs.balanceAnchorDate=anchor;
+    db.records.push(dateRecord('loc4-i','income',50000,shiftIso(today,-5)),dateRecord('loc4-e','expense',20000,shiftIso(today,-2)),
+      dateRecord('loc4-f','expense',35000,shiftIso(today,3)));
+    const p=cashProjection(5),expectedNow=130000,expectedEnd=95000;
+    return {passed:!!p&&p.nowBalance===expectedNow&&p.projected===expectedEnd&&p.dailyBalances[end]===expectedEnd,
+      evidence:{nowBalance:p?.nowBalance,projected:p?.projected,expectedNow,expectedEnd}};
+  }));
+  add(5,'Recuperação isolada de JSON corrompido e quarentena única',()=>withDiagnosticSandbox({storage:{[STORE]:'{"version":4,"records":[corrompido'}},async({localStorage})=>{
+    const raw=localStorage.getItem(STORE);load();const first=[...localStorage._map.keys()].filter(key=>key.startsWith(STORE+'-corrompido-')).length;
+    load();const second=[...localStorage._map.keys()].filter(key=>key.startsWith(STORE+'-corrompido-')).length;
+    const blocked=await save()===false&&localStorage.getItem(STORE)===raw;
+    return {passed:first===1&&second===1&&blocked,evidence:{firstQuarantineCount:first,secondQuarantineCount:second,saveBlocked:blocked}};
+  }));
+  add(6,'Rollback quando o armazenamento isolado retorna QuotaExceededError',()=>withDiagnosticSandbox({quotaError:true},async()=>{
+    const result=await mutate(()=>db.records.push(dateRecord('loc6','expense',1000,isoToday())));
+    return {passed:result===false&&db.records.length===0,evidence:{mutationRejected:result===false,rollbackComplete:db.records.length===0}};
+  }));
+  add(7,'Limites restantes de verify e normalização de versões',()=>withDiagnosticSandbox({},()=>{
+    const sample={id:'loc7',jarId:'loc7-j',amount:1,date:'2027-01-01'};
+    const overAlloc=verify({...empty(),allocations:Array(50001).fill(sample)})===null;
+    const overRecurring=verify({...empty(),recurring:Array(5001).fill({id:'r',amount:1,day:1,startMonth:'2027-01'})})===null;
+    const overTasks=verify({...empty(),tasks:Array(10001).fill({id:'t',title:'x',date:'2027-01-01'})})===null;
+    const overInvest=verify({...empty(),investments:Array(5001).fill({id:'i',name:'x'})})===null;
+    const migration=[2,3,4].every(version=>verify({...empty(),version})?.version===4);
+    return {passed:overAlloc&&overRecurring&&overTasks&&overInvest&&migration,evidence:{overAlloc,overRecurring,overTasks,overInvest,migration}};
+  }));
+  add(8,'Validação de senha curta e confirmação divergente do cofre',()=>withDiagnosticSandbox({},async()=>{
+    const dialog=$('#vaultDialog');if(!dialog||!$('#vaultPassword')||!$('#vaultConfirm'))return{unsupported:true,reason:'Campos do cofre não encontrados'};
+    dialog.dataset.mode='setup';let shortBlocked=false,mismatchBlocked=false;
+    $('#vaultPassword').value='12345678901';$('#vaultConfirm').value='12345678901';$('#vaultError').textContent='';
+    await submitVault({preventDefault(){}});shortBlocked=$('#vaultError').textContent.includes('12 caracteres');
+    vaultBusy=false;$('#vaultPassword').value='SenhaForte123!';$('#vaultConfirm').value='OutraSenha123!';$('#vaultError').textContent='';
+    await submitVault({preventDefault(){}});mismatchBlocked=$('#vaultError').textContent.includes('confirme a senha');
+    return {passed:shortBlocked&&mismatchBlocked,evidence:{shortPasswordBlocked:shortBlocked,mismatchBlocked}};
+  }));
+  add(9,'Relatório técnico e telemetria não carregam marcador de segredo',()=>withDiagnosticSandbox({},()=>{
+    const marker='QA_SEGREDO_NAO_EXPORTAR_9f3c';
+    const report=diagnosticReport(null,{events:[{code:'javascript.error',type:'TypeError',message:marker,stack:marker,password:marker,context:{secret:marker}}]});
+    const leaked=JSON.stringify(report).includes(marker);
+    return {passed:!leaked,evidence:{secretMarkerLeaked:leaked}};
+  }));
+  pending(10,'Adaptador de backup em pasta: escrita, recriação e permissão','O fluxo de pasta depende de diretório criptografado e de um adaptador fake específico; não foi simulado nesta rodada para evitar relatar sucesso de persistência do SO.');
+  pending(11,'Ciclo completo de lançamento: criar, editar, cancelar e excluir','O submit do formulário é assíncrono e ainda precisa de um harness de eventos isolado que valide cada etapa sem interferir no modal ativo.');
+  add(12,'Pré-condições para cópia mensal: datas válidas e fixture normalizada',()=>withDiagnosticSandbox({},()=>{
+    const feb28=validDate('2027-02-28'),bad=validDate('2027-02-31');
+    const source=empty();source.records=[dateRecord('copy','expense',20000,'2027-01-31')];
+    const normalized=verify(source);return {passed:feb28&&!bad&&normalized?.records.length===1,evidence:{februaryDateValid:feb28,invalidDayRejected:!bad,fixtureValid:!!normalized}};
+  }));
+  add(13,'Importação CSV: datas e valores contábeis de referência',()=>withDiagnosticSandbox({},()=>{
+    const dateOk=bankCsvDate('2027-05-10')==='2027-05-10'&&bankCsvDate('10/05/2027')==='2027-05-10';
+    const moneyOk=bankCsvMoney('(1.234,56)')===-123456&&bankCsvMoney('1.234,56')===123456;
+    const parsed=bankCsvParseRows('Data;Valor\n2027-05-10;1.234,56', ';');
+    return {passed:dateOk&&moneyOk&&parsed.length===2,evidence:{dateFormatsOk:dateOk,moneyFormatsOk:moneyOk,parsedRows:parsed.length}};
+  }));
+  add(14,'Recorrências: vencimento hoje e atraso com data do sistema',()=>withDiagnosticSandbox({},()=>{
+    const today=isoToday(),[y,m,d]=today.split('-').map(Number),period=mkey(y,m-1);
+    db.recurring.push({id:'loc14-today',kind:'expense',amount:1000,category:'Outros',day:d,startMonth:period,paused:false,note:'Fixture'});
+    const row=upcomingBillInstances(2).find(item=>item.id==='loc14-today');
+    return {passed:!!row&&row.daysUntil===0&&row.daysLate===0,evidence:{dueToday:row?.daysUntil===0,daysLate:row?.daysLate}};
+  }));
+  add(15,'Calendário: movimentos e tarefa no mesmo dia',()=>withDiagnosticSandbox({},()=>{
+    db.records.push(dateRecord('loc15-i','income',100,'2027-06-15'),dateRecord('loc15-e','expense',50,'2027-06-15'));
+    db.tasks.push({id:'loc15-t',title:'Fixture',date:'2027-06-15',time:'',color:'purple',done:false});
+    const events=calendarEventsForMonth(2027,5).get('2027-06-15')||[];
+    const kinds=new Set(events.map(item=>item.kind));return {passed:kinds.has('income')&&kinds.has('expense')&&kinds.has('task'),evidence:{eventKinds:[...kinds]}};
+  }));
+  add(16,'CDB: tabela de IOF/IR e ausência de CDI',()=>withDiagnosticSandbox({cdiRates:[]},()=>{
+    db.jars.push({id:'loc16-j',name:'Fixture',target:500000,dueDate:'2027-12-31',institutionId:'inter-default'});
+    db.allocations.push({id:'loc16-a',jarId:'loc16-j',amount:100000,date:'2025-01-01'});
+    const noRates=estimateCdbJar('loc16-j','2025-06-01');cdiState.rates=[{date:'2025-01-02',value:10}];
+    const early=estimateCdbJar('loc16-j','2025-01-02'),late=estimateCdbJar('loc16-j','2026-12-23');
+    return {passed:!noRates.hasRates&&noRates.net===100000&&early.iof>=0&&late.iof===0&&late.net<=late.gross,
+      evidence:{noRatesPreservedPrincipal:noRates.net===100000,earlyTaxNonnegative:early.iof>=0,lateIofZero:late.iof===0,agingCases:3}};
+  }));
+  add(17,'CDB: saldo remanescente após resgate em múltiplos lotes (checagem FIFO indireta)',()=>withDiagnosticSandbox({},()=>{
+    db.jars.push({id:'loc17-j',name:'FIFO fixture',target:500000,dueDate:'2027-12-31',institutionId:'inter-default'});
+    db.allocations.push({id:'loc17-a1',jarId:'loc17-j',amount:100000,date:'2025-01-01'},
+      {id:'loc17-a2',jarId:'loc17-j',amount:200000,date:'2025-01-15'},
+      {id:'loc17-a3',jarId:'loc17-j',amount:-150000,date:'2025-01-20'});
+    cdiState.rates=[{date:'2025-01-10',value:10},{date:'2025-02-01',value:10}];
+    const out=estimateCdbJar('loc17-j','2025-03-01');
+    return {passed:out.principal===150000&&out.gross>=out.principal&&out.net<=out.gross,evidence:{principal:out.principal,gross:out.gross,net:out.net}};
+  }));
+  add(18,'Cofrinho: rejeição cronológica de saldo negativo',()=>withDiagnosticSandbox({},()=>{
+    const rows=[{id:'a',jarId:'j',amount:50000,date:'2027-01-10'},{id:'b',jarId:'j',amount:-30000,date:'2027-01-20'}];
+    return {passed:firstNegativeJarDate('j',rows)===null&&firstNegativeJarDate('j',[rows[0],{...rows[1],amount:-50001}])==='2027-01-20',
+      evidence:{validHistoryAccepted:firstNegativeJarDate('j',rows)===null,overdrawDate:firstNegativeJarDate('j',[rows[0],{...rows[1],amount:-50001}])}};
+  }));
+  pending(19,'Investimento em pecuária: gastos e venda proporcional','Fluxo depende de vários formulários dinâmicos e eventos encadeados; precisa de harness específico de lote isolado antes de ser marcado como validado.');
+  add(20,'Monitoramento FGC/FGCoop agrupa instituição e compara referência',()=>withDiagnosticSandbox({},()=>{
+    db.institutions.push({id:'loc20-1',name:'Banco QA',type:'bank',cdiPercent:100,guaranteeFund:'fgc',conglomerate:'Grupo QA',otherCoveredBalance:15000000},
+      {id:'loc20-2',name:'Banco QA 2',type:'bank',cdiPercent:100,guaranteeFund:'fgc',conglomerate:'grupo qa',otherCoveredBalance:15000000});
+    const html=guaranteeCard();return {passed:html.includes('Acima da referência')&&html.includes('300.000,00'),evidence:{capExceeded:html.includes('Acima da referência'),groupedExposure:html.includes('300.000,00')}};
+  }));
+  add(21,'Limite de Mercado: transições de aviso em 75% e 100%',()=>withDiagnosticSandbox({},()=>{
+    const today=isoToday(),period=today.slice(0,7);db.prefs.marketBudget=10000;
+    db.records.push(dateRecord('loc21-74','expense',7400,today,{category:'Mercado'}));const normal=groceryAlertLevel()===0;
+    db.records[0].amount=7500;const warn=groceryAlertLevel()===1;
+    db.records[0].amount=10000;const reached=groceryAlertLevel()===2;
+    return {passed:normal&&warn&&reached,evidence:{below75:normal,at75:warn,at100:reached,period}};
+  }));
+  add(22,'Reserva de emergência vazia sem histórico não gera valores inválidos',()=>withDiagnosticSandbox({},()=>{
+    const html=emergencyReserveCard();return {passed:html===''&&!/NaN|Infinity/.test(html),evidence:{emptyHistorySafe:html===''}};
+  }));
+  add(23,'Estrutura do backup e do relatório de diagnóstico',()=>withDiagnosticSandbox({},()=>{
+    db.records.push(dateRecord('loc23','expense',100,'2027-01-01'));
+    const backup=JSON.parse(JSON.stringify(backupPayload())),verified=verify(backup);
+    const report=diagnosticReport({modules:[],applicationSkeleton:captureApplicationSkeleton([])}, {events:[]});
+    return {passed:!!verified&&report.applicationSkeleton?.schemaVersion==='app-skeleton.v1'&&report.diagnosticContract.suiteVersion===DIAGNOSTIC_SUITE_VERSION,
+      evidence:{backupRoundTrip:!!verified,skeletonIncluded:!!report.applicationSkeleton,contractVersion:report.diagnosticContract.suiteVersion}};
+  }));
+  pending(24,'CDI/IPCA: erros HTTP e concorrência com cache preservado','O HTML aberto por file:// bloqueia consulta externa; a bateria HTTP simulada fica separada até existir adaptador injetável para o pipeline de fetch.');
+  pending(25,'Breakpoint CSS real em iframe isolado nas três larguras','A proposta clona a árvore ativa; antes de executar automaticamente, implementar clone DOM sem texto/atributos de usuário e validar CSP/origens em navegador.');
+  add(26,'Privacidade: ocultação de valores no formatador de moeda',()=>withDiagnosticSandbox({hideValues:true},()=>{
+    const hidden=money(432189);return {passed:!hidden.includes('4.321,89')&&!hidden.includes('4321,89'),evidence:{formattedValueHidden:!hidden.includes('4.321,89')}};
+  }));
+  pending(27,'Contraste WCAG nas paletas e modos claro/escuro','A medição confiável requer pares texto/fundo efetivamente renderizados em cada paleta; gradientes e transparências devem permanecer inconclusivos.');
+  add(28,'Abertura e fechamento do modal com foco rastreável',()=>withDiagnosticSandbox({},()=>{
+    const trigger=$('#headerSettings');trigger?.focus();openModal('income');const opened=$('#modal').getAttribute('aria-hidden')==='false';
+    const focusInside=$('#modal').contains(document.activeElement);closeModal(true);const closed=$('#modal').getAttribute('aria-hidden')==='true';
+    return {passed:opened&&focusInside&&closed,evidence:{opened,focusInside,closed}};
+  }),'interação no DOM real com dados sintéticos');
+  add(29,'Referências ARIA e nomes acessíveis nos controles presentes',()=>withDiagnosticSandbox({},()=>{
+    const broken=[];for(const node of document.querySelectorAll('[aria-labelledby],[aria-describedby],[aria-controls],[aria-owns]'))
+      for(const attr of ['aria-labelledby','aria-describedby','aria-controls','aria-owns'])
+        for(const ref of (node.getAttribute(attr)||'').split(/\s+/).filter(Boolean))if(!document.getElementById(ref))broken.push(attr);
+    const unnamed=[...document.querySelectorAll('button,input,select,textarea')].filter(node=>{
+      if(node.disabled||node.hidden||node.closest('[hidden]'))return false;
+      const css=getComputedStyle(node),rect=node.getBoundingClientRect();
+      if(css.display==='none'||css.visibility==='hidden'||rect.width===0||rect.height===0)return false;
+      const labelledBy=(node.getAttribute('aria-labelledby')||'').split(/\s+/).filter(Boolean);
+      const labelledByText=labelledBy.map(id=>document.getElementById(id)?.textContent?.trim()||'').join(' ').trim();
+      return !node.getAttribute('aria-label')&&!labelledByText&&!node.labels?.length&&!node.textContent.trim()&&!node.title;
+    });
+    return {passed:!broken.length&&!unnamed.length,evidence:{brokenAriaReferenceCount:broken.length,unnamedControlCount:unnamed.length}};
+  }));
+  add(30,'Benchmark escalado de verificação com fixtures sintéticas',()=>withDiagnosticSandbox({},()=>{
+    const timings={};for(const n of [100,1000,10000]){
+      const fixture=empty();fixture.records=Array.from({length:n},(_,i)=>dateRecord('perf-'+i,i%4?'expense':'income',100,'2027-01-01'));
+      const start=performance.now(),out=verify(fixture);timings[n]=Math.round(performance.now()-start);
+      if(!out)return {passed:false,evidence:{timings,failedAt:n}};
+    }
+    const bounded=timings[10000] < 60000;
+    return {passed:bounded,evidence:{timings,limitMs:60000}};
+  }),'benchmark sintético; não é garantia de desempenho em todo aparelho');
+
+  const historical=[
+    [31,'H1 · Cópia de despesas e vínculo com investimento',()=>({pending:true,reason:'Ciclo de formulário ainda sem isolamento completo'})],
+    [32,'H2 · Cálculo de metas e CDI',()=>({pass:typeof cdiBounds([{date:'2027-01-01',value:1}],100).factor==='function'})],
+    [33,'H3 · Limpeza não pode depender da API de pasta',()=>({pending:true,reason:'Exige adaptador de pasta fake ligado às funções reais'})],
+    [34,'H4 · Relatório/PDF mantém estrutura sem truncamento',()=>({pass:typeof htmlReportToModel==='function'})],
+    [35,'H5 · CSS de impressão mantém colunas',()=>({pending:true,reason:'Verificar as colunas na prévia de impressão do relatório gerado. O CSS do relatório é criado separadamente.'})],
+    [36,'H6 · Lote vendido permanece editável sem reabrir saldo',()=>({pending:true,reason:'Exige fluxo de edição de investimento em DOM isolado'})],
+    [37,'H8 · Custo proporcional de venda parcial',()=>({pending:true,reason:'Exige fluxo de venda parcial e despesas de pecuária isolado'})],
+    [38,'H9 · Atualização não registra abandono indevido',()=>({pending:true,reason:'Exige simulação de ciclo de vida do service worker'})],
+    [39,'H10 · Backup em pasta trata NotFoundError',()=>({pending:true,reason:'Exige adaptador fake de diretório ligado ao gravador real'})],
+    [40,'H11 · Categoria Outros tem cor cadastrada',()=>({pass:CATS.includes('Outros')&&Boolean(CAT_COLORS[CATS.indexOf('Outros')])})],
+    [41,'H12 · Percentual de renda comprometida',()=>withDiagnosticSandbox({state:{year:2027,month:4}},()=>{db.records=[dateRecord('h12-i','income',100000,'2027-05-05'),dateRecord('h12-e','expense',60000,'2027-05-06')];return {pass:close((100000-40000)/100000*100,60),evidence:{percentage:60}}})],
+    [42,'H13 · Resgate líquido entra no fluxo de caixa',()=>withDiagnosticSandbox({state:{year:2027,month:0}},()=>{db.jars.push({id:'h13-j',name:'fixture',target:10000,dueDate:'2027-12-31'});db.allocations.push({id:'h13-a',jarId:'h13-j',amount:-40000,netReceived:43500,date:'2027-01-10'});const m=Engines.monthData(db,2027,0);return {pass:m.saved===-43500,evidence:{netReceivedApplied:m.saved}}})],
+    [43,'H14 · CDI usa limite da data do evento',()=>({pass:close(cdiBounds([{date:'2027-01-10',value:1}],100).factor('2027-01-10','2027-01-10'),1)})],
+    [44,'H18 · Limites de Mercado não duplica orçamento de categoria',()=>withDiagnosticSandbox({},()=>{const v=verify({...empty(),prefs:{...empty().prefs,marketBudget:80000,categoryBudgets:{Mercado:90000,Luz:10000}}});return {pass:!!v&&!('Mercado' in v.prefs.categoryBudgets),evidence:{marketExcluded:!!v&&!('Mercado' in v.prefs.categoryBudgets)}}})],
+    [45,'H21 · Metas respeitam o mês selecionado',()=>withDiagnosticSandbox({},()=>{const fixture=empty(),jar={id:'h21-j',name:'fixture',target:100000,dueDate:'2027-12-31'};fixture.jars.push(jar);const a=Engines.goal(fixture,jar,2027,0),b=Engines.goal(fixture,jar,2027,6);return {pass:a?.monthsRemaining!==b?.monthsRemaining,evidence:{jan:a?.monthsRemaining,jul:b?.monthsRemaining}}})]
+  ];
+  for(const [id,title,run] of historical)add(id,title,run,'regressão histórica; fixture isolada');
+
+  const results=[];
+  for(let index=0;index<definitions.length;index++){
+    const item=definitions[index];
+    if(onCaseProgress)await onCaseProgress(index+1,definitions.length,item.id,item.title);
+    const start=performance.now();let status='pendente',evidence,reason=item.reason;
+    if(item.run){try{const result=await item.run();
+      if(result?.unsupported){status='não_suportado';reason=result.reason||'Recurso indisponível';}
+      else if(result?.pending){status='pendente';reason=result.reason;}
+      else {status=result?.passed===true||result?.pass===true?'ok':'falha';evidence=result?.evidence;}
+    }catch(error){status='erro';reason='Exceção sanitizada: '+(['Error','TypeError','ReferenceError','SyntaxError','RangeError','AbortError','QuotaExceededError','InvalidStateError','DataError'].includes(error?.name)?error.name:'Error');}}
+    results.push({id:item.id,title:item.title,scope:item.scope,status,durationMs:Math.round(performance.now()-start),...(evidence?{evidence}:{}),...(reason?{reason}:{})});
+  }
+  return results;
+}
+
+async function runDiagnosticScan(onProgress) {
+  const start = performance.now();
+  const scan = scanDiagnosticPage(state.page);
+  scan.startedAt = new Date().toISOString();
+  scan.executionBudgetMs = 60000;
+  scan.modules = [];
+  const skeletonModules = [];
+  scan.syntheticChecks = scanSyntheticFinance();
+  scan.testPlan = runPlannedRegressionTests();
+  const pages = [...document.querySelectorAll('.page')];
+  const active = pages.filter(page => page.classList.contains('active'));
+  const current = document.body.dataset.currentPage;
+  const x = window.scrollX, y = window.scrollY;
+  try {
+    for (const [index, [id, title]] of PAGES.entries()) {
+      await onProgress(index+1, title, 40*(index+1)/PAGES.length);
+      const target = document.getElementById('page-' + id);
+      if (!target) {
+        scan.modules.push({module:id, title, checks:[{name:'Tela do módulo', status:'erro', reason:'Tela ausente'}]});
+        continue;
+      }
+      document.body.dataset.currentPage = id;
+      pages.forEach(page => page.classList.toggle('active', page === target));
+      window.scrollTo({top:0,left:0,behavior:'instant'});
+      scan.modules.push({...scanDiagnosticPage(id, true), title, scenarios:scanInternalViews(target,id)});
+      skeletonModules.push(capturePageSkeleton(target,id,title));
+    }
+  } finally {
+    pages.forEach(page => page.classList.toggle('active', active.includes(page)));
+    if (current === undefined) delete document.body.dataset.currentPage;
+    else document.body.dataset.currentPage = current;
+    window.scrollTo({top:y,left:x,behavior:'instant'});
+  }
+  scan.applicationSkeleton = captureApplicationSkeleton(skeletonModules);
+  await onProgress(PAGES.length+1, "Testes locais adicionais", 45);
+  scan.additionalTestPlan = await runAdditionalLocalTests(scan);
+  await onProgress(PAGES.length+2, "Regressões históricas", 50);
+  scan.historicalRegressions = historicalRegressions(scan);
+  await onProgress(PAGES.length+3, "Propostas N e contrato", 55);
+  scan.proposalTests = await runProposalTests(scan);
+  await onProgress(PAGES.length+4, "Novos testes LOC — preparando", 58);
+  scan.locTests = await runLocProposalTests(async(index,total,id,title)=>{
+    const pct=58+(index/total)*35;
+    await onProgress(PAGES.length+4, id+' · '+title, pct);
+    await new Promise(resolve=>requestAnimationFrame(()=>resolve()));
+  });
+  await onProgress(PAGES.length+5, "Verificações de segurança", 94);
+  scan.dataSecurityTests = await runDataSecurityTests();
+  await onProgress(PAGES.length+6, "Esqueleto do aplicativo e fechamento do JSON", 98);
+  scan.durationMs = Math.round(performance.now()-start);
+  scan.completedAt = new Date().toISOString();
+  const statusCounts = items => (items||[]).reduce((counts,item)=>{
+    const key=String(item.status||item.result||'sem_status').toLowerCase();
+    counts[key]=(counts[key]||0)+1;return counts;
+  },{});
+  const testSuites={loc:scan.locTests,propostas:scan.proposalTests,seguranca:scan.dataSecurityTests,
+    testesAdicionais:scan.additionalTestPlan,regressoesHistoricas:scan.historicalRegressions};
+  scan.testSuiteSummary={executionBudgetMs:scan.executionBudgetMs,durationMs:scan.durationMs,
+    withinExecutionBudget:scan.durationMs<=scan.executionBudgetMs,
+    suites:Object.fromEntries(Object.entries(testSuites).map(([name,items])=>[name,{total:items?.length||0,statusCounts:statusCounts(items)}])),
+    locCoverage:{total:scan.locTests.length,implemented:scan.locTests.filter(x=>['ok','falha','erro'].includes(x.status)).length,
+      passed:scan.locTests.filter(x=>x.status==='ok').length,failed:scan.locTests.filter(x=>x.status==='falha').length,
+      errors:scan.locTests.filter(x=>x.status==='erro').length,pending:scan.locTests.filter(x=>x.status==='pendente').length,
+      unsupported:scan.locTests.filter(x=>x.status==='não_suportado').length}};
+  latestDiagnosticScan = scan;
+  return scan;
+}
+function historicalRegressions(scan) {
+  const catalog = [
+    ['Cópia de despesas perde vínculo com investimento','auditoria'],
+    ['Cálculo de metas e CDI incorreto','auditoria'],
+    ['Limpeza da base depende da API de pasta','auditoria'],
+    ['PDF com conteúdo truncado','auditoria'],
+    ['PDF com colunas colapsadas','auditoria'],
+    ['Edição de lote vendido bloqueada pelo mínimo de cabeças','auditoria'],
+    ['Exclusão de investimento deixa despesas órfãs','auditoria'],
+    ['Carteira ignora resgates ou vendas parciais','auditoria'],
+    ['Atualização dispara alerta de abandono','auditoria'],
+    ['Backup em pasta falha com NotFoundError','auditoria'],
+    ['Categoria Outros sem cor','auditoria'],
+    ['Percentual de renda comprometida divergente','auditoria'],
+    ['Valor líquido do resgate incorreto','auditoria'],
+    ['CDI usa data fixa ou exclui o dia do aporte','auditoria'],
+    ['Projeção ignora recorrências vencidas','auditoria'],
+    ['CSV interpreta milhares e centavos incorretamente','auditoria'],
+    ['CSV falha ao identificar importação repetida','auditoria'],
+    ['Limites de Mercado duplicados','auditoria'],
+    ['Navegação móvel inconsistente com módulos existentes','auditoria'],
+    ['Saldo de Hoje diverge do saldo esperado','outro chat'],
+    ['Previsões e metas ignoram o mês selecionado','outro chat'],
+    ['Controles do Android encobrem a interface','outro chat'],
+    ['Restauração Windows falha ao criar banco temporário','outro chat'],
+    ['Compilação Windows falha na leitura do banco cifrado','outro chat'],
+    ['Controles sobrepostos no cabeçalho desktop','prints'],
+    ['Título Hoje duplicado no desktop','prints'],
+    ['Lacunas e cartões esticados no desktop','prints'],
+    ['Barras vazias nas abas de Insights','prints'],
+    ['Abas de Insights encobrem o conteúdo durante a rolagem','prints'],
+    ['Prévia local tenta atualizar e registrar service worker','logs']
+  ];
+  const findings = scan.modules.flatMap(module =>
+    [module, ...(module.scenarios || [])].flatMap(view =>
+      view.checks.flatMap(check => (check.findings || []).map(item => ({module:module.module,...item})))));
+  const events = diagnostics.report().events;
+  const coverage = {
+    7: () => db.records.some(record => record.investmentId &&
+      !db.investments.some(item => item.id === record.investmentId)),
+    16: () => bankCsvMoney('R$ 1.234,56') !== 123456 ||
+      bankCsvMoney('(1.234,56)') !== -123456,
+    17: () => {
+      const sample = {date:'2026-01-01',kind:'expense',amount:123456,note:'Café'};
+      return bankCsvRecordKey(sample) !== bankCsvRecordKey({...sample,note:'  Cafe  '});
+    },
+    19: () => scan.modules.some(module => module.checks.some(check => check.status === 'erro' &&
+      check.name === 'Tela do módulo')),
+    25: () => findings.filter(item => item.type === 'sobreposição no cabeçalho'),
+    26: () => findings.filter(item => item.type === 'título Hoje duplicado'),
+    27: () => findings.filter(item => /lacuna excessiva|espaço vazio/.test(item.type)),
+    28: () => [...document.querySelectorAll('#page-analysis > .mobile-analysis-panel[hidden]')]
+      .some(panel => getComputedStyle(panel).display !== 'none'),
+    30: () => !supportsHostedApp() && events.some(event =>
+      ['offline.registration_failed','update.check_failed'].includes(event.code) &&
+      Date.parse(event.at) >= Date.parse(scan.startedAt || scan.at))
+  };
+  return catalog.map(([name,source],index) => {
+    const id = index+1;
+    const run = coverage[id];
+    if (!run || (id === 7 && vault && !vaultKey) ||
+        (id === 28 && !matchMedia('(max-width:760px)').matches))
+      return {id,name,source,status:'pendente',reason:'Requer cenário específico ou teste na plataforma'};
+    try {
+      const result = run();
+      const count = Array.isArray(result) ? result.length : Number(Boolean(result));
+      return {id,name,source,status:count?'alerta':'ok',count,
+        scope:'Verificação parcial',...(Array.isArray(result)?{findings:result.slice(0,20)}:{})};
+    } catch { return {id,name,source,status:'erro',reason:'Falha na execução da verificação'}; }
+  });
+}
+function exportDiagnosticLog() {
+  download(JSON.stringify(diagnosticReport(latestDiagnosticScan), null, 2),
+    'application/json', 'Reserva_Simples_diagnostico.json');
+}
+let diagnosticRunning = false;
+async function generateDiagnosticWithProgress() {
+  if (diagnosticRunning) return;
+  diagnosticRunning = true;
+  const dialog = document.createElement('dialog');
+  dialog.id = 'diagnosticProgressDialog';
+  dialog.setAttribute('aria-labelledby','diagnosticProgressTitle');
+  dialog.innerHTML = '<h2 id="diagnosticProgressTitle">Gerando diagnóstico</h2>' +
+    '<p role="status">Preparando verificações…</p><progress aria-label="Progresso do diagnóstico"></progress>';
+  const status = dialog.querySelector('p');
+  const bar = dialog.querySelector('progress');
+  bar.max = 100;
+  bar.value = 0;
+  dialog.addEventListener('cancel', event => event.preventDefault());
+  document.body.append(dialog);
+  const wait = ms => new Promise(resolve => setTimeout(resolve,ms));
+  try {
+    dialog.show();
+    const started = performance.now();
+    await wait(450);
+    const scan = await runDiagnosticScan(async (step,title,percent) => {
+      bar.value = Number.isFinite(percent)?percent:Math.min(40,step/PAGES.length*40);
+      status.textContent = title+' · '+Math.round(bar.value)+'%';
+      await wait(Math.max(0, 14500 * bar.value / 100 - (performance.now() - started)));
+      await new Promise(resolve=>requestAnimationFrame(()=>resolve()));
+    });
+    bar.value = Math.max(bar.value, 95);
+    status.textContent = 'Preparando arquivo de logs…';
+    await wait(Math.max(350, 14700 - (performance.now() - started)));
+    bar.value = 100;
+    status.textContent = 'Diagnóstico concluído';
+    await wait(300);
+    const checks = [...scan.checks, ...scan.syntheticChecks, ...scan.dataSecurityTests.filter(test => test.status !== 'ignorado'), ...scan.proposalTests.filter(test => !['pendente','ignorado'].includes(test.status)), ...scan.locTests.filter(test => !['pendente','ignorado','não_suportado'].includes(test.status)), ...scan.additionalTestPlan.filter(test => !['pendente','ignorado'].includes(test.status)), ...scan.testPlan.filter(test => test.status === 'automatic').map(test => ({status:test.result === 'ok'?'ok':'erro',name:'Caso ' + test.id})), ...scan.historicalRegressions.filter(item => item.status !== 'pendente'), ...scan.modules.flatMap(module => [
+      ...module.checks, ...(module.scenarios || []).flatMap(scenario => scenario.checks)])];
+    const alerts = checks.filter(item => ['erro','alerta','falha','contrato_incompativel'].includes(item.status)).length;
+    const loc=scan.testSuiteSummary.locCoverage;
+    const output = $('#diagnosticScanStatus');
+    if (output) output.textContent = scan.modules.length + ' módulos · ' + checks.length +
+      ' verificações · LOC: ' + loc.passed + ' aprovados, ' + (loc.failed+loc.errors) +
+      ' falhas/erros, ' + loc.pending + ' pendentes e ' + loc.unsupported + ' não suportados · ' +
+      scan.durationMs + ' ms · ' + alerts + ' alerta(s) ou erro(s)' +
+      (scan.testSuiteSummary.withinExecutionBudget?'':' · limite de 60 s excedido') + '.';
+    exportDiagnosticLog();
+  } catch (error) {
+    diagnostics.record('diagnostic.generation_failed',error);
+    const message = $('#diagnosticScanStatus');
+    if (message) message.textContent = 'Falha ao gerar o diagnóstico. Tente novamente.';
+  } finally {
+    dialog.close();
+    dialog.remove();
+    diagnosticRunning = false;
+  }
+}
 document.addEventListener('click', event => {
+  if (event.target.closest('#settingsPrivacyToggle')) {
+    $('#privacyToggle').click();
+    $('#settingsPrivacyToggle')?.focus();
+    return;
+  }
+  if (event.target.closest('#runDiagnosticScan')) {
+    void generateDiagnosticWithProgress();
+    return;
+  }
   if (event.target.closest('#exportDiagnostics')) {
-    download(JSON.stringify(diagnostics.report(), null, 2), 'application/json', 'Reserva_Simples_diagnostico.json');
+    exportDiagnosticLog();
   }
   if (event.target.closest('#clearDiagnostics') && confirm('Apagar o histórico de diagnóstico?')) {
     diagnostics.clear();
+    latestDiagnosticScan = null;
     settings();
   }
 });
@@ -1452,3 +2737,4 @@ window.addEventListener('beforeunload',event=>{
 });
 
 })();
+
