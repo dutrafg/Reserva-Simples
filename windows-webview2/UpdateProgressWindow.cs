@@ -1,6 +1,9 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using Color = System.Windows.Media.Color;
+using Button = System.Windows.Controls.Button;
+using ProgressBar = System.Windows.Controls.ProgressBar;
 using Application = System.Windows.Application;
 using Window = System.Windows.Window;
 
