@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Windows.Media.Imaging;
 using System.Text.Json;
 using System.Windows;
 using Application = System.Windows.Application;
@@ -27,6 +29,10 @@ public partial class MainWindow : Window
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string RunName = "ReservaSimplesDesktop";
     private readonly Forms.NotifyIcon tray = new();
+    private Drawing.Icon? ownedTrayIcon;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool DestroyIcon(nint handle);
     private readonly bool backgroundMode = Environment.GetCommandLineArgs().Contains("--background");
     private readonly bool smokeWrite = Environment.GetCommandLineArgs().Contains("--smoke-write");
     private readonly bool smokeRead = Environment.GetCommandLineArgs().Contains("--smoke-read");
@@ -52,6 +58,24 @@ public partial class MainWindow : Window
     private void SetupTray()
     {
         tray.Icon = Drawing.SystemIcons.Application;
+        string iconPath = Path.Combine(AppContext.BaseDirectory, "web", "icon-192.png");
+        if (File.Exists(iconPath))
+        {
+            try
+            {
+                Icon = new BitmapImage(new Uri(iconPath));
+                using var bitmap = new Drawing.Bitmap(iconPath);
+                nint handle = bitmap.GetHicon();
+                try
+                {
+                    using var temporaryIcon = Drawing.Icon.FromHandle(handle);
+                    ownedTrayIcon = (Drawing.Icon)temporaryIcon.Clone();
+                    tray.Icon = ownedTrayIcon;
+                }
+                finally { DestroyIcon(handle); }
+            }
+            catch { /* Continue with the built-in icon if the asset is invalid. */ }
+        }
         tray.Text = "Reserva Simples";
         tray.Visible = true;
         tray.DoubleClick += (_, _) => ShowWindow();
@@ -303,6 +327,7 @@ public partial class MainWindow : Window
         {
             tray.Visible = false;
             tray.Dispose();
+            ownedTrayIcon?.Dispose();
             return;
         }
         args.Cancel = true;
