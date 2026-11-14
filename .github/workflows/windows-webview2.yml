@@ -51,12 +51,23 @@ jobs:
             if ($sourceHash -ne $packageHash) { throw "O recurso $file do instalador difere do código-fonte" }
           }
           $pwa = Get-Content (Join-Path $web 'version.json') -Raw | ConvertFrom-Json
-          if ($pwa.version -ne '0.39.32' -or $pwa.channel -ne 'rc1') {
+          if ($pwa.version -ne '0.39.33' -or $pwa.channel -ne 'rc1') {
             throw "Versão PWA inesperada no pacote: $($pwa.version) $($pwa.channel)"
           }
           $desktopProject = [xml](Get-Content windows-webview2/ReservaSimplesDesktop.csproj -Raw)
-          if ($desktopProject.Project.PropertyGroup.Version -ne '0.2.1') { throw "Versão desktop divergente" }
-          Write-Host "PWA $($pwa.version) $($pwa.channel) incorporado ao Reserva Simples Windows 0.2.1"
+          if ($desktopProject.Project.PropertyGroup.Version -ne '0.2.2') { throw "Versão desktop divergente" }
+          Write-Host "PWA $($pwa.version) $($pwa.channel) incorporado ao Reserva Simples Windows 0.2.2"
+      - name: Verificar ícone nativo do executável
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "artifacts/desktop-win-x64/ReservaSimplesDesktop.exe").Path
+          if (!(Test-Path "windows-webview2/assets/reserva.ico")) { throw 'Arquivo .ico ausente' }
+          Add-Type -AssemblyName System.Drawing
+          $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($exe)
+          if ($null -eq $icon) { throw 'O EXE foi gerado sem ícone acessível' }
+          try {
+            Write-Host "Ícone extraído do EXE: $($icon.Width)x$($icon.Height)"
+          } finally { $icon.Dispose() }
       - name: Instalar Inno Setup
         shell: pwsh
         run: |
@@ -107,7 +118,10 @@ jobs:
           if-no-files-found: error
 
   publish-beta:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_beta && github.ref == 'refs/heads/windows-webview2' }}
+    if: >-
+      github.ref == 'refs/heads/windows-webview2' &&
+      (github.event_name == 'push' ||
+       (github.event_name == 'workflow_dispatch' && inputs.publish_beta))
     needs: windows-build
     runs-on: ubuntu-latest
     permissions:
@@ -135,4 +149,9 @@ jobs:
           gh release create "$tag" installer/Reserva-Simples-Desktop-Setup-x64.exe installer/SHA256SUMS.txt \
             --target "$GITHUB_SHA" --prerelease \
             --title "Reserva Simples Desktop Windows x64 ${version} Beta" \
-            --notes "Beta WebView2 x64. Instalador validado por instalação, inicialização, persistência e reinstalação no GitHub Actions. Atualizações são verificadas por SHA-256. Faça backup antes de migrar dados."
+            --notes "Beta WebView2 x64 com ícone nativo, atualização de Windows por releases, PWA 0.39.33 e persistência validada. O instalador é verificado por SHA-256; testes manuais ainda são necessários."
+          mkdir -p release-check
+          gh release download "$tag" --dir release-check \
+            --pattern 'Reserva-Simples-Desktop-Setup-x64.exe' \
+            --pattern 'SHA256SUMS.txt'
+          (cd release-check && sha256sum -c SHA256SUMS.txt)

@@ -164,9 +164,18 @@ public partial class MainWindow : Window
             };
             core.WebMessageReceived += OnWebMessageReceived;
 
-            // Mark the desktop host and route the PWA update buttons to the native checker.
+            // The desktop version must be available before app.js evaluates.
+            await core.AddScriptToExecuteOnDocumentCreatedAsync(
+                "window.__RESERVA_DESKTOP_VERSION__ = '" +
+                DesktopUpdates.InstalledVersion.ToString(3) + "';");
+
+            // Reuse the PWA interface but route updates only to the native Windows updater.
             await core.AddScriptToExecuteOnDocumentCreatedAsync("""
                 window.__RESERVA_DESKTOP__ = true;
+                if ('serviceWorker' in navigator)
+                  navigator.serviceWorker.getRegistrations()
+                    .then(registrations => Promise.all(registrations.map(registration => registration.unregister())))
+                    .catch(() => {});
                 document.addEventListener('click', function(event) {
                   const button = event.target instanceof Element
                     ? event.target.closest('#checkUpdatesBtn, #applyUpdateBtn') : null;
@@ -269,6 +278,30 @@ public partial class MainWindow : Window
         catch { }
     }
 
+    private async Task ReportDesktopUpdateAsync(
+        string status, string state, string latest, bool available, string notes)
+    {
+        try
+        {
+            if (Browser.CoreWebView2 is null) return;
+            string data = JsonSerializer.Serialize(new
+            {
+                status,
+                state,
+                latest,
+                available,
+                notes
+            });
+            await Browser.CoreWebView2.ExecuteScriptAsync(
+                "window.dispatchEvent(new CustomEvent('reserva:desktop-update', {detail:" +
+                data + "}));");
+        }
+        catch (Exception)
+        {
+            // The native updater must remain usable even if the settings page is unavailable.
+        }
+    }
+
     private async Task CheckUpdatesAsync()
     {
         if (updateCheckRunning) return;
@@ -276,14 +309,25 @@ public partial class MainWindow : Window
         try
         {
             if (!IsVisible) ShowWindow();
+            await ReportDesktopUpdateAsync("Consultando versões Windows…", "checking",
+                DesktopUpdates.InstalledVersion.ToString(3), false,
+                "Consultando os instaladores Windows publicados no GitHub.");
             DesktopRelease? release = await DesktopUpdates.FindNewerAsync(CancellationToken.None);
             if (release is null)
             {
+                await ReportDesktopUpdateAsync("Versão Windows atualizada", "success",
+                    DesktopUpdates.InstalledVersion.ToString(3), false,
+                    "O instalador Windows já é o mais recente entre os releases publicados. " +
+                    "As atualizações do site e do executável são distribuídas separadamente.");
                 MessageBox.Show(this, "Nenhuma atualização Windows nova foi encontrada nos releases oficiais.",
                     "Reserva Simples — Atualizações", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
+            await ReportDesktopUpdateAsync("Nova versão Windows disponível", "available",
+                release.Version.ToString(3), true,
+                "Versão publicada no GitHub. Clique em Atualizar agora para baixar " +
+                "e validar o instalador x64 antes da confirmação.");
             if (MessageBox.Show(this,
                     $"Nova versão Windows: {release.Version}.\n\nDeseja baixar o instalador oficial? " +
                     "O arquivo será verificado por SHA-256 antes de ser executado.",
@@ -323,11 +367,17 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException)
         {
+            await ReportDesktopUpdateAsync("Download cancelado", "waiting",
+                DesktopUpdates.InstalledVersion.ToString(3), false,
+                "Nenhuma alteração foi instalada. Os dados permanecem no computador.");
             MessageBox.Show(this, "Download cancelado sem instalar alterações.",
                 "Reserva Simples", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
+            await ReportDesktopUpdateAsync("Erro ao consultar ou baixar atualização", "error",
+                DesktopUpdates.InstalledVersion.ToString(3), false,
+                "Verifique sua conexão e tente novamente. Os dados locais permanecem intactos.");
             MessageBox.Show(this, "Não foi possível atualizar: " + ex.Message +
                 "\n\nO aplicativo atual permanece instalado e seus dados não foram alterados.",
                 "Reserva Simples — Atualizações",
