@@ -45,7 +45,7 @@ internal sealed class UpdateProgressWindow : Window
             Content = "Cancelar download",
             Width = 145,
             Height = 32,
-            HorizontalAlignment = HorizontalAlignment.Right,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
             Margin = new Thickness(0, 14, 0, 0)
         };
         cancel.Click += (_, _) => RequestCancellation();
