@@ -3002,7 +3002,7 @@ async function integrityBank() {
     return raw === localStorage.getItem(STORE) ? 'aprovada' : 'pendente';
   } catch {return 'alerta';}
 }
-const integrityHashes = {"./engines.js": "9a18060f2c4cbf58f79cdf23f2b98de9efe307b8ceadb5ef93ae6c7f5cdd7b2f", "./index.html": "16a59316dd36dda27ae9ddf436e2c3cd930fa95eeb7323ba14b8092af9ae1abe"};
+const integrityHashes = {"./engines.js": "883f3a55c2650d231a6a5b83bcc35274b3de79c99dacf8e0734774dafc4f42a8", "./index.html": "16a59316dd36dda27ae9ddf436e2c3cd930fa95eeb7323ba14b8092af9ae1abe"};
 async function integrityAssets(repair = false) {
   if (!/^https?:$/.test(location.protocol) || !navigator.serviceWorker?.controller || !globalThis.caches)
     return [{check:'cache_pwa',status:'pendente',reason:'Service Worker ou cache da versão indisponível'}];
@@ -3199,5 +3199,3 @@ setInterval(integrityMonitor,15000);
 void integrityMonitor();
 
 })();
-
-
