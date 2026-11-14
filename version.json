@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.31",
+  "version": "0.39.32",
   "channel": "rc1",
-  "updatedAt": "2026-11-14T04:51:18.803Z",
+  "updatedAt": "2026-11-14T05:29:32.201Z",
   "source": "same-origin PWA release",
-  "notes": "Mostra o horário da consulta do CDI e distingue falhas de consulta e de armazenamento."
+  "notes": "Abre a Agenda do dia em sobreposição ao selecionar uma data no Calendário."
 }
