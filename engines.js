@@ -135,5 +135,3 @@
   }
   return Object.freeze({ investmentCashEvents, monthData, history, median, forecast, categories, balanceAt, goal, goals, insights });
 });
-
-
