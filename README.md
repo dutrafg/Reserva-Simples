@@ -1,4 +1,4 @@
-# Reserva Simples — v0.38.17
+# Reserva Simples — v0.39.32
 
 Aplicativo financeiro local para registrar rendas, despesas e movimentações de metas de reserva.
 
@@ -22,7 +22,7 @@ Aplicativo financeiro local para registrar rendas, despesas e movimentações de
 ## CDB e CDI
 
 - Cada cofrinho pode ser ligado a um banco ou cooperativa com percentual do CDI configurável. Os cofrinhos já existentes passam a usar Banco Inter, 100% do CDI.
-- O aplicativo consulta a série diária SGS 12 do Banco Central ao abrir e atualiza a taxa automaticamente quando está online; o botão “Atualizar CDI” permite uma consulta manual. O histórico consultado é mantido no aparelho.
+- O aplicativo consulta a série diária SGS 12 do Banco Central ao abrir e atualiza a taxa automaticamente quando está online; o botão “Atualizar CDI” permite uma consulta manual e mostra o horário e o resultado. Se a consulta falhar, o aplicativo preserva a última taxa disponível.
 - Os saldos exibem aportes, rendimento bruto e estimativa líquida após IOF e IR se resgatados na data do cálculo. Resgates e aportes são processados pelas datas registradas. A estimativa não substitui o extrato oficial da instituição.
 - “Gerar PDF” abre o relatório para imprimir ou salvar/compartilhar como PDF no navegador.
 
@@ -30,11 +30,13 @@ Aplicativo financeiro local para registrar rendas, despesas e movimentações de
 
 - **Hoje:** resumo de orçamento, saldo disponível, despesas por dia e metas ativas.
 - **Lançamentos:** rendas, despesas, busca, filtros e contas recorrentes.
-- **Calendário e agenda:** compromissos e tarefas com cores, acesso em todos os módulos e card de próximos compromissos no início.
-- **Calendário e agenda:** toque em uma data para abrir a agenda do dia; compromissos podem ser editados, concluídos/reabertos e excluídos; card de vencimentos recorrentes abre a data correspondente.
+- **Calendário e agenda:** toque em uma data para abrir a agenda do dia em sobreposição. Os painéis de tarefas e notas acompanham a data selecionada. É possível criar, editar, reagendar e excluir tarefas, além de criar, mover, fixar e excluir notas.
 - **Etiquetas:** lançamentos aceitam subcategorias e até oito etiquetas, com filtros na lista e exportação CSV.
 - **Lembretes:** avisos configuráveis de vencimentos de contas recorrentes, vinculados às datas do calendário; dependem de permissão e do app ativo ou reaberto.
-- **Insights:** análises locais e projeções.
+- **Investimentos:** aplicações com o mesmo nome ficam agrupadas, com saldo total e detalhes por registro.
+- **Insights:** comparativo por categoria com a média dos três meses anteriores, gastos fixos e variáveis e maiores despesas do mês.
+- **Relatórios:** PDF, checklist de fechamento e comparação diária acumulada entre o mês selecionado e o anterior.
+- **Diagnóstico:** em Ajustes, execute verificações locais e exporte o JSON técnico. O relatório distingue resultados e casos pendentes, sem envio automático.
 - **Configurações:** aparência, atualização, backup e restauração.
 
 ## Responsividade
@@ -43,7 +45,7 @@ A interface adapta menu, cartões, formulários e tabelas a smartphone, tablet e
 
 ## Backup e dados
 
-O banco principal fica no armazenamento local do navegador. A pasta de backup recebe uma cópia exportada pelo app; ela não é sincronização entre dispositivos e os dados não são criptografados.
+O banco principal fica no armazenamento local do navegador. A pasta de backup recebe uma cópia exportada pelo app; ela não sincroniza dados entre aparelhos. O app oferece um cofre local opcional com senha. Guarde a senha para abrir o cofre ou restaurar uma cópia cifrada.
 
 ## Instalação e atualização
 

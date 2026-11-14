@@ -1,3 +1,20 @@
+## v0.39.26 RC1
+
+- O atualizador acompanha a instalação até a ativação e informa com clareza quando o navegador não encontra o Service Worker publicado.
+- O cache offline prioriza os arquivos essenciais e não bloqueia a instalação por falha em ícones opcionais.
+- A conferência do Service Worker ignora o cache HTTP e mantém os dados locais intactos.
+
+## v0.39.25 RC1
+
+- Lembretes de reserva podem ser ignorados e reativados sem alterar investimentos ou saldos.
+- O filtro de “Outras categorias” abre os lançamentos das categorias reais agrupadas no gráfico.
+
+## v0.39.6 RC2
+
+- A barra desktop/tablet reúne o título do módulo, navegação lateral, controles do período e notificações.
+- Configurações reorganizadas: Cofre local dentro de Backup em pasta, seleção visual das seis paletas e cartão de bancos mais compacto.
+- Aparência, Notificações e Atualizações compactadas; em telas largas, Bancos, Aparência, Notificações e Atualizações ocupam uma linha.
+
 # Histórico de alterações
 
 ## v0.38.17

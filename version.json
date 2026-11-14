@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.38.17",
-  "channel": "stable",
-  "updatedAt": "2026-11-13T09:20:00Z",
+  "version": "0.39.33",
+  "channel": "rc1",
+  "updatedAt": "2026-11-14T05:35:20.958Z",
   "source": "same-origin PWA release",
-  "notes": "A agenda permite editar, concluir e excluir compromissos; lançamentos e investimentos mostram ações com dupla confirmação. Lançamentos aceitam etiquetas e subcategorias, com filtros e exportação CSV. Contas recorrentes geram lembretes configuráveis e acesso à data no calendário."
+  "notes": "Ajusta a detecção de atualizações do PWA que já foram ativadas pelo navegador."
 }
