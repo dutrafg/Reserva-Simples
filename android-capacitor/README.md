@@ -1,6 +1,6 @@
 # Reserva Simples — Android híbrido Capacitor
 
-Versão base: **0.38.17** do Reserva Simples. Reaproveita os módulos originais e seus motores financeiros.
+Versão base: **0.39.33 RC1** do Reserva Simples, sincronizada com a `main` em 14/11/2026. Reaproveita os módulos originais e seus motores financeiros.
 
 ## APK de teste
 
@@ -38,7 +38,7 @@ Se ainda não existir uma release Android assinada, a consulta informará que n�
 
 **Nunca commitar a chave nem o arquivo de keystore.** Guardar uma cópia segura fora do GitHub e registrar seu alias e senha. Se a chave for perdida, não será possível assinar atualizações compatíveis com aquela instalação sem um procedimento de rotação de chave.
 
-A ação no GitHub Actions, executada manualmente na branch `android/capacitor-beta` com `publish_release=true`, compila um APK *release* assinado e publica uma GitHub Release `android-v0.38.17` com o asset `reserva-simples-android.apk`. O GitHub calcula o SHA-256 do asset, lido pelo atualizador.
+A ação no GitHub Actions, executada manualmente na branch `android/capacitor-beta` com `publish_release=true`, compila um APK *release* assinado e publica uma GitHub Release `android-v0.39.33` com o asset `reserva-simples-android.apk`. O GitHub calcula o SHA-256 do asset, lido pelo atualizador.
 
 Para futuras versões, aumentar `version.json` e o `APP_VERSION` do aplicativo **de maneira coordenada** antes da publicação (o versionCode nativo é derivado da versão). Publicar uma nova release somente após passar pelo QA. Ações comuns na branch geram apenas APKs debug e não publicam releases automaticamente.
 
