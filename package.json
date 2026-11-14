@@ -1,6 +1,6 @@
 {
   "name": "reserva-simples-android",
-  "version": "0.38.17",
+  "version": "0.39.33",
   "private": true,
   "description": "Empacotamento Android Capacitor do Reserva Simples, sem alterar app web",
   "scripts": {
