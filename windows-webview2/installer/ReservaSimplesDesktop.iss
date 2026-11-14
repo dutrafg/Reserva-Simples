@@ -1,7 +1,7 @@
 [Setup]
 AppId=ReservaSimples.Desktop.WebView2
 AppName=Reserva Simples Desktop
-AppVersion=0.1.0
+AppVersion=0.2.0
 DefaultDirName={localappdata}\Programs\Reserva Simples Desktop
 DefaultGroupName=Reserva Simples Desktop
 PrivilegesRequired=lowest

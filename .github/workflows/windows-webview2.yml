@@ -1,6 +1,11 @@
 name: Reserva Simples Desktop WebView2 x64
 on:
   workflow_dispatch:
+    inputs:
+      publish_beta:
+        description: 'Publicar beta Windows depois dos testes'
+        type: boolean
+        default: false
   push:
     branches: [windows-webview2]
     paths:
@@ -73,8 +78,52 @@ jobs:
               throw "Smoke falhou $mode : $($p.ExitCode)"
             }
           }
+      - name: Reinstalar sem apagar o perfil local (teste de persistência)
+        shell: pwsh
+        run: |
+          $setup = (Resolve-Path "artifacts/desktop-installer/Reserva-Simples-Desktop-Setup-x64.exe").Path
+          $target = Join-Path $env:RUNNER_TEMP "ReservaDesktopWebView2"
+          $result = Start-Process $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',("/DIR=`"$target`"") -Wait -PassThru
+          if ($result.ExitCode -ne 0) { throw "Falha ao reinstalar: $($result.ExitCode)" }
+          $p = Start-Process (Join-Path $target 'ReservaSimplesDesktop.exe') -ArgumentList '--smoke-read' -PassThru
+          if (!$p.WaitForExit(120000)) { Stop-Process -Id $p.Id -Force; throw "Timeout após reinstalação" }
+          if ($p.ExitCode -ne 0) {
+            Get-Content (Join-Path $env:TEMP 'ReservaSimplesDesktop-smoke-error.txt') -ErrorAction SilentlyContinue
+            throw "Dados locais perdidos após reinstalação"
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: Reserva-Simples-Desktop-WebView2-x64
           path: artifacts/desktop-installer/*.exe
           if-no-files-found: error
+
+  publish-beta:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_beta && github.ref == 'refs/heads/windows-webview2' }}
+    needs: windows-build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Reserva-Simples-Desktop-WebView2-x64
+          path: installer
+      - name: Publicar beta verificada com checksum SHA256
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(grep -oP '(?<=<Version>)[0-9]+\.[0-9]+\.[0-9]+(?=</Version>)' windows-webview2/ReservaSimplesDesktop.csproj)
+          tag="windows-webview2-v${version}-beta"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "A versão $tag já foi publicada; incremente o número da versão para a próxima beta."
+            exit 1
+          fi
+          test -f installer/Reserva-Simples-Desktop-Setup-x64.exe
+          (cd installer && sha256sum Reserva-Simples-Desktop-Setup-x64.exe > SHA256SUMS.txt)
+          gh release create "$tag" installer/Reserva-Simples-Desktop-Setup-x64.exe installer/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "Reserva Simples Desktop Windows x64 ${version} Beta" \
+            --notes "Beta WebView2 x64. Instalador validado por instalação, inicialização, persistência e reinstalação no GitHub Actions. Atualizações são verificadas por SHA-256. Faça backup antes de migrar dados."

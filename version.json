@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.30",
+  "version": "0.39.31",
   "channel": "rc1",
-  "updatedAt": "2026-11-14T04:48:00.873Z",
+  "updatedAt": "2026-11-14T04:51:18.803Z",
   "source": "same-origin PWA release",
-  "notes": "Atualização manual do CDI com retorno da consulta e preservação da última taxa disponível."
+  "notes": "Mostra o horário da consulta do CDI e distingue falhas de consulta e de armazenamento."
 }

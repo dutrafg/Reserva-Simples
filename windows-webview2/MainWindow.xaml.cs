@@ -275,40 +275,63 @@ public partial class MainWindow : Window
         updateCheckRunning = true;
         try
         {
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-            http.DefaultRequestHeaders.UserAgent.ParseAdd("ReservaSimplesDesktop/0.1.0");
-            using var response = await http.GetAsync(UpdatesApi);
-            response.EnsureSuccessStatusCode();
-            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-            string? latestTag = null;
-            string? releaseUrl = null;
-            Version current = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 1, 0);
-            Version newest = current;
-            foreach (var release in doc.RootElement.EnumerateArray())
+            if (!IsVisible) ShowWindow();
+            DesktopRelease? release = await DesktopUpdates.FindNewerAsync(CancellationToken.None);
+            if (release is null)
             {
-                string tag = release.GetProperty("tag_name").GetString() ?? "";
-                if (!tag.StartsWith(ReleasePrefix, StringComparison.OrdinalIgnoreCase)) continue;
-                string token = tag[ReleasePrefix.Length..].Split('-')[0];
-                if (Version.TryParse(token, out Version? version) && version > newest)
-                {
-                    newest = version;
-                    latestTag = tag;
-                    releaseUrl = release.GetProperty("html_url").GetString();
-                }
+                MessageBox.Show(this, "Nenhuma atualização Windows nova foi encontrada nos releases oficiais.",
+                    "Reserva Simples — Atualizações", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
             }
 
-            if (latestTag is null)
-                MessageBox.Show(this, "Nenhuma versão Windows WebView2 mais recente foi encontrada.",
-                    "Atualizações", MessageBoxButton.OK, MessageBoxImage.Information);
-            else if (MessageBox.Show(this,
-                $"Versão disponível: {latestTag}. Deseja abrir a página oficial para baixar o instalador?",
-                "Atualização disponível", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
-                OpenExternal(releaseUrl);
+            if (MessageBox.Show(this,
+                    $"Nova versão Windows: {release.Version}.\n\nDeseja baixar o instalador oficial? " +
+                    "O arquivo será verificado por SHA-256 antes de ser executado.",
+                    "Reserva Simples — Atualização disponível",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
+
+            using var cancellation = new CancellationTokenSource();
+            var dialog = new UpdateProgressWindow { Owner = this };
+            dialog.CancelRequested += (_, _) => cancellation.Cancel();
+            var progress = new Progress<DownloadState>(state => dialog.Report(state));
+            string installer;
+            dialog.Show();
+            try
+            {
+                installer = await DesktopUpdates.DownloadVerifiedAsync(release, progress, cancellation.Token);
+            }
+            finally
+            {
+                dialog.Finish();
+            }
+
+            if (MessageBox.Show(this,
+                    $"Download verificado: {release.Tag}.\n\nDeseja abrir o instalador agora? " +
+                    "O Reserva Simples será encerrado para concluir a atualização. " +
+                    "Os seus dados locais ficam preservados.",
+                    "Instalar atualização",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
+
+            Process.Start(new ProcessStartInfo(installer)
+            {
+                UseShellExecute = true,
+                WorkingDirectory = Path.GetDirectoryName(installer)!
+            });
+            ExitApplication();
+        }
+        catch (OperationCanceledException)
+        {
+            MessageBox.Show(this, "Download cancelado sem instalar alterações.",
+                "Reserva Simples", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, "Falha ao consultar o GitHub: " + ex.Message,
-                "Atualizações", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, "Não foi possível atualizar: " + ex.Message +
+                "\n\nO aplicativo atual permanece instalado e seus dados não foram alterados.",
+                "Reserva Simples — Atualizações",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally { updateCheckRunning = false; }
     }
