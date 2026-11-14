@@ -1,4 +1,4 @@
-# Reserva Simples — v0.39.32
+# Reserva Simples — v0.39.37
 
 Aplicativo financeiro local para registrar rendas, despesas e movimentações de metas de reserva.
 

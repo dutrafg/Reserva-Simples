@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.36",
+  "version": "0.39.37",
   "channel": "rc1",
-  "updatedAt": "2026-11-14T18:55:00.000Z",
+  "updatedAt": "2026-11-14T19:25:25.000Z",
   "source": "same-origin PWA release",
-  "notes": "Refina a classificação de falhas históricas e exporta códigos de telemetria de mercado com seus nomes técnicos, preservando a privacidade local."
+  "notes": "Corrige a navegação em tablets e adiciona uma matriz responsiva de viewport à Central de Integridade."
 }

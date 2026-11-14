@@ -10,7 +10,7 @@ const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purp
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='0.39.36';
+const APP_VERSION='0.39.37';
 const APP_CACHE_NAME='reserva-simples-v'+APP_VERSION+'-rc1';
 const TELEMETRY_SCHEMA='reserva.telemetry.event.v1';
 const diagnosticFixtureStorages = new WeakSet();
@@ -1560,12 +1560,58 @@ document.addEventListener('change', event => {
   try { localStorage.setItem('reserva.accessibility.'+key, String(event.target.checked)); } catch {}
 });
 let latestDiagnosticScan = null;
+let responsiveNavigationMatrixCache = null;
+function scanResponsiveNavigationMatrix() {
+  const widths = [390,768,1024,1280,1366,1440];
+  const results = [];
+  const sourceCss = [...document.querySelectorAll('style')].map(style => style.textContent || '').join('\n');
+  const frame = document.createElement('iframe');
+  frame.title = 'Verificação responsiva isolada';
+  frame.tabIndex = -1;
+  frame.setAttribute('aria-hidden','true');
+  frame.setAttribute('sandbox','allow-same-origin');
+  frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:1440px;height:900px;border:0;opacity:0;pointer-events:none;z-index:-1';
+  document.body.append(frame);
+  try {
+    const doc = frame.contentDocument;
+    doc.open();
+    doc.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div class="shell"><aside id="desktopSidebar"><div class="sidebar-brand"><strong>Reserva Simples</strong></div><nav id="desktopNav"><button class="nav-button" type="button"><span class="nav-label">Início</span></button></nav></aside><main class="main"><div class="sidebar-control"><button id="sidebarToggle" type="button">Menu</button><div class="page-title-block"><h1>Início</h1></div></div><header class="header"><h1>Início</h1></header><section class="page active" id="page-home"><article class="card"><h2>Verificação responsiva</h2></article></section></main></div><nav id="mobileNav" class="floating-nav"><button class="nav-button" type="button">Início</button></nav></body></html>');
+    doc.close();
+    const testStyle = doc.createElement('style');
+    doc.head.append(testStyle);
+    for (const pointer of ['fine','coarse']) {
+      testStyle.textContent = sourceCss.replace(/\(\s*pointer\s*:\s*coarse\s*\)/gi,
+        pointer === 'coarse' ? '(min-width:0px)' : '(max-width:0px)');
+      for (const width of widths) {
+        frame.style.width = width+'px';
+        const root = doc.documentElement;
+        const mobileExpected = width <= 1023 || (pointer === 'coarse' && width <= 1366);
+        const mobileNav = doc.getElementById('mobileNav');
+        const desktopSidebar = doc.getElementById('desktopSidebar');
+        const rendered = node => Boolean(node && doc.defaultView.getComputedStyle(node).display !== 'none' && node.getClientRects().length);
+        const mobileVisible = rendered(mobileNav);
+        const sidebarVisible = rendered(desktopSidebar);
+        const navRect = mobileNav.getBoundingClientRect();
+        const overflowPx = Math.max(0,root.scrollWidth-root.clientWidth);
+        const mobileNavInBounds = !mobileVisible || (navRect.left >= -2 && navRect.right <= width+2 && navRect.top < 900 && navRect.bottom <= 902);
+        const passed = mobileVisible === mobileExpected && sidebarVisible !== mobileExpected && overflowPx <= 1 && mobileNavInBounds;
+        results.push({width,pointer,expected:mobileExpected?'dock móvel/tablet':'barra lateral desktop',mobileVisible,sidebarVisible,
+          overflowPx,mobileNavInBounds,passed});
+      }
+    }
+  } catch (error) {
+    return {status:'erro',reason:error?.name==='SecurityError'?'Estilos inacessíveis no contexto isolado':'Falha ao montar a matriz responsiva',scenarios:results};
+  } finally { frame.remove(); }
+  const failed = results.filter(result => !result.passed);
+  return {status:failed.length?'alerta':'ok',reason:'Matriz isolada: seis larguras com perfil de ponteiro fino e grosso',
+    viewportProfiles:results.length,failed:failed.length,scenarios:results};
+}
 function scanDiagnosticPage(pageId, screenOnly = false) {
   const started = performance.now();
   const checks = [];
   function check(name, run) {
     if (screenOnly && !['Largura da tela atual','Geometria do layout visível',
-      'Formulários e acessibilidade'].includes(name)) return;
+      'Navegação exclusiva conforme breakpoint','Matriz responsiva de navegação','Formulários e acessibilidade'].includes(name)) return;
     const start = performance.now();
     let result;
     try { result = run(); }
@@ -1713,6 +1759,28 @@ function scanDiagnosticPage(pageId, screenOnly = false) {
     }
     return {...outcome(!count,'Heurísticas aplicadas à tela renderizada; podem gerar falsos positivos'),
       viewport:{width,height:innerHeight}, cardsChecked:cards.length, count, findings};
+  });
+  check('Navegação exclusiva conforme breakpoint', () => {
+    const mobileNav = document.getElementById('mobileNav');
+    const desktopSidebar = document.getElementById('desktopSidebar');
+    const mobileExpected = matchMedia('(max-width:1023px), (max-width:1366px) and (pointer:coarse)').matches;
+    const isRendered = node => Boolean(node && getComputedStyle(node).display !== 'none' && node.getClientRects().length);
+    const mobileVisible = isRendered(mobileNav);
+    const sidebarVisible = isRendered(desktopSidebar);
+    const passed = mobileVisible === mobileExpected && sidebarVisible !== mobileExpected;
+    const issue = mobileVisible && sidebarVisible ? 'dock e barra lateral simultâneas' :
+      !mobileVisible && !sidebarVisible ? 'navegação ausente' :
+      mobileExpected && !mobileVisible ? 'dock móvel/tablet ausente' :
+      !mobileExpected && !sidebarVisible ? 'barra lateral desktop ausente' : null;
+    return {...outcome(passed,'Exatamente uma navegação deve estar visível no breakpoint atual'),
+      viewport:{width:innerWidth,height:innerHeight,pointerCoarse:matchMedia('(pointer:coarse)').matches},
+      expected:mobileExpected?'dock móvel/tablet':'barra lateral desktop',mobileVisible,sidebarVisible,
+      issue};
+  });
+  check('Matriz responsiva de navegação', () => {
+    if (pageId !== 'home') return {status:'ignorado',reason:'Executada uma vez por varredura completa'};
+    if (!responsiveNavigationMatrixCache) responsiveNavigationMatrixCache = scanResponsiveNavigationMatrix();
+    return responsiveNavigationMatrixCache;
   });
   check('Referências financeiras e identificadores', () => {
     if (vault && !vaultKey) return {status:'ignorado', reason:'Base bloqueada'};
@@ -2711,6 +2779,7 @@ async function runLocProposalTests(onCaseProgress) {
 }
 
 async function runDiagnosticScan(onProgress) {
+  responsiveNavigationMatrixCache = null;
   const start = performance.now();
   const scan = scanDiagnosticPage(state.page);
   scan.startedAt = new Date().toISOString();

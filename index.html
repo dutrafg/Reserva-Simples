@@ -1047,5 +1047,15 @@ body .main>.header :is(#headerCalendar,#headerSettings) span{display:none}
 body .main>.header #desktopNotificationWrap{width:44px}
 }
 </style>
+<style id="tablet-navigation-breakpoint-fix">
+/* Tablets in landscape use the touch navigation; keep the desktop sidebar hidden. */
+@media (min-width:761px) and (max-width:1023px),
+       (min-width:761px) and (max-width:1366px) and (pointer:coarse){
+  .shell,body.sidebar-compact .shell{display:block!important;grid-template-columns:minmax(0,1fr)!important}
+  #desktopSidebar,.sidebar-control{display:none!important}
+  #mobileNav{display:grid!important}
+  .main{padding-block:18px calc(100px + env(safe-area-inset-bottom))!important;padding-inline:clamp(12px,3vw,28px)!important}
+}
+</style>
 </body>
 </html>

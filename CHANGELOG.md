@@ -1,3 +1,8 @@
+## v0.39.37 RC1
+
+- Corrigido o layout em tablets com toque: a navegação inferior não aparece junto da barra lateral nem expande o menu por toda a tela.
+- A Central de Integridade verifica a navegação em seis larguras com perfis de ponteiro fino e grosso, além de conferir o viewport atual.
+
 ## v0.39.26 RC1
 
 - O atualizador acompanha a instalação até a ativação e informa com clareza quando o navegador não encontra o Service Worker publicado.
