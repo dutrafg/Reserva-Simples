@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.29",
+  "version": "0.39.30",
   "channel": "rc1",
-  "updatedAt": "2026-11-14T04:40:07.976927+00:00",
+  "updatedAt": "2026-11-14T04:48:00.873Z",
   "source": "same-origin PWA release",
-  "notes": "Calendário renovado, melhorias em Hoje, Lançamentos, Investimentos e Relatórios, com navegação móvel ajustada."
+  "notes": "Atualização manual do CDI com retorno da consulta e preservação da última taxa disponível."
 }
