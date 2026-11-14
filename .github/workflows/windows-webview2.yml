@@ -45,9 +45,18 @@ jobs:
           foreach ($file in @('index.html','app.js','engines.js','version.json','sw.js','manifest.webmanifest')) {
             if (!(Test-Path (Join-Path $web $file))) { throw "Falta recurso PWA: $file" }
           }
-          $sourceHash = (Get-FileHash app.js -Algorithm SHA256).Hash
-          $packageHash = (Get-FileHash (Join-Path $web 'app.js') -Algorithm SHA256).Hash
-          if ($sourceHash -ne $packageHash) { throw 'O PWA do instalador difere do código-fonte da branch' }
+          foreach ($file in @('index.html','app.js','engines.js','sw.js','manifest.webmanifest','version.json','icon.svg','icon-192.png','icon-512.png')) {
+            $sourceHash = (Get-FileHash $file -Algorithm SHA256).Hash
+            $packageHash = (Get-FileHash (Join-Path $web $file) -Algorithm SHA256).Hash
+            if ($sourceHash -ne $packageHash) { throw "O recurso $file do instalador difere do código-fonte" }
+          }
+          $pwa = Get-Content (Join-Path $web 'version.json') -Raw | ConvertFrom-Json
+          if ($pwa.version -ne '0.39.32' -or $pwa.channel -ne 'rc1') {
+            throw "Versão PWA inesperada no pacote: $($pwa.version) $($pwa.channel)"
+          }
+          $desktopProject = [xml](Get-Content windows-webview2/ReservaSimplesDesktop.csproj -Raw)
+          if ($desktopProject.Project.PropertyGroup.Version -ne '0.2.1') { throw "Versão desktop divergente" }
+          Write-Host "PWA $($pwa.version) $($pwa.channel) incorporado ao Reserva Simples Windows 0.2.1"
       - name: Instalar Inno Setup
         shell: pwsh
         run: |

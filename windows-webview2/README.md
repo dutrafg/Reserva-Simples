@@ -1,5 +1,7 @@
 # Reserva Simples Desktop — WebView2 (Windows x64)
 
+**Versão desktop:** 0.2.1 Beta. **PWA incorporado:** 0.39.32 RC1 (14/11/2026). Inclui a abertura da Agenda do dia em sobreposição ao selecionar uma data no Calendário. Os arquivos web foram sincronizados da `main` no mesmo commit, sem alterações na aplicação web publicada.
+
 Implementação experimental que executa os **arquivos originais** `index.html`, `app.js`, `engines.js` e demais recursos da branch de origem. O projeto não reimplementa em C# os módulos do PWA.
 
 ## Arquitetura
