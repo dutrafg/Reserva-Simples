@@ -1,4 +1,4 @@
-const CACHE = 'reserva-simples-v0.39.28-rc1';
+const CACHE = 'reserva-simples-v0.39.29-rc1';
 const CORE_FILES = ['./index.html', './app.js', './engines.js', './manifest.webmanifest', './version.json'];
 const OPTIONAL_FILES = ['./', './icon.svg', './icon-192.png', './icon-512.png'];
 const FILES = [...CORE_FILES, ...OPTIONAL_FILES];
