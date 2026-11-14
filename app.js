@@ -10,14 +10,36 @@ const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purp
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='0.39.34';
+const APP_VERSION='0.39.35';
+const APP_CACHE_NAME='reserva-simples-v'+APP_VERSION+'-rc1';
+const TELEMETRY_SCHEMA='reserva.telemetry.event.v1';
 const diagnosticFixtureStorages = new WeakSet();
 const diagnostics = (() => {
   const key = 'reserva.diagnostics.v1';
   const sessionKey = key + '.active';
   const eventLimit = 1000;
+  const retentionDays = 30;
+  const retentionMs = retentionDays * 86400000;
   const trailLimit = 30;
   const trailKey = key + '.trail';
+  const sessionId = (() => {
+    try { return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36)+'-'+Math.random().toString(36).slice(2); }
+    catch { return Date.now().toString(36)+'-'+Math.random().toString(36).slice(2); }
+  })();
+  function safeText(value, maxBytes = 240) {
+    let text = String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim()
+      .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[REDACTED_EMAIL]')
+      .replace(/\bBearer\s+[^\s,;]+/gi, 'Bearer [REDACTED]')
+      .replace(/([?&](?:access_token|token|secret|password|api_key|authorization|cookie)=)[^&\s]+/gi, '$1[REDACTED]')
+      .replace(/\b\d{3}[. -]?\d{3}[. -]?\d{3}[- .]?\d{2}\b/g, '[REDACTED_ID]')
+      .replace(/\b\d{2}[. -]?\d{3}[. -]?\d{3}[/. -]?\d{4}[- .]?\d{2}\b/g, '[REDACTED_ID]')
+      .replace(/\b(?:\+?55\s?)?(?:\(?\d{2}\)?\s?)9?\d{4}[-. ]?\d{4}\b/g, '[REDACTED_PHONE]')
+      .replace(/\b(?:\d[ -]?){13,19}\b/g, '[REDACTED_NUMBER]');
+    while (new TextEncoder().encode(text).length > maxBytes) text = text.slice(0, Math.max(0, text.length - 8));
+    return text;
+  }
+  const severity = (code, status) => ['alerta','falha','erro'].includes(String(status).toLowerCase()) ? 'WARN' :
+    /(?:\.failed|\.error|\.invalid|^javascript\.|^session\.interrupted)/i.test(code) ? 'ERROR' : 'INFO';
   let module;
   let trail = [];
   let events = [];
@@ -27,6 +49,11 @@ const diagnostics = (() => {
     const saved = JSON.parse(localStorage.getItem(key) || '[]');
     if (Array.isArray(saved)) events = saved.slice(-eventLimit);
   } catch { storageAvailable = false; }
+  function pruneEvents() {
+    const cutoff=Date.now()-retentionMs;
+    events=events.filter(event=>{const time=Date.parse(event.ts||event.at||'');return Number.isFinite(time)&&time>cutoff;}).slice(-eventLimit);
+  }
+  pruneEvents();
 
   try {
     const saved = JSON.parse(sessionStorage.getItem(trailKey) || '[]');
@@ -77,11 +104,20 @@ const diagnostics = (() => {
 
   function record(code, error, context = {}) {
     if (diagnosticFixtureStorages.has(window.localStorage)) return;
+    pruneEvents();
+    const at = new Date().toISOString();
     const type = ['Error','TypeError','ReferenceError','SyntaxError','RangeError',
       'QuotaExceededError','SecurityError','NetworkError','AbortError','NotAllowedError']
       .includes(error?.name) ? error.name : undefined;
-    events.push({ at: new Date().toISOString(), version: APP_VERSION, code, type, module, online: navigator.onLine,
-      ...context, ...(code === 'session.started' ? {} : { trail: trail.slice(-10) }) });
+    const safeContext = {...context};
+    if (safeContext.reason !== undefined) safeContext.reason = safeText(safeContext.reason);
+    if (safeContext.error_message !== undefined) safeContext.error_message = safeText(safeContext.error_message);
+    if (error?.message && safeContext.error_message === undefined) safeContext.error_message = safeText(error.message);
+    const status = safeContext.status;
+    events.push({ event_id: (() => { try { return crypto.randomUUID(); } catch { return Date.now().toString(36)+'-'+Math.random().toString(36).slice(2); } })(),
+      ts:at, level:severity(code,status), service:'reserva-simples-pwa', env:window.matchMedia?.('(display-mode: standalone)').matches?'standalone':'browser',
+      schema_version:TELEMETRY_SCHEMA, session_id:sessionId, msg:safeText(code,96), at, version:APP_VERSION, code, type, module, online:navigator.onLine,
+      ...safeContext, ...(code === 'session.started' ? {} : { trail: trail.slice(-10) }) });
     if (error?.stack && code.startsWith('javascript.')) {
       events[events.length - 1].stack = String(error.stack).split('\n').slice(1, 8)
         .map(line => line.replace(/https?:\/\/[^/\s)]+[^\s)]*/g, '[app]').replace(/file:\/\/[^\s)]*/g, '[local]'))
@@ -122,6 +158,7 @@ const diagnostics = (() => {
       exportedAt: new Date().toISOString(),
       storageAvailable,
       eventLimit,
+      retentionDays,
       environment: environment(),
       recentActions: trail.slice(),
       events: events.slice()
@@ -136,6 +173,10 @@ const diagnostics = (() => {
   };
 })();
 const updateInfo={lastCheck:localStorage.getItem('reserva.update.checkedAt')||'',latest:APP_VERSION,available:false,status:'Aguardando verificação',state:'waiting',notes:''};
+try {
+  const pendingVersion=localStorage.getItem('reserva.update.pendingVersion');
+  if(pendingVersion===APP_VERSION){localStorage.removeItem('reserva.update.pendingVersion');diagnostics.record('update.applied',undefined,{status:'aprovada',target_version:pendingVersion,reason:'A nova versão iniciou após a ativação do Service Worker'});}
+} catch {}
 let updateRegistration=null;
 const $=(q)=>document.querySelector(q);
 const fmt=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
@@ -1432,7 +1473,7 @@ function settings(){
  <article class="card settings-card"><h2>Privacidade</h2><p>Controle a exibição dos valores financeiros neste aparelho.</p><div class="setting-actions"><button type="button" class="btn" id="settingsPrivacyToggle" aria-pressed="${hideValues}">${hideValues?'Mostrar valores':'Ocultar valores'}</button></div></article>
  <article class="card settings-card"><h2>Acessibilidade</h2><p>Personalize a leitura e o movimento da interface.</p><label class="switch"><input type="checkbox" data-accessibility="reduceMotion" ${document.documentElement.classList.contains('reduceMotion')?'checked':''}>Reduzir animações</label><label class="switch"><input type="checkbox" data-accessibility="strongText" ${document.documentElement.classList.contains('strongText')?'checked':''}>Aumentar contraste do texto secundário</label></article>
  <article class="card settings-card"><h2>Painel Hoje e navegação</h2><p>Escolha como o painel apresenta os resultados e como o aplicativo abre.</p><label class="field">Período do painel<select data-view-setting="reserva.home.period">${settingOptions([['today','Hoje'],['7d','Últimos 7 dias'],['month','Mês selecionado'],['12m','Últimos 12 meses'],['custom','Personalizado em Hoje']],localStorage.getItem('reserva.home.period')||'month')}</select></label><label class="field">Gráfico por categoria<select data-view-setting="reserva.home.categoryView">${settingOptions([['distribution','Distribuição'],['comparison','Comparação com mês anterior']],localStorage.getItem('reserva.home.categoryView')||'distribution')}</select></label><label class="field">Tela inicial<select data-view-setting="reserva.startPage">${settingOptions(PAGES.map(([id,label])=>[id,label]),preferredStartPage())}</select></label><label class="switch"><input type="checkbox" data-view-setting="reserva.sidebarCompact" ${sidebarCompact?'checked':''}>Menu lateral compacto no desktop</label></article>
- <article class="card settings-card diagnostic-advanced-card" hidden><div class="settings-card-head"><span class="settings-icon">${icon('report')}</span><div><h2>Diagnóstico avançado</h2><p>Ferramenta de desenvolvimento e QA, destinada a uso com orientação técnica.</p></div></div><p>Varre todos os módulos, estrutura e layout, cálculos, persistência isolada, regressões, acessibilidade, segurança e APIs locais. Os testes sintéticos preservam os registros reais. A análise pode levar até 60 segundos.</p><p>O JSON distingue falhas, erros, pendências e recursos não suportados. Inclui esqueleto técnico do DOM sem textos visíveis, valores de campos ou dados financeiros e pessoais. Para investigar um problema, envie o JSON, um print separado e a descrição do comportamento. Nada é enviado automaticamente.</p><p>${diagnostics.report().events.length} evento(s) técnico(s) no histórico local.</p><div class="setting-actions"><button type="button" class="btn primary" id="runDiagnosticScan">Executar análise completa e baixar JSON</button><button type="button" class="btn" id="exportDiagnostics">Baixar logs</button><button type="button" class="btn" id="clearDiagnostics">Limpar logs</button></div><p id="diagnosticScanStatus" role="status" aria-live="polite">A análise percorre os módulos; testes que dependem de navegador, aparelho ou serviços externos aparecem como pendentes.</p></article>
+ <article class="card settings-card diagnostic-advanced-card" hidden><div class="settings-card-head"><span class="settings-icon">${icon('report')}</span><div><h2>Diagnóstico avançado</h2><p>Ferramenta de desenvolvimento e QA, destinada a uso com orientação técnica.</p></div></div><p>Varre todos os módulos, estrutura e layout, cálculos, persistência isolada, regressões, acessibilidade, segurança e APIs locais. Os testes sintéticos preservam os registros reais. A análise pode levar até 60 segundos.</p><p>O JSON distingue falhas, erros, pendências e recursos não suportados. Inclui esqueleto técnico do DOM sem textos visíveis, valores de campos ou dados financeiros e pessoais. Para investigar um problema, envie o JSON, um print separado e a descrição do comportamento. Nada é enviado automaticamente.</p><p>${diagnostics.report().events.length} evento(s) técnico(s) no histórico local.</p><div class="setting-actions"><button type="button" class="btn primary" id="runDiagnosticScan">Executar análise completa e baixar JSON</button><button type="button" class="btn" id="exportDiagnostics">Baixar logs JSONL</button><button type="button" class="btn" id="clearDiagnostics">Limpar logs</button></div><p id="diagnosticScanStatus" role="status" aria-live="polite">A análise percorre os módulos; testes que dependem de navegador, aparelho ou serviços externos aparecem como pendentes.</p></article>
  <article class="card settings-card settings-danger"><div class="settings-card-head"><span class="settings-icon">${icon('expense')}</span><div><h2>Apagar dados</h2><p>Remove ${total} movimentações e ${db.jars.length} cofrinhos salvos neste navegador.</p></div></div><div class="setting-actions"><button class="btn negative" id="clearBtn">Apagar todos os dados</button></div></article>
  </div><div class="notice">Versão ${APP_VERSION}. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
 }
@@ -1441,17 +1482,16 @@ function compareVersions(a,b){const x=String(a).split('.').map(Number),y=String(
 async function checkForUpdates(){const button=$('#checkUpdatesBtn');if(button)button.disabled=true;updateInfo.available=false;setUpdateStatus('Consultando versão publicada…','checking');if(location.protocol==='file:'){updateInfo.lastCheck=new Date().toISOString();localStorage.setItem('reserva.update.checkedAt',updateInfo.lastCheck);updateInfo.notes='Abra o PWA em um endereço HTTPS para consultar e instalar atualizações. O arquivo HTML isolado não possui um servidor de versões.';setUpdateStatus('Consulta online indisponível neste modo','error');if(button)button.disabled=false;return}try{const response=await fetch('./version.json?check='+Date.now(),{cache:'no-store',headers:{Accept:'application/json'}});if(!response.ok)throw new Error('manifesto indisponível');const release=await response.json();if(release.application!=='Reserva Simples'||!release.version)throw new Error('manifesto incompatível');updateInfo.latest=String(release.version);updateInfo.available=compareVersions(updateInfo.latest,APP_VERSION)>0;updateInfo.lastCheck=new Date().toISOString();updateInfo.notes=release.notes||'O banco de dados local permanece no aparelho durante a atualização.';localStorage.setItem('reserva.update.checkedAt',updateInfo.lastCheck);setUpdateStatus(updateInfo.available?'Nova versão disponível':'Você está usando a versão mais recente',updateInfo.available?'available':'success')}catch(err){diagnostics.record('update.check_failed',err);updateInfo.lastCheck=new Date().toISOString();localStorage.setItem('reserva.update.checkedAt',updateInfo.lastCheck);updateInfo.notes='Não foi possível consultar o manifesto de atualização. Confira sua conexão e tente novamente.';setUpdateStatus('Não foi possível verificar agora','error')}finally{if(button)button.disabled=false}}
 let updateInProgress=false;
 async function applyUpdate(){
- diagnostics.step('update.requested');
  if(updateInProgress)return;
  if(saving||vaultBusy)return notify('Aguarde o salvamento antes de atualizar.');
  if($('#modal.open form')||document.querySelector('dialog[open] form'))return notify('Salve ou feche o formulário aberto antes de atualizar.');
  if(!updateInfo.available)return notify('Não há atualização disponível.');
  if(!('serviceWorker'in navigator)||location.protocol==='file:')return notify('Instale o app publicado como PWA para aplicar atualizações.');
- updateInProgress=true;const button=$('#applyUpdateBtn');if(button)button.disabled=true;setUpdateStatus('Preparando atualização…','checking');
+ updateInProgress=true;diagnostics.step('update.requested');const button=$('#applyUpdateBtn');if(button)button.disabled=true;setUpdateStatus('Preparando atualização…','checking');
  const previousController=navigator.serviceWorker.controller;
  let reloaded=false,resolveActivation,rejectActivation;
  const activation=new Promise((resolve,reject)=>{resolveActivation=resolve;rejectActivation=reject});
- const reload=()=>{if(reloaded)return;reloaded=true;resolveActivation();location.reload()};
+ const reload=()=>{if(reloaded)return;reloaded=true;try{localStorage.setItem('reserva.update.pendingVersion',String(updateInfo.latest));}catch{}resolveActivation();location.reload()};
  const watch=worker=>{
   if(!worker)return;
   const onState=()=>{
@@ -1472,11 +1512,17 @@ async function applyUpdate(){
   watch(updateRegistration.installing);
   watch(updateRegistration.waiting);
   if(reloaded)return;
-  if(!updateRegistration.installing&&!updateRegistration.waiting)throw new Error('A versão publicada foi encontrada, mas o navegador ainda não instalou o novo Service Worker. Feche todas as janelas do Reserva Simples e abra o aplicativo novamente.');
+  if(!updateRegistration.installing&&!updateRegistration.waiting){
+   const expectedCache='reserva-simples-v'+updateInfo.latest+'-';
+   const readyCache=Boolean(globalThis.caches&&(await caches.keys()).some(name=>name.startsWith(expectedCache)));
+   if(readyCache){diagnostics.record('update.cache_ready',undefined,{status:'aprovada',target_version:updateInfo.latest,reason:'Cache da versão publicada já está instalado; recarregando para confirmar a versão ativa'});reload();return;}
+   throw new Error('O navegador não encontrou um Service Worker novo nem o cache da versão publicada. Feche outras janelas do Reserva Simples e tente novamente.');
+  }
   setUpdateStatus('Baixando e ativando os novos arquivos…','available');
   await Promise.race([activation,new Promise((_,reject)=>setTimeout(()=>reject(new Error('O navegador não concluiu a instalação em 45 segundos. Confira a conexão e tente novamente; seus dados continuam preservados.')),45000))]);
  }catch(err){
-  diagnostics.record('update.install_failed',err);updateInProgress=false;if(button)button.disabled=false;
+  if(reloaded)return;
+  diagnostics.record('update.install_failed',err,{error_message:err?.message||'Falha ao ativar a atualização',target_version:updateInfo.latest});updateInProgress=false;if(button)button.disabled=false;
   const msg=err?.message||'Falha ao ativar a atualização.';
   setUpdateStatus(msg,'error');
  }
@@ -1651,8 +1697,6 @@ function scanDiagnosticPage(pageId, screenOnly = false) {
           }
         }
         if (!nearest) continue;
-        if (nearest.gap < 4)
-          flag('espaçamento vertical inferior a 4 px',node,nearest.gap,nearest.other);
         if (nearest.gap > Math.max(48,gap+32))
           flag('possível lacuna excessiva entre cartões da mesma coluna',node,nearest.gap,nearest.other);
       }
@@ -1703,32 +1747,50 @@ function scanDiagnosticPage(pageId, screenOnly = false) {
       .filter(id => !document.getElementById(id)).length,0);
     const invalidBounds = controls.filter(node => node.min && node.max &&
       Number.isFinite(Number(node.min)) && Number(node.min) > Number(node.max)).length;
+    const touchTarget = node => {
+      const own=node.getBoundingClientRect();
+      const labels=[...(node.labels||[])].map(label=>label.getBoundingClientRect()).filter(rect=>rect.width>0&&rect.height>0);
+      if(!labels.length)return {width:own.width,height:own.height,source:'controle'};
+      const left=Math.min(own.left,...labels.map(rect=>rect.left)),right=Math.max(own.right,...labels.map(rect=>rect.right));
+      const top=Math.min(own.top,...labels.map(rect=>rect.top)),bottom=Math.max(own.bottom,...labels.map(rect=>rect.bottom));
+      return {width:right-left,height:bottom-top,source:'controle_mais_rotulo'};
+    };
     const smallTargets = innerWidth <= 760 ? controls.filter(node => {
       if (node.matches('input[type=checkbox],input[type=radio]') && node.labels?.length) return false;
-      const rect = node.getBoundingClientRect();
+      const rect = touchTarget(node);
       return rect.width < 24 || rect.height < 24;
     }) : [];
     const smallTouchTargets = smallTargets.length;
     const smallTargetDetails = smallTargets.slice(0,20).map(node => ({
       tag:node.localName, id:node.id||undefined, type:node.type||undefined,
       label:node.getAttribute('aria-label')||node.textContent.trim().slice(0,40)||undefined,
-      width:Math.round(node.getBoundingClientRect().width),height:Math.round(node.getBoundingClientRect().height)
+      width:Math.round(node.getBoundingClientRect().width),height:Math.round(node.getBoundingClientRect().height),
+      effectiveTarget:(()=>{const rect=touchTarget(node);return {width:Math.round(rect.width),height:Math.round(rect.height),source:rect.source}})()
     }));
     return {...outcome(!unlabeled && !missingAriaTargets && !invalidBounds && !smallTouchTargets,
       'Rótulos, referências, limites e áreas de toque na tela atual'),
       unlabeled, missingAriaTargets, invalidBounds, smallTouchTargets, smallTargetDetails};
   });
   check('Falhas registradas no histórico', () => {
-    const counts = {};
-    for (const event of diagnostics.report().events) {
-      if (/^(javascript\.|.*(?:failed|invalid|error)$)/.test(event.code))
-        counts[event.code] = (counts[event.code] || 0) + 1;
+    const allEvents=diagnostics.report().events;
+    const counts = {}, resolvedCounts = {};
+    for (const event of allEvents) {
+      if (!/^(javascript\.|.*(?:failed|invalid|error)$)/.test(event.code)) continue;
+      const eventTime=Date.parse(event.at||'');
+      const newerStart=event.code==='update.install_failed'&&allEvents.some(later=>later.code==='session.started'&&
+        Date.parse(later.at||'')>=eventTime&&compareVersions(later.version,event.version)>0);
+      const bucket=newerStart?resolvedCounts:counts;
+      bucket[event.code]=(bucket[event.code]||0)+1;
     }
     const hostedOnly = Object.keys(counts).length && Object.keys(counts).every(code =>
       ['update.check_failed','offline.registration_failed'].includes(code));
     if (!supportsHostedApp() && hostedOnly)
       return {status:'info', reason:'Histórico de atualização e modo offline do PWA. A prévia local não executa essas operações.', counts};
-    return {...outcome(!Object.keys(counts).length,'Eventos anteriores podem já ter sido resolvidos'), counts};
+    if(!Object.keys(counts).length&&Object.keys(resolvedCounts).length)
+      return {status:'info',reason:'Falhas de instalação anteriores foram seguidas pela inicialização de uma versão mais nova.',counts,resolvedCounts};
+    if(!Object.keys(counts).length&&allEvents.some(event=>/^(javascript\.|.*(?:failed|invalid|error)$)/.test(event.code)))
+      return {status:'info',reason:'Há falhas antigas no histórico; nenhuma falha de atualização pendente foi identificada.',counts,resolvedCounts};
+    return {...outcome(!Object.keys(counts).length,'Falhas atuais no histórico; confirme se a versão mais nova iniciou.'), counts,resolvedCounts};
   });
   check('Datas financeiras e precisão dos totais', () => {
     if (vault && !vaultKey) return {status:'ignorado', reason:'Base bloqueada'};
@@ -2047,7 +2109,8 @@ if(!window.ReservaDiagnosticBridge)window.ReservaDiagnosticBridge=Object.freeze(
   inspect:()=>diagnosticContract()});
 function diagnosticReport(scan, report = diagnostics.report()) {
   const {applicationSkeleton:capturedSkeleton,...safeScan}=scan||{};
-  return {...report, events:report.events.map(diagnosticPublicEvent),
+  return {...report, telemetry:{schema_version:TELEMETRY_SCHEMA,format:'json-events',encoding:'UTF-8',timestamp:'UTC ISO-8601',storage:'local-only',redaction:'sensitive-strings-masked',retention_days:report.retentionDays,max_events:report.eventLimit},
+    events:report.events.map(diagnosticPublicEvent),
     diagnosticContract:diagnosticContract(),
     applicationSkeleton:capturedSkeleton||captureApplicationSkeleton(),
     supportContext:{attachScreenshotSeparately:true,includeBugDescriptionInMessage:true,
@@ -2058,21 +2121,49 @@ function diagnosticPublicEvent(event) {
     'session.started','session.interrupted','javascript.error','javascript.rejection',
     'resource.failed','mutation.invalid','mutation.refresh_failed','mutation.failed',
     'storage.save_failed','backup.write_failed','update.check_failed','update.install_failed',
-    'offline.registration_failed','connection.online','connection.offline','diagnostic.generation_failed'
+    'offline.registration_failed','connection.online','connection.offline','diagnostic.generation_failed',
+    'update.applied','update.cache_ready'
   ]);
   const modules = PAGES.map(([id]) => id);
+  const integrityCodes = new Set(['banco','banco.monitoramento','banco.rechecagem','diario','diagnostico.integrado',
+    'central.execucao','monitoramento','./engines.js','./index.html',...PAGES.map(([id])=>'interface.'+id)]);
   const types = ['Error','TypeError','ReferenceError','SyntaxError','RangeError',
     'QuotaExceededError','SecurityError','NetworkError','AbortError','NotAllowedError'];
+  const safeString = value => {
+    if(typeof value!=='string'||/[\u0000-\u001f\u007f]/.test(value))return undefined;
+    return value.replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,'[REDACTED_EMAIL]')
+      .replace(/\bBearer\s+[^\s,;]+/gi,'Bearer [REDACTED]')
+      .replace(/([?&](?:access_token|token|secret|password|api_key|authorization|cookie)=)[^&\s]+/gi,'$1[REDACTED]')
+      .replace(/\b\d{3}[. -]?\d{3}[. -]?\d{3}[- .]?\d{2}\b/g,'[REDACTED_ID]')
+      .replace(/\b\d{2}[. -]?\d{3}[. -]?\d{3}[/. -]?\d{4}[- .]?\d{2}\b/g,'[REDACTED_ID]')
+      .replace(/\b(?:\+?55\s?)?(?:\(?\d{2}\)?\s?)9?\d{4}[-. ]?\d{4}\b/g,'[REDACTED_PHONE]')
+      .replace(/\b(?:\d[ -]?){13,19}\b/g,'[REDACTED_NUMBER]').slice(0,240);
+  };
+  const safeId = value => typeof value === 'string' && /^[a-z0-9-]{8,64}$/i.test(value) ? value : undefined;
+  const safeHash = value => typeof value === 'string' && /^[a-f0-9]{64}$/i.test(value) ? value : undefined;
+  const safeCount = value => Number.isSafeInteger(value) && value >= 0 ? value : undefined;
   return {
+    event_id:safeId(event.event_id), ts:typeof event.ts==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(event.ts)?event.ts:undefined,
+    level:['DEBUG','INFO','WARN','ERROR','FATAL'].includes(event.level)?event.level:undefined,
+    service:'reserva-simples-pwa', env:['browser','standalone'].includes(event.env)?event.env:undefined,
+    schema_version:TELEMETRY_SCHEMA, session_id:safeId(event.session_id), msg:safeString(event.msg),
     at: typeof event.at === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(event.at) ? event.at : undefined,
     version: typeof event.version === 'string' && /^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(event.version) ? event.version : undefined,
-    code: technicalCodes.has(event.code) ? event.code : 'technical.other',
+    code: technicalCodes.has(event.code)||integrityCodes.has(event.code) ? event.code : 'technical.other',
     type: types.includes(event.type) ? event.type : undefined,
     module: modules.includes(event.module) ? event.module : undefined,
     online: typeof event.online === 'boolean' ? event.online : undefined,
     line: Number.isSafeInteger(event.line) ? event.line : undefined,
     column: Number.isSafeInteger(event.column) ? event.column : undefined,
-    element: ['SCRIPT','LINK','IMG','other'].includes(event.element) ? event.element : undefined
+    element: ['SCRIPT','LINK','IMG','other'].includes(event.element) ? event.element : undefined,
+    status:['aprovada','ok','corrigida','alerta','falha','erro','pendente','sem_cofre','sem_correcao_aplicavel','ignorado','não_suportado','info'].includes(event.status)?event.status:undefined,
+    check:safeString(event.check), action:safeString(event.action), reason:safeString(event.reason), error_message:safeString(event.error_message),
+    duration_ms:safeCount(event.duration_ms??event.durationMs), run_id:safeId(event.run_id??event.runId),
+    target_version:typeof event.target_version==='string'&&/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(event.target_version)?event.target_version:undefined,
+    expected_sha256:safeHash(event.expected_sha256), observed_sha256:safeHash(event.observed_sha256),
+    source:['service_worker_cache','network'].includes(event.source)?event.source:undefined, cache_name:safeString(event.cache_name),
+    stage_index:Number.isSafeInteger(event.stage_index)&&event.stage_index>=0&&event.stage_index<4?event.stage_index:undefined,
+    target_duration_ms:safeCount(event.target_duration_ms), stage_count:safeCount(event.stage_count), checks_count:safeCount(event.checks_count)
   };
 }
 function diagnosticSafeClassNames(element) {
@@ -2757,8 +2848,9 @@ function historicalRegressions(scan) {
   });
 }
 function exportDiagnosticLog() {
-  download(JSON.stringify(diagnosticReport(latestDiagnosticScan), null, 2),
-    'application/json', 'Reserva_Simples_diagnostico.json');
+  const events = diagnosticReport(latestDiagnosticScan).events;
+  download(events.map(event=>JSON.stringify(event)).join('\n')+(events.length?'\n':''),
+    'application/x-ndjson;charset=utf-8', 'Reserva_Simples_telemetria.jsonl');
 }
 let diagnosticRunning = false;
 async function generateDiagnosticWithProgress() {
@@ -3006,33 +3098,40 @@ const integrityHashes = {"./engines.js": "883f3a55c2650d231a6a5b83bcc35274b3de79
 async function integrityAssets(repair = false) {
   if (!/^https?:$/.test(location.protocol) || !navigator.serviceWorker?.controller || !globalThis.caches)
     return [{check:'cache_pwa',status:'pendente',reason:'Service Worker ou cache da versão indisponível'}];
-  const name = 'reserva-simples-v0.39.33-rc1';
+  const name = APP_CACHE_NAME;
   if (!(await caches.has(name))) return [{check:'cache_pwa',status:'pendente',reason:'Service Worker ou cache da versão indisponível'}];
   const cache = await caches.open(name);
-  const matches = async (response,hash) => {
+  const hashResponse = async response => {
     if (!response?.ok) return false;
     const digest = await crypto.subtle.digest('SHA-256',await response.arrayBuffer());
-    return [...new Uint8Array(digest)].map(value=>value.toString(16).padStart(2,'0')).join('')===hash;
+    return [...new Uint8Array(digest)].map(value=>value.toString(16).padStart(2,'0')).join('');
   };
   const results = [];
   const replacements = [];
   for (const [path,hash] of Object.entries(integrityHashes)) {
     const url = new URL(path,location.href);
-    let status;
+    let status,observedHash,source='service_worker_cache';
     try {
-      if (await matches(await cache.match(url),hash)) status = repair ? 'sem_correcao_aplicavel' : 'aprovada';
+      observedHash=await hashResponse(await cache.match(url));
+      if (observedHash===hash) status = repair ? 'sem_correcao_aplicavel' : 'aprovada';
       else if (!repair) status = 'alerta';
       else if (!navigator.onLine) status = 'pendente';
       else {
         const response = await fetch(url,{cache:'no-store',redirect:'error'});
-        if (!await matches(response.clone(),hash)) status='alerta';
+        const networkHash=await hashResponse(response.clone());
+        source='network';
+        if (networkHash!==hash) {status='alerta';observedHash=networkHash;}
         else {
           replacements.push({url,hash,response,resultIndex:results.length});
           status = 'validada_para_reparo';
+          observedHash=networkHash;
         }
       }
     } catch {status='alerta';}
-    results.push({check:path,status,action:repair?'validar_reposicao':'comparar_sha256'});
+    results.push({check:path,status,action:repair?'validar_reposicao':'comparar_sha256',
+      expected_sha256:hash,observed_sha256:observedHash||undefined,source,cache_name:name,
+      reason:status==='alerta'?(observedHash?'O hash observado diverge do manifesto desta versão':'Arquivo ausente ou ilegível no cache da versão'):
+        status==='pendente'?'Sem conexão para validar um arquivo alterado no cache':undefined});
   }
   const canRepair = results.every(item=>['sem_correcao_aplicavel','validada_para_reparo'].includes(item.status));
   for (const {url,hash,response,resultIndex} of replacements) {
@@ -3043,7 +3142,9 @@ async function integrityAssets(repair = false) {
     }
     try {
       await cache.put(url,response);
-      Object.assign(result,{status:await matches(await cache.match(url),hash)?'corrigida':'alerta',action:'repor_e_reverificar'});
+      const verifiedHash=await hashResponse(await cache.match(url));
+      Object.assign(result,{status:verifiedHash===hash?'corrigida':'alerta',action:'repor_e_reverificar',
+        observed_sha256:verifiedHash||undefined,source:'network',reason:verifiedHash===hash?'Arquivo obtido da origem e revalidado após gravação no cache':'A rechecagem após gravação divergiu do hash esperado'});
     } catch {Object.assign(result,{status:'alerta',reason:'Falha ao gravar ou reler o cache'});}
   }
   return results;
@@ -3104,10 +3205,13 @@ async function integrityScan() {
   const outputs = dialog.querySelectorAll('output');
   const bars = dialog.querySelectorAll('progress');
   const details = [...dialog.querySelectorAll('.integrity-stage-detail')];
-  const stages = [];
+  const stages = [], stageTimings = [];
+  const scanStartedAt = new Date().toISOString(), scanStartedPerf = performance.now();
+  let runId = '';
   async function step(index,work) {
     const duration = [6000,8000,12000,15000][index];
     const start = performance.now();
+    const startedAt = new Date().toISOString();
     let frame, timer;
     const draw = now => {
       bars[index].value = Math.min(99,(now-start)/duration*100);
@@ -3121,12 +3225,20 @@ async function integrityScan() {
       const [result] = await Promise.all([work(message=>{details[index].textContent=message;}),new Promise(resolve=>{timer=setTimeout(resolve,duration);})]);
       bars[index].value=100;
       outputs[index].textContent='Concluída';
+      stageTimings.push({stage_index:index,stage:names[index],status:'concluida',started_at:startedAt,
+        completed_at:new Date().toISOString(),duration_ms:Math.round(performance.now()-start),target_duration_ms:duration,
+        checks_count:Array.isArray(result)?result.length:1});
       return result;
+    } catch(error) {
+      stageTimings.push({stage_index:index,stage:names[index],status:'falha',started_at:startedAt,
+        completed_at:new Date().toISOString(),duration_ms:Math.round(performance.now()-start),target_duration_ms:duration,
+        error_type:['Error','TypeError','ReferenceError','SyntaxError','RangeError','QuotaExceededError','SecurityError','NetworkError','AbortError','NotAllowedError'].includes(error?.name)?error.name:'Error'});
+      throw error;
     } finally {cancelAnimationFrame(frame);clearTimeout(timer);}
   }
   try {
     dialog.show();
-    const runId = crypto.randomUUID ? crypto.randomUUID() : 'run-'+Date.now()+'-'+Math.random().toString(16).slice(2);
+    runId = crypto.randomUUID ? crypto.randomUUID() : 'run-'+Date.now()+'-'+Math.random().toString(16).slice(2);
     stages.push(await step(0,async update=>{
       update('Autenticando e validando a estrutura do banco');
       const bank=[{check:'banco',status:await integrityBank()}];
@@ -3149,7 +3261,10 @@ async function integrityScan() {
       update('Rechecando as telas e os arquivos do cache');
       return [bank,...integrityInterface(),...await integrityAssets()];
     }));
-    stages.flat().forEach(({check,status,action,reason})=>integrityRecord(check,status,{action,reason,runId}));
+    stages.flat().forEach(result=>{
+      const {check,status,...details}=result;
+      integrityRecord(check,status,{...details,runId});
+    });
     const scan = await step(3,async()=>{
       const screen = dialog.querySelector('.integrity-screen');
       const started = performance.now();
@@ -3177,10 +3292,23 @@ async function integrityScan() {
       (checks.some(item=>item.status==='sem_cofre')?' · Banco sem cofre ativo.':'') +
       (checks.some(item=>item.check==='cache_pwa'&&item.status==='pendente')?' · Cache da PWA indisponível.':'') +
       (history.status!=='aprovada'?' · Histórico cifrado não confirmado.':'');
-    download(JSON.stringify({...diagnosticReport(scan),centralDeIntegridade:{schemaVersion:'reserva.integrity.report.v2',runId,stages,history,totals}},null,2),'application/json','Reserva_Simples_Diagnostico_Integridade.json');
+    const completedAt=new Date().toISOString();
+    download(JSON.stringify({...diagnosticReport(scan),centralDeIntegridade:{schemaVersion:'reserva.integrity.report.v3',runId,startedAt:scanStartedAt,completedAt,durationMs:Math.round(performance.now()-scanStartedPerf),stages,stageTimings,history,totals}},null,2),'application/json','Reserva_Simples_Diagnostico_Integridade.json');
     notify('Diagnóstico da Central de Integridade gerado.');
-  } catch {
-    integrityRecord('central.execucao','alerta');
+  } catch(error) {
+    const errorType=['Error','TypeError','ReferenceError','SyntaxError','RangeError','QuotaExceededError','SecurityError','NetworkError','AbortError','NotAllowedError'].includes(error?.name)?error.name:'Error';
+    integrityRecord('central.execucao','alerta',{runId:runId||undefined,error_type:errorType,reason:'A execução da Central de Integridade foi interrompida antes de concluir todas as etapas'});
+    const completedAt=new Date().toISOString();
+    const history=await integrityHistory();
+    const checks=stages.flat();
+    const totals={aprovadas:checks.filter(item=>['aprovada','ok'].includes(item.status)).length,
+      corrigidas:checks.filter(item=>item.status==='corrigida').length,
+      alertas:checks.filter(item=>['alerta','falha','erro'].includes(item.status)).length+1,
+      pendentes:checks.filter(item=>['pendente','sem_cofre','ignorado','não_suportado'].includes(item.status)).length};
+    download(JSON.stringify({...diagnosticReport(null),centralDeIntegridade:{schemaVersion:'reserva.integrity.report.v3',runId:runId||null,
+      startedAt:scanStartedAt,completedAt,durationMs:Math.round(performance.now()-scanStartedPerf),stages,stageTimings,history,totals,
+      failure:{stage:stageTimings.at(-1)?.stage||names[stageTimings.length],type:errorType}}},null,2),
+      'application/json','Reserva_Simples_Diagnostico_Integridade.json');
     notify('Falha ao concluir a Central de Integridade.');
   } finally {
     dialog.remove();
