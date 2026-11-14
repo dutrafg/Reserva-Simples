@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.27",
+  "version": "0.39.28",
   "channel": "rc1",
   "updatedAt": "2026-11-14T03:00:00Z",
   "source": "same-origin PWA release",
-  "notes": "Diagnóstico avançado, painel Hoje revisado e novas preferências em Ajustes."
+  "notes": "Limpeza das notificações, novos testes locais e cores mais fortes."
 }
