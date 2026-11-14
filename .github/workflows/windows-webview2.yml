@@ -1,0 +1,138 @@
+name: Reserva Simples Desktop WebView2 x64
+on:
+  workflow_dispatch:
+    inputs:
+      publish_beta:
+        description: 'Publicar beta Windows depois dos testes'
+        type: boolean
+        default: false
+  push:
+    branches: [windows-webview2]
+    paths:
+      - 'windows-webview2/**'
+      - 'index.html'
+      - 'app.js'
+      - 'engines.js'
+      - 'sw.js'
+      - 'manifest.webmanifest'
+      - 'version.json'
+      - 'icon*'
+      - '.github/workflows/windows-webview2.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'windows-webview2/**'
+      - '.github/workflows/windows-webview2.yml'
+permissions:
+  contents: read
+
+jobs:
+  windows-build:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Publicar aplicativo Windows x64
+        shell: pwsh
+        run: dotnet publish windows-webview2/ReservaSimplesDesktop.csproj -c Release -r win-x64 --self-contained true -o artifacts/desktop-win-x64
+      - name: Confirmar inclusão do PWA da branch
+        shell: pwsh
+        run: |
+          $web = "artifacts/desktop-win-x64/web"
+          foreach ($file in @('index.html','app.js','engines.js','version.json','sw.js','manifest.webmanifest')) {
+            if (!(Test-Path (Join-Path $web $file))) { throw "Falta recurso PWA: $file" }
+          }
+          foreach ($file in @('index.html','app.js','engines.js','sw.js','manifest.webmanifest','version.json','icon.svg','icon-192.png','icon-512.png')) {
+            $sourceHash = (Get-FileHash $file -Algorithm SHA256).Hash
+            $packageHash = (Get-FileHash (Join-Path $web $file) -Algorithm SHA256).Hash
+            if ($sourceHash -ne $packageHash) { throw "O recurso $file do instalador difere do código-fonte" }
+          }
+          $pwa = Get-Content (Join-Path $web 'version.json') -Raw | ConvertFrom-Json
+          if ($pwa.version -ne '0.39.32' -or $pwa.channel -ne 'rc1') {
+            throw "Versão PWA inesperada no pacote: $($pwa.version) $($pwa.channel)"
+          }
+          $desktopProject = [xml](Get-Content windows-webview2/ReservaSimplesDesktop.csproj -Raw)
+          if ($desktopProject.Project.PropertyGroup.Version -ne '0.2.1') { throw "Versão desktop divergente" }
+          Write-Host "PWA $($pwa.version) $($pwa.channel) incorporado ao Reserva Simples Windows 0.2.1"
+      - name: Instalar Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Gerar instalador
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" windows-webview2/installer/ReservaSimplesDesktop.iss
+          exit $LASTEXITCODE
+      - name: Instalar e validar PWA e persistência em duas aberturas
+        shell: pwsh
+        run: |
+          $setup = (Resolve-Path "artifacts/desktop-installer/Reserva-Simples-Desktop-Setup-x64.exe").Path
+          $target = Join-Path $env:RUNNER_TEMP "ReservaDesktopWebView2"
+          $result = Start-Process $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',("/DIR=`"$target`"") -Wait -PassThru
+          if ($result.ExitCode -ne 0) { throw "Falha ao instalar: $($result.ExitCode)" }
+          $exe = Join-Path $target 'ReservaSimplesDesktop.exe'
+          if (!(Test-Path $exe)) { throw "Executável ausente" }
+          foreach ($mode in @('--smoke-write','--smoke-read')) {
+            $p = Start-Process $exe -ArgumentList $mode -PassThru
+            if (!$p.WaitForExit(120000)) { Stop-Process -Id $p.Id -Force; throw "Timeout: $mode" }
+            if ($p.ExitCode -ne 0) {
+              Get-Content (Join-Path $env:TEMP 'ReservaSimplesDesktop-smoke-error.txt') -ErrorAction SilentlyContinue
+              throw "Smoke falhou $mode : $($p.ExitCode)"
+            }
+          }
+      - name: Reinstalar sem apagar o perfil local (teste de persistência)
+        shell: pwsh
+        run: |
+          $setup = (Resolve-Path "artifacts/desktop-installer/Reserva-Simples-Desktop-Setup-x64.exe").Path
+          $target = Join-Path $env:RUNNER_TEMP "ReservaDesktopWebView2"
+          $result = Start-Process $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',("/DIR=`"$target`"") -Wait -PassThru
+          if ($result.ExitCode -ne 0) { throw "Falha ao reinstalar: $($result.ExitCode)" }
+          $p = Start-Process (Join-Path $target 'ReservaSimplesDesktop.exe') -ArgumentList '--smoke-read' -PassThru
+          if (!$p.WaitForExit(120000)) { Stop-Process -Id $p.Id -Force; throw "Timeout após reinstalação" }
+          if ($p.ExitCode -ne 0) {
+            Get-Content (Join-Path $env:TEMP 'ReservaSimplesDesktop-smoke-error.txt') -ErrorAction SilentlyContinue
+            throw "Dados locais perdidos após reinstalação"
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Reserva-Simples-Desktop-WebView2-x64
+          path: artifacts/desktop-installer/*.exe
+          if-no-files-found: error
+
+  publish-beta:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_beta && github.ref == 'refs/heads/windows-webview2' }}
+    needs: windows-build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Reserva-Simples-Desktop-WebView2-x64
+          path: installer
+      - name: Publicar beta verificada com checksum SHA256
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(grep -oP '(?<=<Version>)[0-9]+\.[0-9]+\.[0-9]+(?=</Version>)' windows-webview2/ReservaSimplesDesktop.csproj)
+          tag="windows-webview2-v${version}-beta"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "A versão $tag já foi publicada; incremente o número da versão para a próxima beta."
+            exit 1
+          fi
+          test -f installer/Reserva-Simples-Desktop-Setup-x64.exe
+          (cd installer && sha256sum Reserva-Simples-Desktop-Setup-x64.exe > SHA256SUMS.txt)
+          gh release create "$tag" installer/Reserva-Simples-Desktop-Setup-x64.exe installer/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "Reserva Simples Desktop Windows x64 ${version} Beta" \
+            --notes "Beta WebView2 x64. Instalador validado por instalação, inicialização, persistência e reinstalação no GitHub Actions. Atualizações são verificadas por SHA-256. Faça backup antes de migrar dados."
