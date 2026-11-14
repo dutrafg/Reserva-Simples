@@ -1,5 +1,10 @@
 using System.IO;
 using System.Windows;
+using Application = System.Windows.Application;
+using MessageBox = System.Windows.MessageBox;
+using MessageBoxButton = System.Windows.MessageBoxButton;
+using MessageBoxImage = System.Windows.MessageBoxImage;
+using Window = System.Windows.Window;
 using System.Windows.Threading;
 
 namespace ReservaSimples.Desktop;
