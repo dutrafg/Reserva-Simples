@@ -10,7 +10,7 @@ const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purp
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='0.39.35';
+const APP_VERSION='0.39.36';
 const APP_CACHE_NAME='reserva-simples-v'+APP_VERSION+'-rc1';
 const TELEMETRY_SCHEMA='reserva.telemetry.event.v1';
 const diagnosticFixtureStorages = new WeakSet();
@@ -1773,24 +1773,23 @@ function scanDiagnosticPage(pageId, screenOnly = false) {
   });
   check('Falhas registradas no histórico', () => {
     const allEvents=diagnostics.report().events;
-    const counts = {}, resolvedCounts = {};
+    const counts = {}, resolvedCounts = {}, historicalCounts = {};
+    const activeSince=Date.now()-60*60*1000;
     for (const event of allEvents) {
       if (!/^(javascript\.|.*(?:failed|invalid|error)$)/.test(event.code)) continue;
       const eventTime=Date.parse(event.at||'');
       const newerStart=event.code==='update.install_failed'&&allEvents.some(later=>later.code==='session.started'&&
         Date.parse(later.at||'')>=eventTime&&compareVersions(later.version,event.version)>0);
-      const bucket=newerStart?resolvedCounts:counts;
+      const bucket=newerStart?resolvedCounts:eventTime>=activeSince?counts:historicalCounts;
       bucket[event.code]=(bucket[event.code]||0)+1;
     }
     const hostedOnly = Object.keys(counts).length && Object.keys(counts).every(code =>
       ['update.check_failed','offline.registration_failed'].includes(code));
     if (!supportsHostedApp() && hostedOnly)
       return {status:'info', reason:'Histórico de atualização e modo offline do PWA. A prévia local não executa essas operações.', counts};
-    if(!Object.keys(counts).length&&Object.keys(resolvedCounts).length)
-      return {status:'info',reason:'Falhas de instalação anteriores foram seguidas pela inicialização de uma versão mais nova.',counts,resolvedCounts};
-    if(!Object.keys(counts).length&&allEvents.some(event=>/^(javascript\.|.*(?:failed|invalid|error)$)/.test(event.code)))
-      return {status:'info',reason:'Há falhas antigas no histórico; nenhuma falha de atualização pendente foi identificada.',counts,resolvedCounts};
-    return {...outcome(!Object.keys(counts).length,'Falhas atuais no histórico; confirme se a versão mais nova iniciou.'), counts,resolvedCounts};
+    if(!Object.keys(counts).length&&(Object.keys(resolvedCounts).length||Object.keys(historicalCounts).length))
+      return {status:'info',reason:'Não há falhas na última hora. Eventos antigos ou seguidos pela inicialização de versão mais nova permanecem apenas no histórico.',counts,resolvedCounts,historicalCounts};
+    return {...outcome(!Object.keys(counts).length,'Falhas recentes no histórico; confira os eventos desta última hora.'), counts,resolvedCounts,historicalCounts};
   });
   check('Datas financeiras e precisão dos totais', () => {
     if (vault && !vaultKey) return {status:'ignorado', reason:'Base bloqueada'};
@@ -2122,7 +2121,9 @@ function diagnosticPublicEvent(event) {
     'resource.failed','mutation.invalid','mutation.refresh_failed','mutation.failed',
     'storage.save_failed','backup.write_failed','update.check_failed','update.install_failed',
     'offline.registration_failed','connection.online','connection.offline','diagnostic.generation_failed',
-    'update.applied','update.cache_ready'
+    'update.applied','update.cache_ready','backup.recreate_failed','csv.read_failed',
+    'market.cdi_cache_failed','market.cdi_failed','market.ipca_failed','storage.conflict_prevented',
+    'storage.recovery'
   ]);
   const modules = PAGES.map(([id]) => id);
   const integrityCodes = new Set(['banco','banco.monitoramento','banco.rechecagem','diario','diagnostico.integrado',
