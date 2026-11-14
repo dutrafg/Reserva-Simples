@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.32",
+  "version": "0.39.33",
   "channel": "rc1",
-  "updatedAt": "2026-11-14T05:29:32.201Z",
+  "updatedAt": "2026-11-14T05:35:20.958Z",
   "source": "same-origin PWA release",
-  "notes": "Abre a Agenda do dia em sobreposição ao selecionar uma data no Calendário."
+  "notes": "Ajusta a detecção de atualizações do PWA que já foram ativadas pelo navegador."
 }

@@ -10,7 +10,7 @@ const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purp
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='0.39.32';
+const APP_VERSION='0.39.33';
 const diagnosticFixtureStorages = new WeakSet();
 const diagnostics = (() => {
   const key = 'reserva.diagnostics.v1';
@@ -1430,6 +1430,7 @@ async function applyUpdate(){
  if(!updateInfo.available)return notify('Não há atualização disponível.');
  if(!('serviceWorker'in navigator)||location.protocol==='file:')return notify('Instale o app publicado como PWA para aplicar atualizações.');
  updateInProgress=true;const button=$('#applyUpdateBtn');if(button)button.disabled=true;setUpdateStatus('Preparando atualização…','checking');
+ const previousController=navigator.serviceWorker.controller;
  let reloaded=false,resolveActivation,rejectActivation;
  const activation=new Promise((resolve,reject)=>{resolveActivation=resolve;rejectActivation=reject});
  const reload=()=>{if(reloaded)return;reloaded=true;resolveActivation();location.reload()};
@@ -1448,9 +1449,12 @@ async function applyUpdate(){
   if(!updateRegistration)throw new Error('Não encontrei o registro do PWA neste endereço.');
   updateRegistration.addEventListener('updatefound',()=>watch(updateRegistration.installing));
   await updateRegistration.update();
+  if(reloaded)return;
+  if(navigator.serviceWorker.controller!==previousController){reload();return;}
   watch(updateRegistration.installing);
   watch(updateRegistration.waiting);
-  if(!updateRegistration.installing&&!updateRegistration.waiting)throw new Error('O manifesto encontrou a atualização, mas o Service Worker novo ainda não foi publicado neste endereço. Conecte o app à internet e tente novamente.');
+  if(reloaded)return;
+  if(!updateRegistration.installing&&!updateRegistration.waiting)throw new Error('A versão publicada foi encontrada, mas o navegador ainda não instalou o novo Service Worker. Feche todas as janelas do Reserva Simples e abra o aplicativo novamente.');
   setUpdateStatus('Baixando e ativando os novos arquivos…','available');
   await Promise.race([activation,new Promise((_,reject)=>setTimeout(()=>reject(new Error('O navegador não concluiu a instalação em 45 segundos. Confira a conexão e tente novamente; seus dados continuam preservados.')),45000))]);
  }catch(err){
