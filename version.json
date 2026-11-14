@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.34",
+  "version": "0.39.35",
   "channel": "rc1",
-  "updatedAt": "2026-11-14T15:20:00.000Z",
+  "updatedAt": "2026-11-14T18:35:00.000Z",
   "source": "same-origin PWA release",
-  "notes": "Central de Integridade integrada ao diagnóstico, com verificação, monitoramento e contenção de gravações após alerta."
+  "notes": "Ajusta a conclusão do atualizador, reduz falsos alertas de layout e registra telemetria local estruturada com redaction, identificadores de sessão, hashes comparados e duração das etapas."
 }
