@@ -190,6 +190,9 @@ public partial class MainWindow : Window
                 }, true);
                 """);
 
+            if (smokeWrite || smokeRead)
+                await core.AddScriptToExecuteOnDocumentCreatedAsync("window.__RESERVA_DESKTOP_SMOKE__ = true;");
+
             Browser.Source = new Uri(LocalOrigin + "index.html");
             if (backgroundMode)
                 Hide();
@@ -260,30 +263,7 @@ public partial class MainWindow : Window
             if (await Browser.CoreWebView2.ExecuteScriptAsync(domCheck) != "true")
                 throw new InvalidOperationException("Módulos do PWA ou motores financeiros não carregaram.");
 
-            const string calendarCheck = """
-                (() => {
-                  try {
-                  const key = mkey(state.year, state.month);
-                  const original = db.records;
-                  try {
-                    db.records = [
-                      {id:'qa-calendar-low', date:key+'-01', kind:'expense', category:'Mercado', amount:100},
-                      {id:'qa-calendar-high', date:key+'-02', kind:'expense', category:'Mercado', amount:10000}
-                    ];
-                    calendar();
-                    const grid = document.querySelector('#page-calendar');
-                    const low = grid.querySelector('[data-calendar-date="' + key + '-01"]');
-                    const high = grid.querySelector('[data-calendar-date="' + key + '-02"]');
-                    const colors = [low, high].map(cell => cell && getComputedStyle(cell).backgroundColor);
-                    const dots = Boolean(grid.querySelector('.calendar-day .calendar-dot, .calendar-day .calendar-markers'));
-                    return { levels: [low?.dataset.expenseHeat, high?.dataset.expenseHeat], colors, dots };
-                  } finally {
-                    db.records = original;
-                  }
-                  } catch (error) { return { error: String(error), stack: error.stack }; }
-                })()
-                """;
-            string calendarResult = await Browser.CoreWebView2.ExecuteScriptAsync(calendarCheck);
+            string calendarResult = await Browser.CoreWebView2.ExecuteScriptAsync("window.__reservaCheckCalendar?.() ?? { error: 'Diagnóstico do calendário indisponível' }");
             using var result = JsonDocument.Parse(calendarResult);
             var properties = result.RootElement;
             if (!properties.TryGetProperty("levels", out var levels) || levels[0].GetString() != "1" ||

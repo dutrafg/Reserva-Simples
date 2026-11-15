@@ -3399,4 +3399,29 @@ window.addEventListener('storage',event=>{if(event.key===STORE) void integrityMo
 setInterval(integrityMonitor,15000);
 void integrityMonitor();
 
+if (window.__RESERVA_DESKTOP__ && window.__RESERVA_DESKTOP_SMOKE__) {
+  window.__reservaCheckCalendar = () => {
+    const key = mkey(state.year, state.month);
+    const original = db.records;
+    try {
+      db.records = [
+        {id:'qa-calendar-low', date:key+'-01', kind:'expense', category:'Mercado', amount:100},
+        {id:'qa-calendar-high', date:key+'-02', kind:'expense', category:'Mercado', amount:10000}
+      ];
+      calendar();
+      const grid = document.querySelector('#page-calendar');
+      const cells = ['01', '02'].map(day => grid.querySelector('[data-calendar-date="' + key + '-' + day + '"]'));
+      return {
+        levels: cells.map(cell => cell?.dataset.expenseHeat),
+        colors: cells.map(cell => cell && getComputedStyle(cell).backgroundColor),
+        dots: Boolean(grid.querySelector('.calendar-day .calendar-dot, .calendar-day .calendar-markers'))
+      };
+    } catch (error) {
+      return {error: String(error)};
+    } finally {
+      db.records = original;
+    }
+  };
+}
+
 })();
