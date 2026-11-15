@@ -702,7 +702,19 @@ button,input,select,textarea{font-family:var(--app-system-font)!important;letter
  #page-home .home-quarter-grid>.today-stat{min-height:166px;padding:18px}
 }
 </style>
-</head>
+<style>
+.integrity-progress.card{position:fixed;inset:auto 16px max(94px,calc(84px + env(safe-area-inset-bottom))) auto;margin:0;width:min(380px,calc(100vw - 32px));max-height:45dvh;overflow:auto;color:var(--ink);z-index:9999}
+.integrity-progress h2{margin:0;font-size:1.05rem}
+.integrity-progress .integrity-screen{margin:4px 0 0;color:var(--muted);font-size:.85rem}
+.integrity-stage{border-top:1px solid var(--line);padding:9px 0 2px}
+.integrity-stage>div{display:flex;justify-content:space-between;gap:8px;align-items:baseline;font-size:.83rem}
+.integrity-stage output{color:var(--muted);font-variant-numeric:tabular-nums}
+.integrity-stage progress{display:block;width:100%;height:8px;margin:7px 0 4px;appearance:none;border:0;border-radius:999px;overflow:hidden;background:var(--line);accent-color:var(--brand-600)}
+.integrity-stage progress::-webkit-progress-bar{background:var(--line)}
+.integrity-stage progress::-webkit-progress-value{background:var(--brand-600,#1762c4);border-radius:999px}
+.integrity-stage progress::-moz-progress-bar{background:var(--brand-600,#1762c4);border-radius:999px}
+@media(min-width:900px){.integrity-progress.card{bottom:24px;right:24px}}
+</style></head>
 <body>
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
  <defs><linearGradient id="settingsSteel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7f9fb"/><stop offset=".24" stop-color="#aeb8c2"/><stop offset=".48" stop-color="#edf1f4"/><stop offset=".72" stop-color="#8995a1"/><stop offset="1" stop-color="#d7dee4"/></linearGradient></defs>
@@ -1034,6 +1046,48 @@ body:has(#page-home.active) .main>.header #headerCalendar,body .main>.header #he
 body .main>.header :is(#headerCalendar,#headerSettings) span{display:none}
 body .main>.header #desktopNotificationWrap{width:44px}
 }
+</style>
+<style id="tablet-navigation-breakpoint-fix">
+/* Tablets in landscape use the touch navigation; keep the desktop sidebar hidden. */
+@media (min-width:761px) and (max-width:1023px),
+       (min-width:761px) and (max-width:1366px) and (pointer:coarse){
+  .shell,body.sidebar-compact .shell{display:block!important;grid-template-columns:minmax(0,1fr)!important}
+  #desktopSidebar,.sidebar-control{display:none!important}
+  #mobileNav{display:grid!important}
+  .main{padding-block:18px calc(100px + env(safe-area-inset-bottom))!important;padding-inline:clamp(12px,3vw,28px)!important}
+}
+</style>
+<style id="calendar-expense-heatmap">
+.calendar-heat-legend{display:inline-flex;align-items:center;gap:4px;padding-left:4px}
+.calendar-heat-legend small{font-size:9px;color:var(--muted)}
+.calendar-heat-legend b{font-size:9px;color:var(--muted)}
+.calendar-heat-legend i{display:inline-block;width:11px;height:11px;border:1px solid color-mix(in srgb,var(--line),transparent 18%);border-radius:3px}
+.calendar-heat-legend [data-heat-level="1"]{background:color-mix(in srgb,var(--danger) 22%,var(--card))}
+.calendar-heat-legend [data-heat-level="2"]{background:color-mix(in srgb,var(--danger) 42%,var(--card))}
+.calendar-heat-legend [data-heat-level="3"]{background:color-mix(in srgb,var(--danger) 62%,var(--card))}
+.calendar-heat-legend [data-heat-level="4"]{background:color-mix(in srgb,var(--danger) 90%,var(--card))}
+.calendar-heat-legend [data-heat-level="5"]{background:var(--danger)}
+.calendar-day[data-expense-heat="1"]{--calendar-expense-heat-bg:color-mix(in srgb,var(--danger) 22%,var(--card))}
+.calendar-day[data-expense-heat="2"]{--calendar-expense-heat-bg:color-mix(in srgb,var(--danger) 42%,var(--card))}
+.calendar-day[data-expense-heat="3"]{--calendar-expense-heat-bg:color-mix(in srgb,var(--danger) 62%,var(--card))}
+.calendar-day[data-expense-heat="4"]{--calendar-expense-heat-bg:color-mix(in srgb,var(--danger) 90%,var(--card));color:#fff}
+.calendar-day[data-expense-heat="5"]{--calendar-expense-heat-bg:var(--danger);color:#fff}
+.calendar-day[data-expense-heat="4"] :is(.calendar-day-number,.calendar-cell-preview,.calendar-count,.calendar-balance),.calendar-day[data-expense-heat="5"] :is(.calendar-day-number,.calendar-cell-preview,.calendar-count,.calendar-balance){color:#fff}
+.calendar-day[data-expense-heat]{background:var(--calendar-expense-heat-bg)}
+.calendar-day[data-expense-heat]:hover{background:var(--calendar-expense-heat-bg);border-color:var(--danger)}
+.calendar-day[data-expense-heat].selected{background:var(--calendar-expense-heat-bg);border-color:var(--green)}
+body.dark .calendar-heat-legend [data-heat-level="1"]{background:color-mix(in srgb,var(--danger) 14%,var(--card))}
+body.dark .calendar-heat-legend [data-heat-level="2"]{background:color-mix(in srgb,var(--danger) 22%,var(--card))}
+body.dark .calendar-heat-legend [data-heat-level="3"]{background:color-mix(in srgb,var(--danger) 30%,var(--card))}
+body.dark .calendar-heat-legend [data-heat-level="4"]{background:color-mix(in srgb,var(--danger) 38%,var(--card))}
+body.dark .calendar-heat-legend [data-heat-level="5"]{background:color-mix(in srgb,var(--danger) 46%,var(--card))}
+body.dark .calendar-day[data-expense-heat="1"]{--calendar-expense-heat-bg:color-mix(in srgb,var(--danger) 14%,var(--card))}
+body.dark .calendar-day[data-expense-heat="2"]{--calendar-expense-heat-bg:color-mix(in srgb,var(--danger) 22%,var(--card))}
+body.dark .calendar-day[data-expense-heat="3"]{--calendar-expense-heat-bg:color-mix(in srgb,var(--danger) 30%,var(--card))}
+body.dark .calendar-day[data-expense-heat="4"]{--calendar-expense-heat-bg:color-mix(in srgb,var(--danger) 38%,var(--card));color:var(--ink)}
+body.dark .calendar-day[data-expense-heat="5"]{--calendar-expense-heat-bg:color-mix(in srgb,var(--danger) 46%,var(--card));color:var(--ink)}
+body.dark .calendar-day[data-expense-heat="4"] :is(.calendar-day-number,.calendar-cell-preview,.calendar-count,.calendar-balance),body.dark .calendar-day[data-expense-heat="5"] :is(.calendar-day-number,.calendar-cell-preview,.calendar-count,.calendar-balance){color:var(--ink)}
+@media(max-width:600px){.calendar-heat-legend{gap:3px}.calendar-heat-legend i{width:9px;height:9px}}
 </style>
 </body>
 </html>

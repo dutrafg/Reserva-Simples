@@ -1,6 +1,6 @@
 # Reserva Simples Desktop — WebView2 (Windows x64)
 
-**Versão desktop:** 0.2.2 Beta. **PWA incorporado:** 0.39.33 RC1 (14/11/2026). A versão corrige o atualizador do Windows e adiciona o ícone nativo do Reserva Simples ao executável e aos atalhos. O fluxo de atualização do PWA não aparece mais como uma segunda fonte de versão dentro do Windows.
+**Versão desktop:** 0.2.3 Beta. **PWA incorporado:** 0.39.40 RC1. O calendário colore o quadrado inteiro de cada dia conforme a intensidade das despesas. A versão também incorpora a correção de navegação em telas intermediárias e a ampliação da Central de Integridade.
 
 Implementação experimental que executa os **arquivos originais** `index.html`, `app.js`, `engines.js` e demais recursos da branch de origem. O projeto não reimplementa em C# os módulos do PWA.
 

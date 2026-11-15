@@ -1,3 +1,23 @@
+## v0.39.40 RC1
+
+- Removidos os marcadores circulares da grade do calendário; a cor do quadrado inteiro indica a intensidade das despesas.
+- Entradas, saídas, tarefas e notas continuam disponíveis ao selecionar o dia.
+
+## v0.39.39 RC1
+
+- O mapa de calor agora colore a célula inteira em cinco intensidades mais visíveis, mantendo as bolinhas para identificar entradas e saídas.
+- O preenchimento continua visível com “Ocultar valores”; valores exatos permanecem escondidos nesse modo.
+
+## v0.39.38 RC1
+
+- O calendário escurece os dias conforme o total de despesas registradas, com escala relativa ao maior gasto diário do mês e valores no detalhe acessível.
+- O mapa de calor não inclui previsões recorrentes e é ocultado junto com os valores no modo de privacidade.
+
+## v0.39.37 RC1
+
+- Corrigido o layout em tablets com toque: a navegação inferior não aparece junto da barra lateral nem expande o menu por toda a tela.
+- A Central de Integridade verifica a navegação em seis larguras com perfis de ponteiro fino e grosso, além de conferir o viewport atual.
+
 ## v0.39.26 RC1
 
 - O atualizador acompanha a instalação até a ativação e informa com clareza quando o navegador não encontra o Service Worker publicado.

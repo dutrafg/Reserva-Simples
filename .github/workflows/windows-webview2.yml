@@ -51,12 +51,12 @@ jobs:
             if ($sourceHash -ne $packageHash) { throw "O recurso $file do instalador difere do código-fonte" }
           }
           $pwa = Get-Content (Join-Path $web 'version.json') -Raw | ConvertFrom-Json
-          if ($pwa.version -ne '0.39.33' -or $pwa.channel -ne 'rc1') {
+          if ($pwa.version -ne '0.39.40' -or $pwa.channel -ne 'rc1') {
             throw "Versão PWA inesperada no pacote: $($pwa.version) $($pwa.channel)"
           }
           $desktopProject = [xml](Get-Content windows-webview2/ReservaSimplesDesktop.csproj -Raw)
-          if ($desktopProject.Project.PropertyGroup.Version -ne '0.2.2') { throw "Versão desktop divergente" }
-          Write-Host "PWA $($pwa.version) $($pwa.channel) incorporado ao Reserva Simples Windows 0.2.2"
+          if ($desktopProject.Project.PropertyGroup.Version -ne '0.2.3') { throw "Versão desktop divergente" }
+          Write-Host "PWA $($pwa.version) $($pwa.channel) incorporado ao Reserva Simples Windows 0.2.3"
       - name: Verificar ícone nativo do executável
         shell: pwsh
         run: |
@@ -149,7 +149,7 @@ jobs:
           gh release create "$tag" installer/Reserva-Simples-Desktop-Setup-x64.exe installer/SHA256SUMS.txt \
             --target "$GITHUB_SHA" --prerelease \
             --title "Reserva Simples Desktop Windows x64 ${version} Beta" \
-            --notes "Beta WebView2 x64 com ícone nativo, atualização de Windows por releases, PWA 0.39.33 e persistência validada. O instalador é verificado por SHA-256; testes manuais ainda são necessários."
+            --notes "Beta WebView2 x64 com ícone nativo, atualização de Windows por releases, PWA 0.39.40 RC1 com calendário que colore o quadrado inteiro do dia conforme a intensidade das despesas, e persistência validada. O instalador é verificado por SHA-256; testes manuais ainda são necessários."
           mkdir -p release-check
           gh release download "$tag" --dir release-check \
             --pattern 'Reserva-Simples-Desktop-Setup-x64.exe' \
