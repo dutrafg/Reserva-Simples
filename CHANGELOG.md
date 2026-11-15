@@ -1,3 +1,8 @@
+## v0.39.39 RC1
+
+- O mapa de calor agora colore a célula inteira em cinco intensidades mais visíveis, mantendo as bolinhas para identificar entradas e saídas.
+- O preenchimento continua visível com “Ocultar valores”; valores exatos permanecem escondidos nesse modo.
+
 ## v0.39.38 RC1
 
 - O calendário escurece os dias conforme o total de despesas registradas, com escala relativa ao maior gasto diário do mês e valores no detalhe acessível.
