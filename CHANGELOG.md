@@ -1,3 +1,8 @@
+## v0.39.40 RC1
+
+- Removidos os marcadores circulares da grade do calendário; a cor do quadrado inteiro indica a intensidade das despesas.
+- Entradas, saídas, tarefas e notas continuam disponíveis ao selecionar o dia.
+
 ## v0.39.39 RC1
 
 - O mapa de calor agora colore a célula inteira em cinco intensidades mais visíveis, mantendo as bolinhas para identificar entradas e saídas.

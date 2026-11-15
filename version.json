@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.39",
+  "version": "0.39.40",
   "channel": "rc1",
-  "updatedAt": "2026-11-15T21:16:24.000Z",
+  "updatedAt": "2026-11-15T21:22:37.495Z",
   "source": "same-origin PWA release",
-  "notes": "Aumenta o contraste do mapa de calor no calendário e preenche a célula inteira conforme as despesas."
+  "notes": "Remove os marcadores circulares do calendário; as despesas são indicadas pela cor do quadrado inteiro."
 }
