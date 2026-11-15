@@ -1,6 +1,6 @@
 # Reserva Simples Desktop — WebView2 (Windows x64)
 
-**Versão desktop:** 0.2.4 Beta. **PWA incorporado:** 0.39.40 RC1. O calendário colore o quadrado inteiro de cada dia conforme a intensidade das despesas. A versão também incorpora a correção de navegação em telas intermediárias e a ampliação da Central de Integridade.
+**Versão desktop:** 0.2.6 Beta. **PWA incorporado:** 0.39.40 RC1. O calendário colore o quadrado inteiro de cada dia conforme a intensidade das despesas. A versão também incorpora a correção de navegação em telas intermediárias e a ampliação da Central de Integridade.
 
 Implementação experimental que executa os **arquivos originais** `index.html`, `app.js`, `engines.js` e demais recursos da branch de origem. O projeto não reimplementa em C# os módulos do PWA.
 
@@ -11,7 +11,7 @@ Implementação experimental que executa os **arquivos originais** `index.html`,
 - Perfil do WebView2 em `%LocalAppData%\ReservaSimples\WebView2`. `localStorage` e `IndexedDB` persistem independentemente do Chrome.
 - Ícone de bandeja: fechar a janela **oculta**, não encerra. Menu permite abrir, encerrar, consultar novas versões, selecionar inicialização com Windows.
 - Alertas Web Notification habilitados somente para a origem interna.
-- Botões de atualização do PWA encaminhados ao atualizador Windows, que verifica os releases GitHub com prefixo `windows-webview2-v`, solicita confirmação, baixa o instalador com progresso, valida o SHA-256 publicado e pergunta antes de executá-lo. O instalador é interativo, nunca executado silenciosamente; necessita que a beta seja publicada em release do GitHub.
+- Botões de atualização do PWA encaminhados ao atualizador Windows, que valida SHA-256 e assinatura Authenticode, solicita confirmação, baixa o instalador com progresso e só executa pacotes assinados por um editor confiável. O instalador é interativo, nunca executado silenciosamente; necessita que a beta seja publicada em release do GitHub.
 - PWA original em `main` permanece intacto; a versão WPF/SQLite anterior em `windows-native` também.
 
 ## Compatibilidade de dados
@@ -31,7 +31,7 @@ O GitHub Actions gera o instalador e executa smoke tests de abertura, interface,
 
 ## Notas de segurança
 
-A origem local é restrita, navegação externa abre no navegador e pedidos de permissão não associados a notificações são bloqueados. O armazenamento WebView2 não é automaticamente criptografado pelo aplicativo, portanto use proteção do Windows/BitLocker e backups adequados. O atualizador usa somente links de assets da conta/repositório oficiais, limita o tamanho do download e compara o SHA-256 do EXE com `SHA256SUMS.txt`. O hash impede corrupção ou alteração em trânsito, mas não substitui assinatura de código Authenticode. A instalação requer confirmação explícita. O botão Cancelar remove o download parcial.
+A origem local é restrita, navegação externa abre no navegador e pedidos de permissão não associados a notificações são bloqueados. O armazenamento WebView2 não é automaticamente criptografado pelo aplicativo, portanto use proteção do Windows/BitLocker e backups adequados. O atualizador usa somente links de assets da conta/repositório oficiais, limita o tamanho do download e compara o SHA-256 do EXE com `SHA256SUMS.txt`. O hash detecta corrupção ou alteração em trânsito, enquanto a assinatura Authenticode valida a identidade do editor para o Windows. Releases de instalação são publicados apenas depois da validação da assinatura do executável e do instalador. A instalação requer confirmação explícita. O botão Cancelar remove o download parcial.
 
 ## Correções Windows 0.2.2
 
@@ -44,3 +44,13 @@ A origem local é restrita, navegação externa abre no navegador e pedidos de p
 ### Limites de validação
 
 Os testes de CI abrangem instalação, reinício, persistência, reinstalação e presença do ícone. A consulta e o download do release são testados no workflow, mas os diálogos do atualizador e as notificações precisam ser confirmados em Windows 11 real.
+
+
+## Assinatura de código para publicação
+
+O instalador beta precisa de um certificado Authenticode emitido por uma autoridade confiável para executar em computadores com Smart App Control. No GitHub, configure em **Settings → Secrets and variables → Actions**:
+
+- `WINDOWS_SIGNING_CERTIFICATE_BASE64`: conteúdo do arquivo PFX codificado em Base64.
+- `WINDOWS_SIGNING_CERTIFICATE_PASSWORD`: senha do PFX.
+
+O workflow assina o executável do aplicativo antes de empacotá-lo, assina o instalador e valida os dois. Sem os segredos, o CI ainda gera o artefato para verificação, mas não publica um release instalável. Não envie o PFX nem a senha em commits, issues ou mensagens.
