@@ -262,6 +262,7 @@ public partial class MainWindow : Window
 
             const string calendarCheck = """
                 (() => {
+                  try {
                   const key = mkey(state.year, state.month);
                   const original = db.records;
                   try {
@@ -273,17 +274,23 @@ public partial class MainWindow : Window
                     const grid = document.querySelector('#page-calendar');
                     const low = grid.querySelector('[data-calendar-date="' + key + '-01"]');
                     const high = grid.querySelector('[data-calendar-date="' + key + '-02"]');
-                    return low?.dataset.expenseHeat === '1' && high?.dataset.expenseHeat === '5' &&
-                      getComputedStyle(low).backgroundColor !== getComputedStyle(high).backgroundColor &&
-                      getComputedStyle(high).backgroundColor !== 'rgba(0, 0, 0, 0)' &&
-                      !grid.querySelector('.calendar-day .calendar-dot, .calendar-day .calendar-markers');
+                    const colors = [low, high].map(cell => cell && getComputedStyle(cell).backgroundColor);
+                    const dots = Boolean(grid.querySelector('.calendar-day .calendar-dot, .calendar-day .calendar-markers'));
+                    return { levels: [low?.dataset.expenseHeat, high?.dataset.expenseHeat], colors, dots };
                   } finally {
                     db.records = original;
                   }
+                  } catch (error) { return { error: String(error), stack: error.stack }; }
                 })()
                 """;
-            if (await Browser.CoreWebView2.ExecuteScriptAsync(calendarCheck) != "true")
-                throw new InvalidOperationException("O mapa de calor do calendário não foi renderizado.");
+            string calendarResult = await Browser.CoreWebView2.ExecuteScriptAsync(calendarCheck);
+            using var result = JsonDocument.Parse(calendarResult);
+            var properties = result.RootElement;
+            if (!properties.TryGetProperty("levels", out var levels) || levels[0].GetString() != "1" ||
+                levels[1].GetString() != "5" || properties.GetProperty("dots").GetBoolean() ||
+                properties.GetProperty("colors")[0].GetString() == properties.GetProperty("colors")[1].GetString() ||
+                properties.GetProperty("colors")[1].GetString() == "rgba(0, 0, 0, 0)")
+                throw new InvalidOperationException("Mapa de calor: " + calendarResult);
 
             const string storageKey = "reserva-desktop-smoke-check";
             string script = smokeWrite
