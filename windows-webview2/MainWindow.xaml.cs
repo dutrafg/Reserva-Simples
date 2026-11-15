@@ -212,7 +212,7 @@ public partial class MainWindow : Window
 
     private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
-        if (!e.Source.StartsWith(LocalOrigin, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(e.Source, LocalOrigin + "index.html", StringComparison.Ordinal))
             return;
         try
         {
@@ -251,7 +251,61 @@ public partial class MainWindow : Window
         try
         {
             var action = ReadString(message, "action");
-            if (action == "choose")
+            if (action is "save-file" or "open-file" or "choose")
+                await System.Windows.Threading.Dispatcher.Yield();
+
+            if (action == "save-file")
+            {
+                var content = ReadString(message, "content") ?? throw new JsonException();
+                var name = ReadString(message, "name");
+                var dialog = new Microsoft.Win32.SaveFileDialog
+                {
+                    Title = "Salvar backup do Reserva Simples",
+                    Filter = "Backup JSON (*.json)|*.json",
+                    DefaultExt = ".json",
+                    AddExtension = true,
+                    OverwritePrompt = true,
+                    FileName = name == "reserva-cofre.json" ? name : $"reserva-backup-{DateTime.Today:yyyy-MM-dd}.json"
+                };
+                if (dialog.ShowDialog(this) != true) error = "AbortError";
+                else
+                {
+                    var directory = Path.GetDirectoryName(dialog.FileName)!;
+                    var temporary = Path.Combine(directory, $".reserva-{Guid.NewGuid():N}.tmp");
+                    try
+                    {
+                        await File.WriteAllTextAsync(temporary, content);
+                        File.Move(temporary, dialog.FileName, overwrite: true);
+                    }
+                    finally
+                    {
+                        if (File.Exists(temporary)) File.Delete(temporary);
+                    }
+                }
+            }
+            else if (action == "open-file")
+            {
+                var dialog = new Microsoft.Win32.OpenFileDialog
+                {
+                    Title = "Abrir backup do Reserva Simples",
+                    Filter = "Backup JSON (*.json)|*.json",
+                    CheckFileExists = true
+                };
+                if (dialog.ShowDialog(this) != true) error = "AbortError";
+                else
+                {
+                    await using var stream = File.OpenRead(dialog.FileName);
+                    if (stream.Length > 8_000_000) error = "QuotaExceededError";
+                    else
+                    {
+                        var bytes = new byte[(int)stream.Length];
+                        await stream.ReadExactlyAsync(bytes);
+                        using var reader = new StreamReader(new MemoryStream(bytes));
+                        value = reader.ReadToEnd();
+                    }
+                }
+            }
+            else if (action == "choose")
             {
                 var dialog = new OpenFolderDialog { Title = "Escolher pasta para backup cifrado" };
                 if (dialog.ShowDialog(this) == true)
