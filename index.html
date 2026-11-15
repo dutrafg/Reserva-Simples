@@ -1057,5 +1057,24 @@ body .main>.header #desktopNotificationWrap{width:44px}
   .main{padding-block:18px calc(100px + env(safe-area-inset-bottom))!important;padding-inline:clamp(12px,3vw,28px)!important}
 }
 </style>
+<style id="calendar-expense-heatmap">
+.calendar-heat-legend{display:inline-flex;align-items:center;gap:4px;padding-left:4px}
+.calendar-heat-legend small{font-size:9px;color:var(--muted)}
+.calendar-heat-legend i{display:inline-block;width:11px;height:11px;border:1px solid color-mix(in srgb,var(--line),transparent 18%);border-radius:3px}
+.calendar-heat-legend [data-heat-level="1"]{background:color-mix(in srgb,var(--danger) 9%,var(--card))}
+.calendar-heat-legend [data-heat-level="2"]{background:color-mix(in srgb,var(--danger) 17%,var(--card))}
+.calendar-heat-legend [data-heat-level="3"]{background:color-mix(in srgb,var(--danger) 25%,var(--card))}
+.calendar-heat-legend [data-heat-level="4"]{background:color-mix(in srgb,var(--danger) 35%,var(--card))}
+.calendar-heat-legend [data-heat-level="5"]{background:color-mix(in srgb,var(--danger) 46%,var(--card))}
+.calendar-day[data-expense-heat="1"]{--calendar-expense-heat-bg:color-mix(in srgb,var(--danger) 9%,var(--card))}
+.calendar-day[data-expense-heat="2"]{--calendar-expense-heat-bg:color-mix(in srgb,var(--danger) 17%,var(--card))}
+.calendar-day[data-expense-heat="3"]{--calendar-expense-heat-bg:color-mix(in srgb,var(--danger) 25%,var(--card))}
+.calendar-day[data-expense-heat="4"]{--calendar-expense-heat-bg:color-mix(in srgb,var(--danger) 35%,var(--card))}
+.calendar-day[data-expense-heat="5"]{--calendar-expense-heat-bg:color-mix(in srgb,var(--danger) 46%,var(--card))}
+.calendar-day[data-expense-heat]{background:var(--calendar-expense-heat-bg)}
+.calendar-day[data-expense-heat]:hover{background:var(--calendar-expense-heat-bg);border-color:var(--danger)}
+.calendar-day[data-expense-heat].selected{background:var(--calendar-expense-heat-bg);border-color:var(--green)}
+@media(max-width:600px){.calendar-heat-legend{gap:3px}.calendar-heat-legend i{width:9px;height:9px}}
+</style>
 </body>
 </html>

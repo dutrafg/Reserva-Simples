@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.37",
+  "version": "0.39.38",
   "channel": "rc1",
-  "updatedAt": "2026-11-14T19:25:25.000Z",
+  "updatedAt": "2026-11-15T20:55:39.000Z",
   "source": "same-origin PWA release",
-  "notes": "Corrige a navegação em tablets e adiciona uma matriz responsiva de viewport à Central de Integridade."
+  "notes": "Adiciona ao calendário um mapa de calor das despesas diárias, com legenda e proteção para o modo Ocultar valores."
 }

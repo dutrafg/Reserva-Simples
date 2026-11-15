@@ -1,3 +1,8 @@
+## v0.39.38 RC1
+
+- O calendário escurece os dias conforme o total de despesas registradas, com escala relativa ao maior gasto diário do mês e valores no detalhe acessível.
+- O mapa de calor não inclui previsões recorrentes e é ocultado junto com os valores no modo de privacidade.
+
 ## v0.39.37 RC1
 
 - Corrigido o layout em tablets com toque: a navegação inferior não aparece junto da barra lateral nem expande o menu por toda a tela.
