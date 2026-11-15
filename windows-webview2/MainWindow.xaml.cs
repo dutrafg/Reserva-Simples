@@ -221,6 +221,8 @@ public partial class MainWindow : Window
                 return;
             if (type.GetString() == "check-updates")
                 _ = CheckUpdatesAsync();
+            else if (type.GetString() == "backup-folder")
+                _ = HandleBackupFolderAsync(json.RootElement.Clone());
             else if (type.GetString() == "notify")
             {
                 string title = json.RootElement.TryGetProperty("title", out var t)
@@ -232,6 +234,70 @@ public partial class MainWindow : Window
             }
         }
         catch (JsonException) { /* Ignore malformed untrusted web messages. */ }
+    }
+
+    private readonly Dictionary<string, string> backupFolders = new();
+
+    private async Task HandleBackupFolderAsync(JsonElement message)
+    {
+        static string? ReadString(JsonElement root, string key) =>
+            root.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String
+                ? value.GetString() : null;
+
+        var id = ReadString(message, "id");
+        if (id is null || id.Length > 100) return;
+        string? value = null;
+        string? error = null;
+        try
+        {
+            var action = ReadString(message, "action");
+            if (action == "choose")
+            {
+                var dialog = new OpenFolderDialog { Title = "Escolher pasta para backup cifrado" };
+                if (dialog.ShowDialog(this) == true)
+                {
+                    value = Guid.NewGuid().ToString("N");
+                    backupFolders.Add(value, dialog.FolderName);
+                }
+                else error = "AbortError";
+            }
+            else
+            {
+                var token = ReadString(message, "token");
+                var name = ReadString(message, "name");
+                if (token is null || !backupFolders.TryGetValue(token, out var folder) ||
+                    name is null || name.Length > 160 ||
+                    !System.Text.RegularExpressions.Regex.IsMatch(name,
+                        @"\AReserva_Simples_(?:cifrado|(?:cifrado|versao)_[a-zA-Z0-9_-]+)\.json\z"))
+                    throw new UnauthorizedAccessException();
+
+                var path = Path.Combine(folder, name);
+                if (File.Exists(path) && File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
+                    throw new UnauthorizedAccessException();
+                if (action == "read")
+                    value = await File.ReadAllTextAsync(path);
+                else if (action == "write")
+                {
+                    var content = ReadString(message, "content") ?? throw new JsonException();
+                    var temp = Path.Combine(folder, $".reserva-{Guid.NewGuid():N}.tmp");
+                    try
+                    {
+                        await File.WriteAllTextAsync(temp, content);
+                        File.Move(temp, path, overwrite: true);
+                    }
+                    finally
+                    {
+                        if (File.Exists(temp)) File.Delete(temp);
+                    }
+                }
+                else throw new UnauthorizedAccessException();
+            }
+        }
+        catch (FileNotFoundException) { error = "NotFoundError"; }
+        catch (Exception) { error = "NotAllowedError"; }
+
+        Browser.CoreWebView2?.PostWebMessageAsJson(
+            JsonSerializer.Serialize(new { type = "backup-response", id, value, error }));
     }
 
     private static void OpenExternal(string? address)
