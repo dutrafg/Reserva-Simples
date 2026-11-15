@@ -3101,7 +3101,7 @@ window.addEventListener('offline',()=>diagnostics.record('connection.offline'));
 window.addEventListener('resize',syncDesktopHeaderControls,{passive:true});
 window.addEventListener('online',()=>{diagnostics.record('connection.online');if(location.protocol!=='file:'){checkForUpdates();updateCdi();updateIpca()}});
 window.addEventListener('focus',checkBillReminders);document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkBillReminders()});setTimeout(checkBillReminders,2500);setInterval(checkBillReminders,30*60*1000);
-if('serviceWorker' in navigator&&location.protocol!=='file:')window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>{updateRegistration=reg}).catch(e=>diagnostics.record('offline.registration_failed',e)));
+if(!window.__RESERVA_DESKTOP__&&'serviceWorker' in navigator&&location.protocol!=='file:')window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>{updateRegistration=reg}).catch(e=>diagnostics.record('offline.registration_failed',e)));
 document.addEventListener('keydown',event=>{
   const reload=event.key==='F5'||((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='r');
   if(!reload||updateInProgress)return;

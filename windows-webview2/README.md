@@ -1,6 +1,6 @@
 # Reserva Simples Desktop — WebView2 (Windows x64)
 
-**Versão desktop:** 0.2.3 Beta. **PWA incorporado:** 0.39.40 RC1. O calendário colore o quadrado inteiro de cada dia conforme a intensidade das despesas. A versão também incorpora a correção de navegação em telas intermediárias e a ampliação da Central de Integridade.
+**Versão desktop:** 0.2.4 Beta. **PWA incorporado:** 0.39.40 RC1. O calendário colore o quadrado inteiro de cada dia conforme a intensidade das despesas. A versão também incorpora a correção de navegação em telas intermediárias e a ampliação da Central de Integridade.
 
 Implementação experimental que executa os **arquivos originais** `index.html`, `app.js`, `engines.js` e demais recursos da branch de origem. O projeto não reimplementa em C# os módulos do PWA.
 

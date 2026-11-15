@@ -140,6 +140,10 @@ public partial class MainWindow : Window
             var core = Browser.CoreWebView2;
             core.SetVirtualHostNameToFolderMapping(
                 LocalHost, webFolder, CoreWebView2HostResourceAccessKind.DenyCors);
+            // A previous profile can still have a service worker for this origin.
+            // Load the installed files on the first navigation after an upgrade.
+            await core.CallDevToolsProtocolMethodAsync("Network.setBypassServiceWorker", "{\"bypass\":true}");
+            await core.CallDevToolsProtocolMethodAsync("Network.setCacheDisabled", "{\"cacheDisabled\":true}");
             core.Settings.AreDevToolsEnabled = false;
             core.Settings.IsStatusBarEnabled = false;
             core.NewWindowRequested += (_, args) =>
@@ -255,6 +259,31 @@ public partial class MainWindow : Window
                 """;
             if (await Browser.CoreWebView2.ExecuteScriptAsync(domCheck) != "true")
                 throw new InvalidOperationException("Módulos do PWA ou motores financeiros não carregaram.");
+
+            const string calendarCheck = """
+                (() => {
+                  const key = mkey(state.year, state.month);
+                  const original = db.records;
+                  try {
+                    db.records = [
+                      {id:'qa-calendar-low', date:key+'-01', kind:'expense', category:'Mercado', amount:100},
+                      {id:'qa-calendar-high', date:key+'-02', kind:'expense', category:'Mercado', amount:10000}
+                    ];
+                    calendar();
+                    const grid = document.querySelector('#page-calendar');
+                    const low = grid.querySelector('[data-calendar-date="' + key + '-01"]');
+                    const high = grid.querySelector('[data-calendar-date="' + key + '-02"]');
+                    return low?.dataset.expenseHeat === '1' && high?.dataset.expenseHeat === '5' &&
+                      getComputedStyle(low).backgroundColor !== getComputedStyle(high).backgroundColor &&
+                      getComputedStyle(high).backgroundColor !== 'rgba(0, 0, 0, 0)' &&
+                      !grid.querySelector('.calendar-day .calendar-dot, .calendar-day .calendar-markers');
+                  } finally {
+                    db.records = original;
+                  }
+                })()
+                """;
+            if (await Browser.CoreWebView2.ExecuteScriptAsync(calendarCheck) != "true")
+                throw new InvalidOperationException("O mapa de calor do calendário não foi renderizado.");
 
             const string storageKey = "reserva-desktop-smoke-check";
             string script = smokeWrite
