@@ -19,7 +19,7 @@ on:
       - 'icon*'
       - '.github/workflows/windows-webview2.yml'
   pull_request:
-    branches: [main]
+    branches: [main, windows-webview2]
     paths:
       - 'windows-webview2/**'
       - '.github/workflows/windows-webview2.yml'
@@ -30,6 +30,8 @@ jobs:
   windows-build:
     runs-on: windows-2025
     timeout-minutes: 30
+    outputs:
+      signed: ${{ steps.sign_installer.outputs.signed }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -38,6 +40,35 @@ jobs:
       - name: Publicar aplicativo Windows x64
         shell: pwsh
         run: dotnet publish windows-webview2/ReservaSimplesDesktop.csproj -c Release -r win-x64 --self-contained true -o artifacts/desktop-win-x64
+      - name: Assinar o executável do aplicativo quando houver certificado confiável
+        if: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 != '' && secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD != '' }}
+        env:
+          WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
+          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+        shell: pwsh
+        run: |
+          $pfxPath = Join-Path $env:RUNNER_TEMP "reserva-signing.pfx"
+          $cert = $null
+          try {
+            [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:WINDOWS_SIGNING_CERTIFICATE_BASE64))
+            $password = ConvertTo-SecureString $env:WINDOWS_SIGNING_CERTIFICATE_PASSWORD -AsPlainText -Force
+            $cert = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $password
+            if (!$cert -or !$cert.HasPrivateKey -or $cert.NotAfter -le (Get-Date)) {
+              throw "Certificado de assinatura ausente, sem chave privada ou expirado."
+            }
+            $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
+              Sort-Object FullName | Select-Object -Last 1
+            if (!$signtool) { throw "SignTool não encontrado no runner Windows." }
+            $exe = (Resolve-Path "artifacts/desktop-win-x64/ReservaSimplesDesktop.exe").Path
+            & $signtool.FullName sign /sha1 $cert.Thumbprint /s My /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $exe
+            if ($LASTEXITCODE -ne 0) { throw "Falha ao assinar o executável principal." }
+            $signature = Get-AuthenticodeSignature $exe
+            if ($signature.Status -ne "Valid") { throw "Assinatura do aplicativo inválida: $($signature.Status)" }
+            Write-Host "Executável principal assinado e validado."
+          } finally {
+            if ($cert) { Remove-Item "Cert:\CurrentUser\My\$($cert.Thumbprint)" -ErrorAction SilentlyContinue }
+            Remove-Item $pfxPath -Force -ErrorAction SilentlyContinue
+          }
       - name: Confirmar inclusão do PWA da branch
         shell: pwsh
         run: |
@@ -55,8 +86,8 @@ jobs:
             throw "Versão PWA inesperada no pacote: $($pwa.version) $($pwa.channel)"
           }
           $desktopProject = [xml](Get-Content windows-webview2/ReservaSimplesDesktop.csproj -Raw)
-          if ($desktopProject.Project.PropertyGroup.Version -ne '0.2.5') { throw "Versão desktop divergente" }
-          Write-Host "PWA $($pwa.version) $($pwa.channel) incorporado ao Reserva Simples Windows 0.2.5"
+          if ($desktopProject.Project.PropertyGroup.Version -ne '0.2.6') { throw "Versão desktop divergente" }
+          Write-Host "PWA $($pwa.version) $($pwa.channel) incorporado ao Reserva Simples Windows 0.2.6"
       - name: Verificar ícone nativo do executável
         shell: pwsh
         run: |
@@ -81,6 +112,47 @@ jobs:
         run: |
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" windows-webview2/installer/ReservaSimplesDesktop.iss
           exit $LASTEXITCODE
+      - name: Assinar e validar o instalador para publicação
+        id: sign_installer
+        env:
+          WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
+          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERTIFICATE_BASE64) -or
+              [string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERTIFICATE_PASSWORD)) {
+            "signed=false" >> $env:GITHUB_OUTPUT
+            Write-Warning "Sem certificado confiável: o artefato não será publicado como release."
+            exit 0
+          }
+          $pfxPath = Join-Path $env:RUNNER_TEMP "reserva-signing.pfx"
+          $cert = $null
+          try {
+            [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:WINDOWS_SIGNING_CERTIFICATE_BASE64))
+            $password = ConvertTo-SecureString $env:WINDOWS_SIGNING_CERTIFICATE_PASSWORD -AsPlainText -Force
+            $cert = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $password
+            if (!$cert -or !$cert.HasPrivateKey -or $cert.NotAfter -le (Get-Date)) {
+              throw "Certificado de assinatura ausente, sem chave privada ou expirado."
+            }
+            $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
+              Sort-Object FullName | Select-Object -Last 1
+            if (!$signtool) { throw "SignTool não encontrado no runner Windows." }
+            $app = (Resolve-Path "artifacts/desktop-win-x64/ReservaSimplesDesktop.exe").Path
+            $setup = (Resolve-Path "artifacts/desktop-installer/Reserva-Simples-Desktop-Setup-x64.exe").Path
+            if ((Get-AuthenticodeSignature $app).Status -ne "Valid") {
+              throw "O executável do aplicativo não tem assinatura confiável válida."
+            }
+            & $signtool.FullName sign /sha1 $cert.Thumbprint /s My /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $setup
+            if ($LASTEXITCODE -ne 0) { throw "Falha ao assinar o instalador." }
+            if ((Get-AuthenticodeSignature $setup).Status -ne "Valid") {
+              throw "A assinatura Authenticode do instalador não foi validada."
+            }
+            "signed=true" >> $env:GITHUB_OUTPUT
+            Write-Host "Aplicativo e instalador assinados e validados."
+          } finally {
+            if ($cert) { Remove-Item "Cert:\CurrentUser\My\$($cert.Thumbprint)" -ErrorAction SilentlyContinue }
+            Remove-Item $pfxPath -Force -ErrorAction SilentlyContinue
+          }
       - name: Instalar e validar PWA e persistência em duas aberturas
         shell: pwsh
         run: |
@@ -121,7 +193,8 @@ jobs:
     if: >-
       github.ref == 'refs/heads/windows-webview2' &&
       (github.event_name == 'push' ||
-       (github.event_name == 'workflow_dispatch' && inputs.publish_beta))
+       (github.event_name == 'workflow_dispatch' && inputs.publish_beta)) &&
+      needs.windows-build.outputs.signed == 'true'
     needs: windows-build
     runs-on: ubuntu-latest
     permissions:
@@ -149,7 +222,7 @@ jobs:
           gh release create "$tag" installer/Reserva-Simples-Desktop-Setup-x64.exe installer/SHA256SUMS.txt \
             --target "$GITHUB_SHA" --prerelease \
             --title "Reserva Simples Desktop Windows x64 ${version} Beta" \
-            --notes "Backup cifrado em pasta com seletor nativo do Windows. Inclui calendário com mapa de calor e PWA 0.39.40 RC1."
+            --notes "Atualização x64 com executável e instalador assinados e validados por Authenticode. Backup cifrado em pasta e calendário com mapa de calor; PWA 0.39.40 RC1."
           mkdir -p release-check
           gh release download "$tag" --dir release-check \
             --pattern 'Reserva-Simples-Desktop-Setup-x64.exe' \
