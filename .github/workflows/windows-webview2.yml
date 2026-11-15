@@ -41,12 +41,16 @@ jobs:
         shell: pwsh
         run: dotnet publish windows-webview2/ReservaSimplesDesktop.csproj -c Release -r win-x64 --self-contained true -o artifacts/desktop-win-x64
       - name: Assinar o executável do aplicativo quando houver certificado confiável
-        if: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 != '' && secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD != '' }}
         env:
           WINDOWS_SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_BASE64 }}
           WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
         shell: pwsh
         run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERTIFICATE_BASE64) -or
+              [string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERTIFICATE_PASSWORD)) {
+            Write-Warning "Sem certificado: executável de teste ficará sem assinatura; release será bloqueado."
+            exit 0
+          }
           $pfxPath = Join-Path $env:RUNNER_TEMP "reserva-signing.pfx"
           $cert = $null
           try {
