@@ -362,8 +362,14 @@ async function submitVault(event) {
 function load(){let raw=null;try{raw=readDatabase();if(!raw){const fresh=empty();try{fresh.notes=validateCalendarNotes(JSON.parse(localStorage.getItem('reserva.calendarNotes')||'[]'))||[]}catch{}return fresh}const parsed=JSON.parse(raw);if(parsed&&parsed.notes===undefined&&parsed.format!=='reserva-vault-1'){try{parsed.notes=validateCalendarNotes(JSON.parse(localStorage.getItem('reserva.calendarNotes')||'[]'))||[]}catch{}}if(parsed?.format==='reserva-vault-1'){vault=parsed;return empty()}const clean=verify(parsed);if(clean)return clean;storageRecoveryRaw=raw}catch(e){try{raw=readDatabase()}catch(ignore){}}if(raw){diagnostics.record('storage.recovery');storageRecoveryRaw=raw;try{recoveryArchived=false;for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key?.startsWith(`${STORE}-corrompido-`)&&localStorage.getItem(key)===raw){recoveryArchived=true;break}}if(!recoveryArchived){localStorage.setItem(`${STORE}-corrompido-${Date.now()}`,raw);recoveryArchived=true}}catch(e){recoveryArchived=false}}return empty()}
 const browserStorage = localStorage;
 const desktopDatabase = window.__RESERVA_DESKTOP__ === true;
-let desktopSnapshot = window.__RESERVA_DESKTOP_DATABASE__ ?? null;
-delete window.__RESERVA_DESKTOP_DATABASE__;
+let desktopSnapshot = null;
+if(desktopDatabase){
+  try { desktopSnapshot=await desktopBackupRequest('database-read'); }
+  catch {
+    alert('Não foi possível abrir o banco local do Reserva Simples. Feche e abra o aplicativo novamente.');
+    return;
+  }
+}
 const usesNativeDatabase = () => desktopDatabase && localStorage === browserStorage;
 function readDatabase(){
   return (usesNativeDatabase() ? desktopSnapshot : null) ?? localStorage.getItem(STORE);
@@ -481,13 +487,18 @@ function desktopBackupRequest(action, fields = {}) {
   return new Promise((resolve, reject) => {
     const receive = ({data}) => {
       if (data?.type !== 'backup-response' || data.id !== id) return;
+      clearTimeout(timeout);
       bridge.removeEventListener('message', receive);
       if (data.error) reject(new DOMException('A operação de backup não foi concluída.', data.error));
       else resolve(data.value);
     };
+    const timeout = action==='database-read' ? setTimeout(()=>{
+      bridge.removeEventListener('message',receive);
+      reject(new DOMException('Tempo limite ao abrir o banco local.','TimeoutError'));
+    },15000) : undefined;
     bridge.addEventListener('message', receive);
     try { bridge.postMessage({type:'backup-folder', action, id, ...fields}); }
-    catch (error) { bridge.removeEventListener('message', receive); reject(error); }
+    catch (error) { clearTimeout(timeout); bridge.removeEventListener('message', receive); reject(error); }
   });
 }
 async function pickDesktopBackupFolder() {

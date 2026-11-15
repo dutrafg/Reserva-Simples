@@ -193,10 +193,6 @@ public partial class MainWindow : Window
             if (smokeWrite || smokeRead)
                 await core.AddScriptToExecuteOnDocumentCreatedAsync("window.__RESERVA_DESKTOP_SMOKE__ = true;");
 
-            var snapshot = new LocalDatabase(DataFolder).Read();
-            await core.AddScriptToExecuteOnDocumentCreatedAsync(
-                "if (window === window.top && location.href === '" + LocalOrigin + "index.html') " +
-                "window.__RESERVA_DESKTOP_DATABASE__ = " + JsonSerializer.Serialize(snapshot) + ";");
             Browser.Source = new Uri(LocalOrigin + "index.html");
             if (backgroundMode)
                 Hide();
@@ -258,7 +254,9 @@ public partial class MainWindow : Window
             if (action is "save-file" or "open-file" or "choose")
                 await System.Windows.Threading.Dispatcher.Yield();
 
-            if (action == "database-write")
+            if (action == "database-read")
+                value = await Task.Run(() => new LocalDatabase(DataFolder).Read());
+            else if (action == "database-write")
             {
                 var content = ReadString(message, "content") ?? throw new JsonException();
                 var expected = ReadString(message, "expected");
@@ -392,6 +390,14 @@ public partial class MainWindow : Window
                 """;
             if (await Browser.CoreWebView2.ExecuteScriptAsync(domCheck) != "true")
                 throw new InvalidOperationException("Módulos do PWA ou motores financeiros não carregaram.");
+
+            // The web application opens the native database before rendering.
+            for (var attempt = 0; attempt < 100; attempt++)
+            {
+                if (await Browser.CoreWebView2.ExecuteScriptAsync("typeof window.__reservaCheckCalendar === 'function'") == "true")
+                    break;
+                await Task.Delay(100);
+            }
 
             string calendarResult = await Browser.CoreWebView2.ExecuteScriptAsync("window.__reservaCheckCalendar?.() ?? { error: 'Diagnóstico do calendário indisponível' }");
             using var result = JsonDocument.Parse(calendarResult);
