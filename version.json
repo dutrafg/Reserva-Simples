@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.40",
+  "version": "0.39.41",
   "channel": "rc1",
-  "updatedAt": "2026-11-15T21:22:37.495Z",
+  "updatedAt": "2026-11-15T22:20:00.000Z",
   "source": "same-origin PWA release",
-  "notes": "Remove os marcadores circulares do calendário; as despesas são indicadas pela cor do quadrado inteiro."
+  "notes": "Adiciona estimativa líquida aproximada de CDBs do Meu Porquinho por Objetivo baseada no CDI e usa o saldo conferido como referência."
 }

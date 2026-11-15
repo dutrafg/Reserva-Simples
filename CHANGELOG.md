@@ -1,3 +1,10 @@
+## v0.39.41 RC1
+
+- Investimentos CDB vinculados ao CDI exibem estimativa bruta e líquida, com IOF e IR aproximados.
+- A estimativa parte do saldo líquido e da data de conferência informados, preservando esse valor como referência e projetando o CDI depois da conferência.
+- CDBs do Meu Porquinho por Objetivo no Inter são reconhecidos como 100% do CDI por padrão; a taxa pode ser ajustada no cadastro.
+- O CDI consultado ao Banco Central inclui as datas das aplicações financeiras, e os saldos informados pelo banco continuam separados dos estimados.
+
 ## v0.39.40 RC1
 
 - Removidos os marcadores circulares da grade do calendário; a cor do quadrado inteiro indica a intensidade das despesas.
