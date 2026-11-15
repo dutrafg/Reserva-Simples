@@ -440,11 +440,30 @@ public partial class MainWindow : Window
                     MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
                 return;
 
-            Process.Start(new ProcessStartInfo(installer)
+            try
             {
-                UseShellExecute = true,
-                WorkingDirectory = Path.GetDirectoryName(installer)!
-            });
+                Process.Start(new ProcessStartInfo(installer)
+                {
+                    UseShellExecute = true,
+                    WorkingDirectory = Path.GetDirectoryName(installer)!
+                });
+            }
+            catch (Win32Exception ex)
+            {
+                await ReportDesktopUpdateAsync("O Windows impediu a abertura do instalador", "error",
+                    release.Version.ToString(3), false,
+                    "O instalador foi baixado e verificado, mas o Windows não permitiu executá-lo. " +
+                    "A atualização exige um pacote assinado por um editor confiável; em computadores gerenciados, " +
+                    "o administrador pode precisar autorizar o editor.");
+                MessageBox.Show(this,
+                    "O Windows impediu a abertura do instalador. O aplicativo atual e seus dados continuam intactos.\\n\\n" +
+                    "A próxima versão precisa estar assinada por um editor confiável. Se este computador usa uma política " +
+                    "de Controle de Aplicativo da organização, peça ao administrador para autorizar o editor.\\n\\n" +
+                    $"Código do Windows: {ex.NativeErrorCode}",
+                    "Instalador bloqueado pelo Windows",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
             ExitApplication();
         }
         catch (OperationCanceledException)
