@@ -451,7 +451,42 @@ async function mutate(callback) {
 }
 async function startFreshAfterCorrupt(){if(!storageRecoveryRaw)return;if(!recoveryArchived)return notify('Exporte primeiro os dados brutos; não consegui criar uma cópia local.');if(!confirm('A cópia bruta foi preservada. Criar uma base vazia neste navegador?'))return;const raw=storageRecoveryRaw;try{localStorage.removeItem(STORE);storageRecoveryRaw=null;db=empty();if(!await save({folderBackup:false})){storageRecoveryRaw=raw;return}render();notify('Base nova iniciada. A cópia bruta preservada continua disponível.')}catch(e){storageRecoveryRaw=raw;notify('Não foi possível iniciar a base nova. A cópia bruta permanece preservada.')}}
 function notify(msg){const t=$('#toast');t.textContent=msg;t.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('visible'),2900)}
-function folderStatusText(){if(!('showDirectoryPicker' in window))return 'Acesso à pasta indisponível neste navegador. Você ainda pode baixar e restaurar arquivos de backup.';if(!backupDirectory)return 'Nenhuma pasta conectada. Escolha uma pasta para salvar o backup automático.';if(backupConflict)return 'Há um backup diferente na pasta. Escolha restaurar o arquivo ou salvar os dados deste aparelho para resolver.';return 'Pasta conectada. O backup será atualizado após as alterações.'}
+function desktopBackupRequest(action, fields = {}) {
+  const bridge = window.chrome.webview;
+  const id = uid();
+  return new Promise((resolve, reject) => {
+    const receive = ({data}) => {
+      if (data?.type !== 'backup-response' || data.id !== id) return;
+      bridge.removeEventListener('message', receive);
+      if (data.error) reject(new DOMException('A operação de backup não foi concluída.', data.error));
+      else resolve(data.value);
+    };
+    bridge.addEventListener('message', receive);
+    try { bridge.postMessage({type:'backup-folder', action, id, ...fields}); }
+    catch (error) { bridge.removeEventListener('message', receive); reject(error); }
+  });
+}
+async function pickDesktopBackupFolder() {
+  const token = await desktopBackupRequest('choose');
+  return {
+    desktop: true,
+    requestPermission: async () => 'granted',
+    queryPermission: async () => 'granted',
+    getFileHandle: async name => ({
+      getFile: async () => ({text: () => desktopBackupRequest('read', {token, name})}),
+      createWritable: async () => {
+        let content;
+        return {
+          write: async value => { content = value; },
+          close: () => desktopBackupRequest('write', {token, name, content}),
+          abort: async () => { content = undefined; }
+        };
+      }
+    })
+  };
+}
+const supportsBackupFolder = () => Boolean(window.__RESERVA_DESKTOP__ || window.showDirectoryPicker);
+function folderStatusText(){if(!supportsBackupFolder())return 'Acesso à pasta indisponível neste navegador. Você ainda pode baixar e restaurar arquivos de backup.';if(!backupDirectory)return 'Nenhuma pasta conectada. Escolha uma pasta para salvar o backup automático.';if(backupConflict)return 'Há um backup diferente na pasta. Escolha restaurar o arquivo ou salvar os dados deste aparelho para resolver.';return 'Pasta conectada. O backup será atualizado após as alterações.'}
 function updateFolderStatus(message){const el=$('#folderBackupStatus');if(el)el.textContent=message||folderStatusText();const re=$('#reconnectBackupFolderBtn');if(re)re.hidden=!backupDirectory}
 function openBackupDb(){return new Promise((resolve,reject)=>{const req=indexedDB.open(BACKUP_DB,1);req.onupgradeneeded=()=>req.result.createObjectStore('handles');req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
 async function storeBackupHandle(handle){const d=await openBackupDb();await new Promise((resolve,reject)=>{const tx=d.transaction('handles','readwrite');tx.objectStore('handles').put(handle,'directory');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});d.close()}
@@ -531,9 +566,9 @@ async function restoreFolderBackup(){
   } catch {notify('Não foi possível restaurar o backup cifrado.')}
 }
 async function chooseBackupFolder() {
-  if(!window.showDirectoryPicker)return notify('Este navegador não oferece acesso direto a pastas.');
+  if(!supportsBackupFolder())return notify('Este navegador não oferece acesso direto a pastas.');
   try {
-    const handle=await window.showDirectoryPicker({mode:'readwrite'});
+    const handle=window.__RESERVA_DESKTOP__ ? await pickDesktopBackupFolder() : await window.showDirectoryPicker({mode:'readwrite'});
     let envelope;
     try { envelope=await readEncryptedFolder(handle); } catch(error) { if(error.name!=='NotFoundError')throw error; }
     requestFolderPassword(envelope?'Senha do backup da pasta':'Criar senha do backup',!envelope,async(password,confirmation)=>{
@@ -546,10 +581,11 @@ async function chooseBackupFolder() {
       const previous=envelope?await openVault(envelope,key):null;
       if(!envelope)await writeEncryptedFolder(handle,ENCRYPTED_FOLDER_FILE,key,salt);
       let remembered=true;
-      try { await storeBackupHandle(handle); } catch { remembered=false; }
+      if(handle.desktop)remembered=false;
+      else try { await storeBackupHandle(handle); } catch { remembered=false; }
       backupDirectory=handle;folderKey=key;folderSalt=salt;
       backupConflict=!!previous&&canonicalData(previous)!==canonicalData(db);
-      updateFolderStatus(backupConflict?'Backup diferente dos dados atuais. Restaure ou salve manualmente.':(remembered?'Pasta de backup cifrado conectada.':'Backup criado. Selecione a pasta novamente ao reabrir o aplicativo.'));
+      updateFolderStatus(backupConflict?'Backup diferente dos dados atuais. Restaure ou salve manualmente.':(remembered?'Pasta de backup cifrado conectada.':'Pasta conectada. Selecione a pasta novamente ao reabrir o aplicativo.'));
     });
   } catch(error) { if(error.name!=='AbortError')notify('Não foi possível conectar a pasta.'); }
 }
@@ -1945,7 +1981,7 @@ function scanDiagnosticPage(pageId, screenOnly = false) {
     : {status:'ignorado', reason:'Prévia local'});
   check('APIs do navegador', () => ({
     status:'info', crypto:Boolean(globalThis.crypto?.subtle),
-    backupFolder:typeof window.showDirectoryPicker === 'function',
+    backupFolder:supportsBackupFolder(),
     download:typeof URL.createObjectURL === 'function',
     indexedDB:'indexedDB' in window
   }));
@@ -3101,7 +3137,7 @@ window.addEventListener('offline',()=>diagnostics.record('connection.offline'));
 window.addEventListener('resize',syncDesktopHeaderControls,{passive:true});
 window.addEventListener('online',()=>{diagnostics.record('connection.online');if(location.protocol!=='file:'){checkForUpdates();updateCdi();updateIpca()}});
 window.addEventListener('focus',checkBillReminders);document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkBillReminders()});setTimeout(checkBillReminders,2500);setInterval(checkBillReminders,30*60*1000);
-if('serviceWorker' in navigator&&location.protocol!=='file:')window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>{updateRegistration=reg}).catch(e=>diagnostics.record('offline.registration_failed',e)));
+if(!window.__RESERVA_DESKTOP__&&'serviceWorker' in navigator&&location.protocol!=='file:')window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>{updateRegistration=reg}).catch(e=>diagnostics.record('offline.registration_failed',e)));
 document.addEventListener('keydown',event=>{
   const reload=event.key==='F5'||((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='r');
   if(!reload||updateInProgress)return;
@@ -3398,5 +3434,30 @@ document.addEventListener('visibilitychange',()=>{if (!document.hidden) void int
 window.addEventListener('storage',event=>{if(event.key===STORE) void integrityMonitor();});
 setInterval(integrityMonitor,15000);
 void integrityMonitor();
+
+if (window.__RESERVA_DESKTOP__ && window.__RESERVA_DESKTOP_SMOKE__) {
+  window.__reservaCheckCalendar = () => {
+    const key = mkey(state.year, state.month);
+    const original = db.records;
+    try {
+      db.records = [
+        {id:'qa-calendar-low', date:key+'-01', kind:'expense', category:'Mercado', amount:100},
+        {id:'qa-calendar-high', date:key+'-02', kind:'expense', category:'Mercado', amount:10000}
+      ];
+      calendar();
+      const grid = document.querySelector('#page-calendar');
+      const cells = ['01', '02'].map(day => grid.querySelector('[data-calendar-date="' + key + '-' + day + '"]'));
+      return {
+        levels: cells.map(cell => cell?.dataset.expenseHeat),
+        colors: cells.map(cell => cell && getComputedStyle(cell).backgroundColor),
+        dots: Boolean(grid.querySelector('.calendar-day .calendar-dot, .calendar-day .calendar-markers'))
+      };
+    } catch (error) {
+      return {error: String(error)};
+    } finally {
+      db.records = original;
+    }
+  };
+}
 
 })();
