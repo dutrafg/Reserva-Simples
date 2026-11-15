@@ -193,6 +193,10 @@ public partial class MainWindow : Window
             if (smokeWrite || smokeRead)
                 await core.AddScriptToExecuteOnDocumentCreatedAsync("window.__RESERVA_DESKTOP_SMOKE__ = true;");
 
+            var snapshot = new LocalDatabase(DataFolder).Read();
+            await core.AddScriptToExecuteOnDocumentCreatedAsync(
+                "if (window === window.top && location.href === '" + LocalOrigin + "index.html') " +
+                "window.__RESERVA_DESKTOP_DATABASE__ = " + JsonSerializer.Serialize(snapshot) + ";");
             Browser.Source = new Uri(LocalOrigin + "index.html");
             if (backgroundMode)
                 Hide();
@@ -254,7 +258,13 @@ public partial class MainWindow : Window
             if (action is "save-file" or "open-file" or "choose")
                 await System.Windows.Threading.Dispatcher.Yield();
 
-            if (action == "save-file")
+            if (action == "database-write")
+            {
+                var content = ReadString(message, "content") ?? throw new JsonException();
+                var expected = ReadString(message, "expected");
+                await Task.Run(() => new LocalDatabase(DataFolder).Write(content, expected));
+            }
+            else if (action == "save-file")
             {
                 var content = ReadString(message, "content") ?? throw new JsonException();
                 var name = ReadString(message, "name");

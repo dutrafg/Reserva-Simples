@@ -1,4 +1,4 @@
-(()=>{'use strict';
+(async()=>{'use strict';
 const byAllocationDate = (a,b) => a.date.localeCompare(b.date) || Number(b.amount > 0) - Number(a.amount > 0) || a.id.localeCompare(b.id);
 const IOF_PERCENT = [0,96,93,90,86,83,80,76,73,70,66,63,60,56,53,50,46,43,40,36,33,30,26,23,20,16,13,10,6,3];
 const STORE='reserva-simples-v2';
@@ -311,7 +311,7 @@ async function submitVault(event) {
     if (setup) {
       const candidate = await sealVault(db,key,salt);
       await openVault(candidate,key);
-      localStorage.setItem(STORE,JSON.stringify(candidate));
+      await writeDatabase(JSON.stringify(candidate));
       vault = candidate;
       dialog.close();
       vaultBusy = false;
@@ -320,8 +320,8 @@ async function submitVault(event) {
     }
     const restored = await openVault(envelope,key);
     if(dialog.dataset.mode==='disable'){
-      if(localStorage.getItem(STORE)!==JSON.stringify(envelope))throw Error('A base mudou');
-      localStorage.setItem(STORE,JSON.stringify(restored));
+      if(readDatabase()!==JSON.stringify(envelope))throw Error('A base mudou');
+      await writeDatabase(JSON.stringify(restored));
       vault=null;
       vaultKey=null;
       db=restored;
@@ -337,14 +337,14 @@ async function submitVault(event) {
       if(backupDirectory)backupConflict=true;
       if (vault) {
         const candidate = await sealVault(restored,vaultKey,vault.salt);
-        localStorage.setItem(STORE,JSON.stringify(candidate));
+        await writeDatabase(JSON.stringify(candidate));
         vault = candidate;
         db = restored;
         pendingVaultImport = null;
         dialog.close();
         render();
       } else {
-        localStorage.setItem(STORE,JSON.stringify(envelope));
+        await writeDatabase(JSON.stringify(envelope));
         dialog.close();
         vaultBusy = false;
         location.reload();
@@ -359,17 +359,41 @@ async function submitVault(event) {
     $('#vaultError').textContent = dialog.dataset.mode==='folder'?(error.userMessage || 'Não foi possível abrir ou gravar o backup. Verifique a senha e as permissões da pasta.'):setup?'Não foi possível ativar o cofre.':'Senha incorreta ou cofre inválido.';
   } finally { vaultBusy=false; }
 }
-function load(){let raw=null;try{raw=localStorage.getItem(STORE);if(!raw){const fresh=empty();try{fresh.notes=validateCalendarNotes(JSON.parse(localStorage.getItem('reserva.calendarNotes')||'[]'))||[]}catch{}return fresh}const parsed=JSON.parse(raw);if(parsed&&parsed.notes===undefined&&parsed.format!=='reserva-vault-1'){try{parsed.notes=validateCalendarNotes(JSON.parse(localStorage.getItem('reserva.calendarNotes')||'[]'))||[]}catch{}}if(parsed?.format==='reserva-vault-1'){vault=parsed;return empty()}const clean=verify(parsed);if(clean)return clean;storageRecoveryRaw=raw}catch(e){try{raw=localStorage.getItem(STORE)}catch(ignore){}}if(raw){diagnostics.record('storage.recovery');storageRecoveryRaw=raw;try{recoveryArchived=false;for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key?.startsWith(`${STORE}-corrompido-`)&&localStorage.getItem(key)===raw){recoveryArchived=true;break}}if(!recoveryArchived){localStorage.setItem(`${STORE}-corrompido-${Date.now()}`,raw);recoveryArchived=true}}catch(e){recoveryArchived=false}}return empty()}
-let db=load();diagnostics.step('app.initialized', 'home');const todayAtStart=new Date();let state={page:preferredStartPage(),year:todayAtStart.getFullYear(),month:todayAtStart.getMonth(),modal:'',editJarId:null,editRecordId:null,editInstitutionId:null,editAllocationId:null,simGoal:'',simAmount:'200',txFilter:'all',txSearch:'',txTag:'',txSubcategory:'',txCategorySet:null,copyCandidates:[],modalTrigger:null,calendarDate:''};let toastTimer;
+function load(){let raw=null;try{raw=readDatabase();if(!raw){const fresh=empty();try{fresh.notes=validateCalendarNotes(JSON.parse(localStorage.getItem('reserva.calendarNotes')||'[]'))||[]}catch{}return fresh}const parsed=JSON.parse(raw);if(parsed&&parsed.notes===undefined&&parsed.format!=='reserva-vault-1'){try{parsed.notes=validateCalendarNotes(JSON.parse(localStorage.getItem('reserva.calendarNotes')||'[]'))||[]}catch{}}if(parsed?.format==='reserva-vault-1'){vault=parsed;return empty()}const clean=verify(parsed);if(clean)return clean;storageRecoveryRaw=raw}catch(e){try{raw=readDatabase()}catch(ignore){}}if(raw){diagnostics.record('storage.recovery');storageRecoveryRaw=raw;try{recoveryArchived=false;for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key?.startsWith(`${STORE}-corrompido-`)&&localStorage.getItem(key)===raw){recoveryArchived=true;break}}if(!recoveryArchived){localStorage.setItem(`${STORE}-corrompido-${Date.now()}`,raw);recoveryArchived=true}}catch(e){recoveryArchived=false}}return empty()}
+const browserStorage = localStorage;
+const desktopDatabase = window.__RESERVA_DESKTOP__ === true;
+let desktopSnapshot = window.__RESERVA_DESKTOP_DATABASE__ ?? null;
+delete window.__RESERVA_DESKTOP_DATABASE__;
+const usesNativeDatabase = () => desktopDatabase && localStorage === browserStorage;
+function readDatabase(){
+  return (usesNativeDatabase() ? desktopSnapshot : null) ?? localStorage.getItem(STORE);
+}
+async function writeDatabase(content){
+  if(!usesNativeDatabase()){
+    localStorage.setItem(STORE,content);
+    return;
+  }
+  await desktopBackupRequest('database-write',{content,expected:desktopSnapshot});
+  desktopSnapshot=content;
+}
+let db=load();
+if(usesNativeDatabase()&&desktopSnapshot===null&&!storageRecoveryRaw){
+  const previous=readDatabase();
+  if(previous!==null){
+    try { await writeDatabase(previous); }
+    catch(error) { diagnostics.record('storage.migration_failed',error); }
+  }
+}
+diagnostics.step('app.initialized', 'home');const todayAtStart=new Date();let state={page:preferredStartPage(),year:todayAtStart.getFullYear(),month:todayAtStart.getMonth(),modal:'',editJarId:null,editRecordId:null,editInstitutionId:null,editAllocationId:null,simGoal:'',simAmount:'200',txFilter:'all',txSearch:'',txTag:'',txSubcategory:'',txCategorySet:null,copyCandidates:[],modalTrigger:null,calendarDate:''};let toastTimer;
 let backupDirectory=null,backupConflict=false,backupTimer=null,persistenceStatus='Consultando a proteção de armazenamento…';const BACKUP_DB='reserva-simples-backup-handles',BACKUP_FILE='Reserva_Simples_backup.json';
 const backupPayload=()=>({...db,appVersion:APP_VERSION,savedAt:new Date().toISOString()});const canonicalData=value=>JSON.stringify(verify(value)||value);const hasSavedData=value=>!!(value&&(value.investments?.length||value.records?.length||value.jars?.length||value.allocations?.length||value.recurring?.length||value.tasks?.length||(value.institutions||[]).some(x=>!x.isDefault)));
 async function save({folderBackup=true,recover=false}={}){if(integrityContainmentLock){notify('Gravação bloqueada pela Central de Integridade. Revise o banco antes de continuar.');return false}if(storageRecoveryRaw&&!recover){notify('Salvamento pausado para proteger dados inválidos. Exporte a cópia ou restaure um backup em Configurações.');return false}try{
 if(vault&&!vaultKey) return false;
-const previousRaw=localStorage.getItem(STORE);
+const previousRaw=readDatabase();
 const candidate=vault?await sealVault(db,vaultKey,vault.salt):db;
-if(localStorage.getItem(STORE)!==previousRaw){diagnostics.record('storage.conflict_prevented');integrityRecord('storage.conflict_prevented','alerta',{reason:'Banco alterado em outra aba antes da gravação'});notify('Outra aba alterou os dados. Recarregue antes de salvar.');return false}
+if(readDatabase()!==previousRaw){diagnostics.record('storage.conflict_prevented');integrityRecord('storage.conflict_prevented','alerta',{reason:'Banco alterado em outra aba antes da gravação'});notify('Outra aba alterou os dados. Recarregue antes de salvar.');return false}
 if(integrityContainmentLock)return false;
-localStorage.setItem(STORE,JSON.stringify(candidate));
+await writeDatabase(JSON.stringify(candidate));
 if(vault) vault=candidate;if(recover){storageRecoveryRaw=null;recoveryArchived=false}if(folderBackup&&folderKey)scheduleFolderBackup();return true}catch(e){diagnostics.record('storage.save_failed',e);notify('Não foi possível salvar os dados neste navegador.');return false}}
 let budgetAudio;
 function unlockBudgetAudio(){
@@ -449,7 +473,7 @@ async function mutate(callback) {
     saving = false;
   }
 }
-async function startFreshAfterCorrupt(){if(!storageRecoveryRaw)return;if(!recoveryArchived)return notify('Exporte primeiro os dados brutos; não consegui criar uma cópia local.');if(!confirm('A cópia bruta foi preservada. Criar uma base vazia neste navegador?'))return;const raw=storageRecoveryRaw;try{localStorage.removeItem(STORE);storageRecoveryRaw=null;db=empty();if(!await save({folderBackup:false})){storageRecoveryRaw=raw;return}render();notify('Base nova iniciada. A cópia bruta preservada continua disponível.')}catch(e){storageRecoveryRaw=raw;notify('Não foi possível iniciar a base nova. A cópia bruta permanece preservada.')}}
+async function startFreshAfterCorrupt(){if(!storageRecoveryRaw)return;if(!recoveryArchived)return notify('Exporte primeiro os dados brutos; não consegui criar uma cópia local.');if(!confirm('A cópia bruta foi preservada. Criar uma base vazia neste navegador?'))return;const raw=storageRecoveryRaw;const previous=db;try{db=empty();if(!await save({folderBackup:false,recover:true})){db=previous;return}render();notify('Base nova iniciada. A cópia bruta preservada continua disponível.')}catch(e){storageRecoveryRaw=raw;notify('Não foi possível iniciar a base nova. A cópia bruta permanece preservada.')}}
 function notify(msg){const t=$('#toast');t.textContent=msg;t.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('visible'),2900)}
 function desktopBackupRequest(action, fields = {}) {
   const bridge = window.chrome.webview;
@@ -1668,7 +1692,7 @@ function scanDiagnosticPage(pageId, screenOnly = false) {
   });
   check('Base local e recuperação', () => {
     if (storageRecoveryRaw) return {status:'erro', reason:'Base em recuperação'};
-    const raw = localStorage.getItem(STORE);
+    const raw = readDatabase();
     if (!raw) return {status:'ignorado', reason:'Nenhuma base salva'};
     const saved = JSON.parse(raw);
     if (saved?.format === 'reserva-vault-1') return {status:'ignorado', reason:'Base criptografada'};
@@ -2607,9 +2631,9 @@ async function runLocProposalTests(onCaseProgress) {
       evidence:{nowBalance:p?.nowBalance,projected:p?.projected,expectedNow,expectedEnd}};
   }));
   add(5,'Recuperação isolada de JSON corrompido e quarentena única',()=>withDiagnosticSandbox({storage:{[STORE]:'{"version":4,"records":[corrompido'}},async({localStorage})=>{
-    const raw=localStorage.getItem(STORE);load();const first=[...localStorage._map.keys()].filter(key=>key.startsWith(STORE+'-corrompido-')).length;
+    const raw=readDatabase();load();const first=[...localStorage._map.keys()].filter(key=>key.startsWith(STORE+'-corrompido-')).length;
     load();const second=[...localStorage._map.keys()].filter(key=>key.startsWith(STORE+'-corrompido-')).length;
-    const blocked=await save()===false&&localStorage.getItem(STORE)===raw;
+    const blocked=await save()===false&&readDatabase()===raw;
     return {passed:first===1&&second===1&&blocked,evidence:{firstQuarantineCount:first,secondQuarantineCount:second,saveBlocked:blocked}};
   }));
   add(6,'Rollback quando o armazenamento isolado retorna QuotaExceededError',()=>withDiagnosticSandbox({quotaError:true},async()=>{
@@ -3218,14 +3242,14 @@ async function integrityHistory() {
 }
 async function integrityBank() {
   if (saving || vaultBusy) return 'pendente';
-  const raw = localStorage.getItem(STORE);
+  const raw = readDatabase();
   if (!raw) return vault ? 'alerta' : 'pendente';
   try {
     const data = JSON.parse(raw);
     if (data?.format !== 'reserva-vault-1') return vault ? 'alerta' : verify(data) ? 'sem_cofre' : 'alerta';
     if (!vaultKey) return 'pendente';
     await openVault(data,vaultKey);
-    return raw === localStorage.getItem(STORE) ? 'aprovada' : 'pendente';
+    return raw === readDatabase() ? 'aprovada' : 'pendente';
   } catch {return 'alerta';}
 }
 const integrityHashes = {"./engines.js": "883f3a55c2650d231a6a5b83bcc35274b3de79c99dacf8e0734774dafc4f42a8", "./index.html": "16a59316dd36dda27ae9ddf436e2c3cd930fa95eeb7323ba14b8092af9ae1abe"};
