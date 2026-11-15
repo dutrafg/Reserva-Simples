@@ -7,7 +7,7 @@ on:
         type: boolean
         default: false
   push:
-    branches: [windows-webview2]
+    branches: [windows-webview2, fix/windows-native-backup-files]
     paths:
       - 'windows-webview2/**'
       - 'index.html'
@@ -19,7 +19,7 @@ on:
       - 'icon*'
       - '.github/workflows/windows-webview2.yml'
   pull_request:
-    branches: [main]
+    branches: [main, windows-webview2]
     paths:
       - 'windows-webview2/**'
       - '.github/workflows/windows-webview2.yml'
