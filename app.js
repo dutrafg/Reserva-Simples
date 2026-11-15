@@ -3496,6 +3496,13 @@ setInterval(integrityMonitor,15000);
 void integrityMonitor();
 
 if (window.__RESERVA_DESKTOP__ && window.__RESERVA_DESKTOP_SMOKE__) {
+  window.__reservaSeedLegacyDatabase = () => {
+    if(desktopSnapshot!==null || localStorage.getItem(STORE)!==null)return false;
+    const fixture=empty();
+    fixture.records.push({id:'qa-sqlite-migration',date:'2026-01-01',kind:'expense',category:'Outros',amount:100,note:'QA'});
+    localStorage.setItem(STORE,JSON.stringify(fixture));
+    return true;
+  };
   window.__reservaCheckCalendar = () => {
     const key = mkey(state.year, state.month);
     const original = db.records;

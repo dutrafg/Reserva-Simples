@@ -415,6 +415,19 @@ public partial class MainWindow : Window
             if (await Browser.CoreWebView2.ExecuteScriptAsync(script) != "true")
                 throw new InvalidOperationException("Persistência local do WebView2 não foi validada.");
 
+            if (smokeWrite)
+            {
+                if (await Browser.CoreWebView2.ExecuteScriptAsync("window.__reservaSeedLegacyDatabase()") != "true")
+                    throw new InvalidOperationException("Não foi possível preparar a migração da base de teste.");
+            }
+            else
+            {
+                string? snapshot = new LocalDatabase(DataFolder).Read();
+                using var migrated = JsonDocument.Parse(snapshot ?? throw new InvalidOperationException("SQLite sem base migrada."));
+                if (migrated.RootElement.GetProperty("records")[0].GetProperty("id").GetString() != "qa-sqlite-migration")
+                    throw new InvalidOperationException("O lançamento de teste não foi preservado no SQLite.");
+            }
+
             Application.Current.Shutdown(0);
         }
         catch (Exception ex)
