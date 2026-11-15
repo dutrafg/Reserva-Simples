@@ -11,7 +11,7 @@ Implementação experimental que executa os **arquivos originais** `index.html`,
 - Perfil do WebView2 em `%LocalAppData%\ReservaSimples\WebView2`. `localStorage` e `IndexedDB` persistem independentemente do Chrome.
 - Ícone de bandeja: fechar a janela **oculta**, não encerra. Menu permite abrir, encerrar, consultar novas versões, selecionar inicialização com Windows.
 - Alertas Web Notification habilitados somente para a origem interna.
-- Botões de atualização do PWA encaminhados ao atualizador Windows, que valida SHA-256 e assinatura Authenticode, solicita confirmação, baixa o instalador com progresso e só executa pacotes assinados por um editor confiável. O instalador é interativo, nunca executado silenciosamente; necessita que a beta seja publicada em release do GitHub.
+- Botões de atualização do PWA encaminhados ao atualizador Windows, que verifica o SHA-256, solicita confirmação e baixa o instalador com progresso. O CI valida a assinatura Authenticode antes de publicar, e o Windows a valida ao executar o instalador. O instalador é interativo, nunca executado silenciosamente; necessita que a beta seja publicada em release do GitHub.
 - PWA original em `main` permanece intacto; a versão WPF/SQLite anterior em `windows-native` também.
 
 ## Compatibilidade de dados
@@ -31,7 +31,7 @@ O GitHub Actions gera o instalador e executa smoke tests de abertura, interface,
 
 ## Notas de segurança
 
-A origem local é restrita, navegação externa abre no navegador e pedidos de permissão não associados a notificações são bloqueados. O armazenamento WebView2 não é automaticamente criptografado pelo aplicativo, portanto use proteção do Windows/BitLocker e backups adequados. O atualizador usa somente links de assets da conta/repositório oficiais, limita o tamanho do download e compara o SHA-256 do EXE com `SHA256SUMS.txt`. O hash detecta corrupção ou alteração em trânsito, enquanto a assinatura Authenticode valida a identidade do editor para o Windows. Releases de instalação são publicados apenas depois da validação da assinatura do executável e do instalador. A instalação requer confirmação explícita. O botão Cancelar remove o download parcial.
+A origem local é restrita, navegação externa abre no navegador e pedidos de permissão não associados a notificações são bloqueados. O armazenamento WebView2 não é automaticamente criptografado pelo aplicativo, portanto use proteção do Windows/BitLocker e backups adequados. O atualizador usa somente links de assets da conta/repositório oficiais, limita o tamanho do download e compara o SHA-256 do EXE com `SHA256SUMS.txt`. O hash detecta corrupção ou alteração em trânsito, enquanto a assinatura Authenticode valida a identidade do editor para o Windows. Releases de instalação são publicados apenas depois da validação da assinatura do executável e do instalador no CI; o Windows verifica a assinatura novamente ao executar o instalador. A instalação requer confirmação explícita. O botão Cancelar remove o download parcial.
 
 ## Correções Windows 0.2.2
 
