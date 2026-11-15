@@ -212,7 +212,7 @@ public partial class MainWindow : Window
 
     private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
-        if (!e.Source.StartsWith(LocalOrigin, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(e.Source, LocalOrigin + "index.html", StringComparison.Ordinal))
             return;
         try
         {
@@ -251,7 +251,69 @@ public partial class MainWindow : Window
         try
         {
             var action = ReadString(message, "action");
-            if (action == "choose")
+            if (action is "save-file" or "open-file" or "choose")
+                await System.Windows.Threading.Dispatcher.Yield();
+
+            if (action == "database-read")
+                value = await Task.Run(() => new LocalDatabase(DataFolder).Read());
+            else if (action == "database-write")
+            {
+                var content = ReadString(message, "content") ?? throw new JsonException();
+                var expected = ReadString(message, "expected");
+                await Task.Run(() => new LocalDatabase(DataFolder).Write(content, expected));
+            }
+            else if (action == "save-file")
+            {
+                var content = ReadString(message, "content") ?? throw new JsonException();
+                var name = ReadString(message, "name");
+                var dialog = new Microsoft.Win32.SaveFileDialog
+                {
+                    Title = "Salvar backup do Reserva Simples",
+                    Filter = "Backup JSON (*.json)|*.json",
+                    DefaultExt = ".json",
+                    AddExtension = true,
+                    OverwritePrompt = true,
+                    FileName = name == "reserva-cofre.json" ? name : $"reserva-backup-{DateTime.Today:yyyy-MM-dd}.json"
+                };
+                if (dialog.ShowDialog(this) != true) error = "AbortError";
+                else
+                {
+                    var directory = Path.GetDirectoryName(dialog.FileName)!;
+                    var temporary = Path.Combine(directory, $".reserva-{Guid.NewGuid():N}.tmp");
+                    try
+                    {
+                        await File.WriteAllTextAsync(temporary, content);
+                        File.Move(temporary, dialog.FileName, overwrite: true);
+                    }
+                    finally
+                    {
+                        if (File.Exists(temporary)) File.Delete(temporary);
+                    }
+                }
+            }
+            else if (action == "open-file")
+            {
+                var dialog = new Microsoft.Win32.OpenFileDialog
+                {
+                    Title = "Abrir backup do Reserva Simples",
+                    Filter = "Backup JSON (*.json)|*.json",
+                    CheckFileExists = true
+                };
+                if (dialog.ShowDialog(this) != true) error = "AbortError";
+                else
+                {
+                    await using var stream = File.OpenRead(dialog.FileName);
+                    if (stream.Length > 8_000_000) error = "QuotaExceededError";
+                    else
+                    {
+                        var bytes = new byte[(int)stream.Length];
+                        await stream.ReadExactlyAsync(bytes);
+                        using var reader = new StreamReader(new MemoryStream(bytes));
+                        value = reader.ReadToEnd();
+                    }
+                }
+            }
+            else if (action == "choose")
             {
                 var dialog = new OpenFolderDialog { Title = "Escolher pasta para backup cifrado" };
                 if (dialog.ShowDialog(this) == true)
@@ -329,6 +391,14 @@ public partial class MainWindow : Window
             if (await Browser.CoreWebView2.ExecuteScriptAsync(domCheck) != "true")
                 throw new InvalidOperationException("Módulos do PWA ou motores financeiros não carregaram.");
 
+            // The web application opens the native database before rendering.
+            for (var attempt = 0; attempt < 100; attempt++)
+            {
+                if (await Browser.CoreWebView2.ExecuteScriptAsync("typeof window.__reservaCheckCalendar === 'function'") == "true")
+                    break;
+                await Task.Delay(100);
+            }
+
             string calendarResult = await Browser.CoreWebView2.ExecuteScriptAsync("window.__reservaCheckCalendar?.() ?? { error: 'Diagnóstico do calendário indisponível' }");
             using var result = JsonDocument.Parse(calendarResult);
             var properties = result.RootElement;
@@ -344,6 +414,19 @@ public partial class MainWindow : Window
                 : $"(() => localStorage.getItem('{storageKey}') === 'ok')()";
             if (await Browser.CoreWebView2.ExecuteScriptAsync(script) != "true")
                 throw new InvalidOperationException("Persistência local do WebView2 não foi validada.");
+
+            if (smokeWrite)
+            {
+                if (await Browser.CoreWebView2.ExecuteScriptAsync("window.__reservaSeedLegacyDatabase()") != "true")
+                    throw new InvalidOperationException("Não foi possível preparar a migração da base de teste.");
+            }
+            else
+            {
+                string? snapshot = new LocalDatabase(DataFolder).Read();
+                using var migrated = JsonDocument.Parse(snapshot ?? throw new InvalidOperationException("SQLite sem base migrada."));
+                if (migrated.RootElement.GetProperty("records")[0].GetProperty("id").GetString() != "qa-sqlite-migration")
+                    throw new InvalidOperationException("O lançamento de teste não foi preservado no SQLite.");
+            }
 
             Application.Current.Shutdown(0);
         }
