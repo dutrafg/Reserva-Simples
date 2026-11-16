@@ -68,7 +68,13 @@ function boot(testContext, { width = 1440, coarse = false, seed, query = '' } = 
       Object.defineProperty(window.navigator, 'onLine', { value: false, configurable: true });
       window.requestAnimationFrame = callback => window.setTimeout(() => callback(window.performance.now()), 0);
       window.cancelAnimationFrame = id => window.clearTimeout(id);
-      if (seed) window.localStorage.setItem('reserva-simples-v2', JSON.stringify(seed));
+      const id='00000000-0000-4000-8000-000000000001';
+      const profile={id,name:'Usuário de teste',phone:'',email:'',avatar:0,photo:''};
+      window.localStorage.setItem('reserva.accounts.index.v1',JSON.stringify([{id,label:'Usuário 1'}]));
+      window.localStorage.setItem('reserva.accounts.active.v1',id);
+      window.localStorage.setItem('reserva-simples-account-'+id,JSON.stringify({
+        ...(seed||{version:4,records:[],jars:[],allocations:[],recurring:[],investments:[],tasks:[],prefs:{}}),ownerId:id,profile
+      }));
     }
   });
   const { window } = dom;
@@ -78,6 +84,7 @@ function boot(testContext, { width = 1440, coarse = false, seed, query = '' } = 
     assert.deepEqual(errors.map(error => error.message), []);
   });
   window.eval(read('engines.js'));
+  window.eval(read('accounts.js'));
   window.eval(appSource);
   const { document, qa } = window;
   const get = selector => {
@@ -237,7 +244,7 @@ test('descarta um lembrete ignorado sem apagar o recebimento', t => {
   assert.equal(window.localStorage.getItem(qa.STORE), raw);
 });
 
-test('Central verifica seis arquivos e só repara conteúdo da mesma versão', async t => {
+test('Central verifica os arquivos e só repara conteúdo da mesma versão', async t => {
   const { qa, window } = boot(t);
   const manifest = JSON.parse(read('integrity-manifest.json'));
   const name = '1.0.0-beta.1-pwa';
