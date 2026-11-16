@@ -306,7 +306,7 @@ test('Central gera o relatório das quatro etapas e preserva a base ativa', { ti
   assert.equal(integrated.failures,0);
   assert.equal(report.scan.checks.find(item => item.name === 'Matriz responsiva de navegação').status,'não_suportado');
   assert.equal(report.diagnosticContract.coverage.modules.length,9);
-  assert.equal(report.diagnosticContract.coverage.releaseFiles.length,6);
+  assert.equal(report.diagnosticContract.coverage.releaseFiles.length,7);
   assert.equal(report.diagnosticContract.brokenSignatures.length,0);
   assert.equal(json.includes('Registro da fixture'),false);
 });
