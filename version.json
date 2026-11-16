@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "1.0.0-beta.3",
+  "version": "1.0.0-beta.4",
   "channel": "beta",
-  "updatedAt": "2026-11-16T08:40:31.506Z",
+  "updatedAt": "2026-11-16T18:50:32.988Z",
   "source": "same-origin PWA release",
-  "notes": "Cadastro opcional com modo visitante e conversão para perfil protegido; remoção de Ajustes duplicado no menu móvel."
+  "notes": "Histórico por categoria, alertas semanais de Mercado, limpeza de filtros e varredura no card."
 }

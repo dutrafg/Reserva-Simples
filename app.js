@@ -14,7 +14,7 @@ const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purp
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['budget','Orçamento','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='1.0.0-beta.3';
+const APP_VERSION='1.0.0-beta.4';
 const APP_CACHE_NAME='reserva-simples-v'+APP_VERSION+'-pwa';
 const TELEMETRY_SCHEMA='reserva.telemetry.event.v1';
 const diagnosticFixtureStorages = new WeakSet();
@@ -461,6 +461,51 @@ function playBudgetSound(critical=false){
     tone.connect(volume).connect(budgetAudio.destination);
     tone.start(at);tone.stop(at+.15);
   });
+}
+const MARKET_WEEK_LIMIT=17500;
+const MARKET_WEEK_MILESTONES=[25,50,75,100];
+function marketWeeklyStatus(today=isoToday()){
+  const weekday=new Date(today+'T00:00:00Z').getUTCDay();
+  const start=Engines.dateAtOffset(today,-((weekday+6)%7));
+  const end=Engines.dateAtOffset(start,6);
+  const spent=sum(db.records.filter(record=>record.kind==='expense'&&record.category==='Mercado'&&record.date>=start&&record.date<=today).map(record=>record.amount));
+  return {start,end,spent,milestones:MARKET_WEEK_MILESTONES.filter(level=>spent*100>=MARKET_WEEK_LIMIT*level)};
+}
+function expenseHistoryCard(){
+  const months=[];
+  let start=isoToday().slice(0,7)+'-01';
+  for(let index=0;index<3;index++){
+    const month=Engines.dateAtOffset(start,-1).slice(0,7);
+    months.unshift(month);
+    start=month+'-01';
+  }
+  const totals=new Map(months.map(month=>[month,new Map()]));
+  for(const record of db.records){
+    if(record.kind!=='expense')continue;
+    const categories=totals.get(record.date.slice(0,7));
+    if(categories)categories.set(record.category,(categories.get(record.category)||0)+record.amount);
+  }
+  const rows=CATS.map(category=>{
+    const values=months.map(month=>totals.get(month).get(category));
+    const recorded=values.filter(value=>value!==undefined);
+    const average=recorded.length?Math.round(sum(recorded)/recorded.length):undefined;
+    const cell=value=>value===undefined?'Sem registro':money(value);
+    return `<tr><th scope="row">${esc(category)}</th>${values.map(value=>`<td>${cell(value)}</td>`).join('')}<td>${cell(average)}</td></tr>`;
+  }).join('');
+  return `<article class="card" id="expenseHistoryCard"><h2>Histórico por categoria</h2>
+    <p>Últimos três meses fechados. A média usa os meses com registro em cada categoria.</p>
+    <div class="table-wrap"><table class="data-table"><thead><tr><th scope="col">Categoria</th>
+    ${months.map(month=>`<th scope="col">${MONTHS[Number(month.slice(5))-1]} de ${month.slice(0,4)}</th>`).join('')}
+    <th scope="col">Média mensal</th></tr></thead><tbody>${rows}</tbody></table></div></article>`;
+}
+function marketWeeklyCard(){
+  const {start,end,spent,milestones}=marketWeeklyStatus();
+  const remaining=MARKET_WEEK_LIMIT-spent;
+  return `<article class="card" id="marketWeeklyCard"><h2>Mercado · limite semanal</h2>
+    <p>${dateBR(start)} a ${dateBR(end)} · ${money(spent)} de ${money(MARKET_WEEK_LIMIT)}</p>
+    <p><strong>${remaining<0?'Acima do limite':'Disponível nesta semana'} · ${money(Math.abs(remaining))}</strong></p>
+    <p>Avisos no sino a cada 25% · ${milestones.at(-1)||0}% da faixa atingida</p>
+</article>`;
 }
 function groceryAlertLevel(){
   const period=isoToday().slice(0,7);
@@ -1082,10 +1127,18 @@ function desktopNotificationItems(today=isoToday()){
       items.push({id:'budget:'+period+':'+category+':'+(reached?'limit':'near'),kind:'budget-limit',date:today,title:(reached?'Limite atingido: ':'Perto do limite: ')+category,detail:money(spent)+' de '+money(limit)+' usados',priority:reached?0:3,filter:'expense',category});
     }
   }
+  const weekly=marketWeeklyStatus(today);
+  for(const level of weekly.milestones){
+    items.push({id:'market-week:'+weekly.start+':'+level,kind:'market-week',date:today,
+      title:level===100&&weekly.spent>MARKET_WEEK_LIMIT?'Mercado: limite semanal ultrapassado':`Mercado: ${level}% do limite semanal`,
+      detail:money(weekly.spent)+' de '+money(MARKET_WEEK_LIMIT)+' usados nesta semana',
+      priority:level===100?0:2});
+  }
   const dismissed=readDesktopNotificationDismissals();
   return items.sort((a,b)=>a.priority-b.priority).map(item=>({...item,dismissalId:desktopNotificationId(item)})).filter(item=>!dismissed.has(item.dismissalId));
 }
 function openDesktopNotification(item){
+  if(item?.kind==='market-week'){go('budget');revealSearchTarget($('#marketWeeklyCard'));return}
   if(item?.kind==='budget'){setViewDate(item.date);go('budget');revealSearchTarget($('#budgetDueCard'));return}
   if(item?.kind==='budget-limit'){setViewDate(item.date);go('budget');revealSearchTarget($(item.category==='Mercado'?'#marketBudgetCard':'#categoryBudgetCard'));return}
   if(item?.kind==='calendar'){setViewDate(item.date);go('calendar')}else if(item?.kind==='reports'){setViewDate(item.date);go('reports');revealSearchTarget($('#monthlyCloseChecklist'))}else if(item?.kind==='goals'){go('goals');revealSearchTarget(document.querySelector(`[data-edit-jar="${CSS.escape(item.targetId)}"]`))}else if(item?.kind==='reserve'){setViewDate(item.date);go('goals');revealSearchTarget($('#incomeReserveCard'))}else if(item?.kind==='analysis'){setViewDate(item.date);go('analysis')}else if(item?.kind==='transactions'){setViewDate(item.date);state.txFilter=item.filter||'all';state.txSearch='';state.txTag='';state.txSubcategory='';state.txCategorySet=item.category?[item.category]:null;go('transactions')}
@@ -1382,7 +1435,7 @@ function budget(){
     <div class="budget-card-grid">
       ${budgetDueCard()}${homeSmartFinanceCard(m)}
       ${categorySpendCard(m)}${homeForecastCard()}
-      ${marketBudgetCard(m)}${categoryBudgetCard(m)}
+      ${marketWeeklyCard()}${expenseHistoryCard()}${marketBudgetCard(m)}${categoryBudgetCard(m)}
       ${expenseComparisonCards(m)}
       ${paydayPaceCard(m)}${cashflowCard()}
       ${budgetRecurrenceCard()}${debtCompareCard()}
@@ -1394,8 +1447,8 @@ function transactionItems(){const key=mkey(state.year,state.month),rows=db.recor
 let transactionLimit=30, transactionQueryKey="";
 function renderTransactionList(){const list=$('#transactionList');if(!list)return;let rows=transactionItems();if(state.txFilter!=='all')rows=rows.filter(x=>x.type===state.txFilter);if(state.txCategorySet?.length)rows=rows.filter(x=>state.txCategorySet.includes(x.category));const scope=$('#transactionCategoryScope');if(scope)scope.innerHTML=state.txCategorySet?.length?'<div class="transaction-filter-group"><span>Categoria</span><strong>'+esc(state.txCategorySet.length===1?state.txCategorySet[0]:'Outras categorias · '+state.txCategorySet.join(', '))+'</strong><button type="button" class="tag-filter" data-clear-tx-category-set>Limpar filtro</button></div>':'';const monthRecords=db.records.filter(x=>x.date.startsWith(mkey(state.year,state.month))),tags=[...new Set(monthRecords.flatMap(x=>x.tags||[]))].sort((a,b)=>a.localeCompare(b,'pt-BR')),subcategories=[...new Set(monthRecords.map(x=>x.subcategory).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR')),filterBox=$('#transactionTagFilters');if(state.txTag&&!tags.includes(state.txTag))state.txTag='';if(state.txSubcategory&&!subcategories.includes(state.txSubcategory))state.txSubcategory='';if(filterBox)filterBox.innerHTML=`${tags.length?`<div class="transaction-filter-group"><span>Etiquetas</span><button type="button" class="tag-filter ${state.txTag?'':'selected'}" data-tx-tag="">Todas</button>${tags.map(tag=>`<button type="button" class="tag-filter ${state.txTag===tag?'selected':''}" data-tx-tag="${esc(tag)}">#${esc(tag)}</button>`).join('')}</div>`:''}${subcategories.length?`<div class="transaction-filter-group"><span>Subcategorias</span><button type="button" class="tag-filter ${state.txSubcategory?'':'selected'}" data-tx-subcategory="">Todas</button>${subcategories.map(value=>`<button type="button" class="tag-filter ${state.txSubcategory===value?'selected':''}" data-tx-subcategory="${esc(value)}">${esc(value)}</button>`).join('')}</div>`:''}`;if(state.txTag)rows=rows.filter(x=>x.tags?.includes(state.txTag));if(state.txSubcategory)rows=rows.filter(x=>x.subcategory===state.txSubcategory);const q=(state.txSearch||'').trim().toLocaleLowerCase('pt-BR');if(q)rows=rows.filter(x=>[x.title,x.detail,x.date,...x.search,String(Math.abs(x.amount)/100),(Math.abs(x.amount)/100).toLocaleString('pt-BR',{minimumFractionDigits:2}),money(Math.abs(x.amount))].join(' ').toLocaleLowerCase('pt-BR').includes(q));const total=rows.reduce((a,x)=>a+(x.impact||0),0);const key=JSON.stringify([state.year,state.month,state.txFilter,state.txTag,state.txSubcategory,state.txCategorySet||[],q]);
 if(key!==transactionQueryKey){transactionQueryKey=key;transactionLimit=30}
-const formatter=rows.slice(0,transactionLimit).map(x=>`<article class="transaction-row"><span class="transaction-icon ${x.type}">${icon(x.type==='income'?'income':x.type==='expense'?'expense':'piggy')}</span><div class="transaction-copy"><b>${esc(x.title)}</b><small>${dateBR(x.date)} · ${esc(x.detail)}</small>${x.tags?.length?`<span class="transaction-tags">${x.tags.map(tag=>`<span>#${esc(tag)}</span>`).join(' ')}</span>`:''}</div><strong class="transaction-amount ${x.amount>=0?'positive':'negative'}">${x.amount>0?'+':'−'}${money(Math.abs(x.amount))}</strong><div class="transaction-actions">${x.type==='goals'?`<button class="btn small negative" data-delete-allocation="${esc(x.id)}" aria-label="Excluir movimentação de ${esc(x.title)} em ${dateBR(x.date)}">Excluir</button>`:`<button class="btn small" data-edit-record="${esc(x.id)}" aria-label="Editar ${esc(x.title)} em ${dateBR(x.date)}">Editar</button><button class="btn small negative" data-delete-record="${esc(x.id)}" aria-label="Excluir ${esc(x.title)} em ${dateBR(x.date)}">Excluir</button>`}</div></article>`).join('');list.innerHTML=formatter?`${formatter}${rows.length>transactionLimit?'<button class="btn" id="moreTransactions">Ver mais</button>':''}<div class="transaction-total" role="status" tabindex="-1">Mostrando ${Math.min(transactionLimit,rows.length)} de ${rows.length} ${rows.length===1?'item':'itens'} · impacto no orçamento ${total<0?'−':''}${money(Math.abs(total))}</div>`:'<div class="empty"><strong>Nenhum lançamento encontrado</strong>Experimente outro filtro ou registre um lançamento.</div>'}
-function transactions(){const totals=month();$('#page-transactions').innerHTML=`${heading('Lançamentos','Rendas, despesas e movimentações dos cofrinhos em uma linha do tempo.',`<div class="actions"><button class="btn" id="copyPreviousBtn">Copiar despesas do mês anterior</button><button type="button" class="btn" data-budget-target="budgetRecurrenceCard">Contas recorrentes</button></div>`)}<div class="stats transaction-summary">${stat('Receitas',money(totals.income),monthLabel(),'income')}${stat('Despesas',money(totals.expenses),monthLabel(),'expense')}${stat('Resultado',money(totals.income-totals.expenses),'Receitas menos despesas','wallet')}</div><article class="card transaction-card"><div class="transaction-toolbar"><div class="tx-filters" role="group" aria-label="Filtrar lançamentos">${[['all','Tudo'],['expense','Despesas'],['income','Rendas'],['goals','Metas']].map(([id,label])=>`<button type="button" class="tx-filter ${state.txFilter===id?'selected':''}" data-tx-filter="${id}" aria-pressed="${state.txFilter===id}">${label}</button>`).join('')}</div><label class="search-field">${icon('search')}<input id="transactionSearch" type="search" placeholder="Buscar descrição, categoria ou valor" value="${esc(state.txSearch)}" aria-label="Buscar lançamentos"></label></div><div id="transactionCategoryScope" class="transaction-tag-filters" aria-label="Filtro por categoria"></div><div id="transactionTagFilters" class="transaction-tag-filters" aria-label="Filtrar etiquetas e subcategorias"></div><div id="transactionList" class="transaction-list"></div></article>`;renderTransactionList()}
+const formatter=rows.slice(0,transactionLimit).map(x=>`<article class="transaction-row"><span class="transaction-icon ${x.type}">${icon(x.type==='income'?'income':x.type==='expense'?'expense':'piggy')}</span><div class="transaction-copy"><b>${esc(x.title)}</b><small>${dateBR(x.date)} · ${esc(x.detail)}</small>${x.tags?.length?`<span class="transaction-tags">${x.tags.map(tag=>`<span>#${esc(tag)}</span>`).join(' ')}</span>`:''}</div><strong class="transaction-amount ${x.amount>=0?'positive':'negative'}">${x.amount>0?'+':'−'}${money(Math.abs(x.amount))}</strong><div class="transaction-actions">${x.type==='goals'?`<button class="btn small negative" data-delete-allocation="${esc(x.id)}" aria-label="Excluir movimentação de ${esc(x.title)} em ${dateBR(x.date)}">Excluir</button>`:`<button class="btn small" data-edit-record="${esc(x.id)}" aria-label="Editar ${esc(x.title)} em ${dateBR(x.date)}">Editar</button><button class="btn small negative" data-delete-record="${esc(x.id)}" aria-label="Excluir ${esc(x.title)} em ${dateBR(x.date)}">Excluir</button>`}</div></article>`).join('');list.innerHTML=formatter?`${formatter}${rows.length>transactionLimit?'<button class="btn" id="moreTransactions">Ver mais</button>':''}<div class="transaction-total" role="status" tabindex="-1">Mostrando ${Math.min(transactionLimit,rows.length)} de ${rows.length} ${rows.length===1?'item':'itens'} · impacto no orçamento ${total<0?'−':''}${money(Math.abs(total))}</div>`:`<div class="empty"><strong>Nenhum lançamento encontrado</strong>${state.txFilter!=='all'||state.txSearch||state.txTag||state.txSubcategory||state.txCategorySet?.length?'Os filtros atuais não encontraram resultados. <button type="button" class="btn small" data-reset-transaction-filters>Limpar filtros</button>':'Confira o mês selecionado ou registre um lançamento.'}</div>`}
+function transactions(){const totals=month();$('#page-transactions').innerHTML=`${heading('Lançamentos','Rendas, despesas e movimentações dos cofrinhos em uma linha do tempo.',`<div class="actions"><button class="btn" id="copyPreviousBtn">Copiar despesas do mês anterior</button><button type="button" class="btn" data-budget-target="budgetRecurrenceCard">Contas recorrentes</button></div>`)}<div class="stats transaction-summary">${stat('Receitas',money(totals.income),monthLabel(),'income')}${stat('Despesas',money(totals.expenses),monthLabel(),'expense')}${stat('Resultado',money(totals.income-totals.expenses),'Receitas menos despesas','wallet')}</div><article class="card transaction-card"><div class="transaction-toolbar"><div class="tx-filters" role="group" aria-label="Filtrar lançamentos">${[['all','Tudo'],['expense','Despesas'],['income','Rendas'],['goals','Metas']].map(([id,label])=>`<button type="button" class="tx-filter ${state.txFilter===id?'selected':''}" data-tx-filter="${id}" aria-pressed="${state.txFilter===id}">${label}</button>`).join('')}</div><label class="search-field">${icon('search')}<input id="transactionSearch" type="search" autocomplete="off" placeholder="Buscar descrição, categoria ou valor" value="${esc(state.txSearch)}" aria-label="Buscar lançamentos"></label></div><div id="transactionCategoryScope" class="transaction-tag-filters" aria-label="Filtro por categoria"></div><div id="transactionTagFilters" class="transaction-tag-filters" aria-label="Filtrar etiquetas e subcategorias"></div><div id="transactionList" class="transaction-list"></div></article>`;renderTransactionList()}
 function openCopyPreviousExpenses(){let y=state.year,m=state.month-1;if(m<0){m=11;y--}const source=getMonth(y,m).records.filter(r=>r.kind==='expense'&&!r.recurringId&&!r.investmentId);if(!source.length)return notify('O mês anterior não tem despesas avulsas para copiar.');const key=mkey(state.year,state.month);const exists=x=>db.records.some(r=>r.kind==='expense'&&r.date.startsWith(key)&&r.category===x.category&&r.note===x.note&&r.amount===x.amount);state.copyCandidates=source.filter(x=>!exists(x));if(!state.copyCandidates.length)return notify('As despesas avulsas do mês anterior já foram copiadas.');state.modalTrigger=document.activeElement;state.modal='copyExpenses';$('#modalTitle').textContent='Escolher despesas para copiar';$('#modalContent').innerHTML=`<form id="copyExpensesForm"><p class="help">Selecione o que se repete em ${monthLabel()}. As datas serão ajustadas ao mês atual.</p><div class="copy-expense-list">${state.copyCandidates.map(x=>`<label class="copy-expense-option"><input type="checkbox" name="copyExpense" value="${esc(x.id)}" checked><span><b>${esc(x.category)}</b><small>${dateBR(x.date)} · ${esc(x.note||'Sem descrição')}</small></span><strong>${money(x.amount)}</strong></label>`).join('')}</div><div class="form-buttons"><button type="button" class="btn" data-close="1">Cancelar</button><button type="submit" class="btn primary">Copiar selecionadas</button></div></form>`;$('#modal').classList.add('open');$('#modal').setAttribute('aria-hidden','false');document.body.style.overflow='hidden';focusAppModal($('#modalContent input'))}
 async function submitCopyExpenses(e){e.preventDefault();const ids=new Set([...e.target.querySelectorAll('input[name="copyExpense"]:checked')].map(x=>x.value));if(!ids.size)return notify('Selecione ao menos uma despesa.');const key=mkey(state.year,state.month),maxDay=new Date(state.year,state.month+1,0).getDate();const copies=state.copyCandidates.filter(x=>ids.has(x.id)).map(x=>{const day=Math.min(Number(x.date.slice(8)),maxDay);return {...x,id:uid(),recurringId:null,recurringMonth:null,investmentId:null,investmentExpenseId:null,date:key+'-'+String(day).padStart(2,'0')}});const fresh=copies.filter(x=>!db.records.some(r=>r.kind==='expense'&&r.date===x.date&&r.category===x.category&&r.note===x.note&&r.amount===x.amount));if(!fresh.length)return notify('As despesas selecionadas já existem neste mês.');if(await mutate(()=>db.records.push(...fresh))){closeModal(true);notify(`${fresh.length} ${fresh.length===1?'despesa copiada':'despesas copiadas'} para ${monthLabel()}.`)}}
 function linkedInvestmentBalance(id,asOf=null){return sum(db.investments.filter(x=>x.goalId===id&&(!asOf||x.checked<=asOf)).map(x=>x.balance))}
@@ -2206,8 +2259,9 @@ document.addEventListener('click',event=>{
 });
 
 function settings(){
+ const scanProgress=$('#integrityProgressHost > .integrity-progress');
  const total=db.records.length+db.allocations.length;const institutionsCard=institutionRegistryCard();const recoveryCard=storageRecoveryRaw?`<article class="card settings-card settings-danger"><div class="settings-card-head"><span class="settings-icon">${icon('expense')}</span><div><h2>Recuperação de dados</h2><p>Os dados salvos não puderam ser lidos. O app pausou gravações para não sobrescrever o arquivo original.</p></div></div><div class="setting-actions"><button class="btn primary" id="exportCorruptBtn">Baixar cópia dos dados</button><button class="btn negative" id="startFreshAfterCorruptBtn">Iniciar base nova</button></div><p class="settings-note">${recoveryArchived?'Uma cópia também foi guardada neste navegador.':'Não foi possível arquivar a cópia automaticamente; exporte o arquivo antes de iniciar uma base nova.'}</p></article>`:'';
- $('#page-settings').innerHTML=`${heading('Configurações','Ajuste a aparência e organize seus dados.')}<div class="settings-grid">${recoveryCard}${accountSettingsCard()}<article class="card settings-card"><div class="settings-card-head"><div><h2>Central de Integridade</h2><p>Verifique o banco e gere um relatório técnico.</p></div></div><button class="btn primary" id="integrityScanBtn">Escanear</button><p id="integritySummary" role="status"></p></article>${institutionsCard}
+ $('#page-settings').innerHTML=`${heading('Configurações','Ajuste a aparência e organize seus dados.')}<div class="settings-grid">${recoveryCard}${accountSettingsCard()}<article class="card settings-card"><div class="settings-card-head"><div><h2>Central de Integridade</h2><p>Verifique o banco e gere um relatório técnico.</p></div></div><button class="btn primary" id="integrityScanBtn">Escanear</button><p id="integritySummary" role="status"></p><div id="integrityProgressHost"></div></article>${institutionsCard}
  <article class="card settings-card"><div class="settings-card-head"><span class="settings-icon">${icon('settings')}</span><div><h2>Aparência</h2><p>Escolha como o aplicativo aparece neste aparelho.</p></div></div><div class="setting-row"><div><h3>Tema escuro</h3><p>Reduz o brilho da tela.</p></div><label class="switch"><input id="darkMode" type="checkbox" ${db.prefs.dark?'checked':''}>Ativar</label></div><div class="field"><span>Paleta de cores</span><div class="theme-palette-grid" role="group" aria-label="Selecione a paleta de cores">${[['blue','Azul','#1762c4'],['emerald','Esmeralda','#16834b'],['petrol','Petróleo','#08796e'],['plum','Ameixa','#7444a5'],['graphite','Grafite','#525d70'],['carbon','Preto/amarelo','#ffd43b']].map(([id,label,color])=>`<button type="button" class="theme-palette-choice ${(db.prefs.palette||'blue')===id?'selected':''}" data-palette-pick="${id}" aria-pressed="${(db.prefs.palette||'blue')===id}" title="${label}"><i style="--palette-chip:${color}"></i><span>${label}</span></button>`).join('')}</div></div></article><article class="card settings-card"><h2>Notificações</h2><p>Som ao atingir 75% ou 100% da cota de Mercado no mês atual, com o app aberto.</p><label class="switch"><input type="checkbox" id="budgetSound" ${db.prefs.budgetSound?'checked':''}>Ativar som</label> <button type="button" class="btn small" id="testBudgetSound">Testar som</button><div class="setting-row"><div><h3>Lembretes de contas</h3><p>Usa as contas recorrentes e as datas exibidas na agenda.</p></div><label class="switch"><input type="checkbox" id="billReminders" ${db.prefs.billReminders?'checked':''}>Ativar</label></div><label class="field">Avisar com antecedência<select id="billReminderDays">${[[0,'No dia do vencimento'],[1,'1 dia antes'],[3,'3 dias antes'],[7,'7 dias antes']].map(([value,label])=>`<option value="${value}" ${db.prefs.billReminderDays===value?'selected':''}>${label}</option>`).join('')}</select></label><div class="setting-actions"><button type="button" class="btn" id="enableBillNotifications">Permitir avisos no aparelho</button></div><p class="settings-note" id="billNotificationStatus">${esc(billNotificationPermission())} Os avisos automáticos são verificados quando o app está aberto.</p></article>
  <article class="card settings-card update-card"><div class="settings-card-head"><span class="settings-icon">${icon('refresh')}</span><div><h2>Atualizações</h2><p>Consulte a versão publicada e atualize o aplicativo sem apagar seus registros.</p></div></div><div id="updateState" class="update-status" data-state="${esc(updateInfo.state)}" role="status" aria-live="polite">${esc(updateInfo.status)}</div><div class="update-metrics"><div class="update-metric"><span>VERSÃO INSTALADA</span><strong>v${APP_VERSION}</strong></div><div class="update-metric"><span>VERSÃO PUBLICADA</span><strong id="updateLatest">v${esc(updateInfo.latest)}</strong></div><div class="update-metric"><span>ÚLTIMA CONSULTA</span><strong id="updateLastCheck">${updateInfo.lastCheck?esc(new Date(updateInfo.lastCheck).toLocaleString('pt-BR')):'Ainda não consultado'}</strong></div></div><div class="setting-actions"><button class="btn" id="checkUpdatesBtn">Verificar agora</button><button class="btn primary" id="applyUpdateBtn" ${updateInfo.available?'':'hidden'}>Atualizar agora</button></div><p class="update-help" id="updateNotes">${esc(updateInfo.notes||'O app preserva o banco local. A atualização do PWA requer conexão com o endereço publicado.')}</p></article>
  <article class="card settings-card backup-panel"><div class="settings-card-head"><span class="settings-icon">${icon('wallet')}</span><div><h2>Backup e exportação</h2><p>Proteja seus registros e gere relatórios.</p></div></div><div class="backup-grid">
@@ -2221,6 +2275,7 @@ function settings(){
  <article class="card settings-card diagnostic-advanced-card" hidden><div class="settings-card-head"><span class="settings-icon">${icon('report')}</span><div><h2>Diagnóstico avançado</h2><p>Ferramenta de desenvolvimento e QA, destinada a uso com orientação técnica.</p></div></div><p>Varre todos os módulos, estrutura e layout, cálculos, persistência isolada, regressões, acessibilidade, segurança e APIs locais. Os testes sintéticos preservam os registros reais. A análise pode levar até 60 segundos.</p><p>O JSON distingue falhas, erros, pendências e recursos não suportados. Inclui esqueleto técnico do DOM sem textos visíveis, valores de campos ou dados financeiros e pessoais. Para investigar um problema, envie o JSON, um print separado e a descrição do comportamento. Nada é enviado automaticamente.</p><p>${diagnostics.report().events.length} evento(s) técnico(s) no histórico local.</p><div class="setting-actions"><button type="button" class="btn primary" id="runDiagnosticScan">Executar análise completa e baixar JSON</button><button type="button" class="btn" id="exportDiagnostics">Baixar logs JSONL</button><button type="button" class="btn" id="clearDiagnostics">Limpar logs</button></div><p id="diagnosticScanStatus" role="status" aria-live="polite">A análise percorre os módulos; testes que dependem de navegador, aparelho ou serviços externos aparecem como pendentes.</p></article>
  <article class="card settings-card settings-danger"><div class="settings-card-head"><span class="settings-icon">${icon('expense')}</span><div><h2>Apagar dados</h2><p>Remove ${total} movimentações e ${db.jars.length} cofrinhos salvos neste navegador.</p></div></div><div class="setting-actions"><button class="btn negative" id="clearBtn">Apagar todos os dados</button></div></article>
  </div><div class="notice">Versão ${APP_VERSION}. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
+ if(scanProgress){$('#integrityProgressHost').append(scanProgress);$('#integrityScanBtn').disabled=true;}
 }
 function setUpdateStatus(status,state='waiting'){updateInfo.status=status;updateInfo.state=state;const el=$('#updateState');if(el){el.textContent=status;el.dataset.state=state}const button=$('#applyUpdateBtn');if(button)button.hidden=!updateInfo.available;const latest=$('#updateLatest');if(latest)latest.textContent='v'+updateInfo.latest;const checked=$('#updateLastCheck');if(checked)checked.textContent=updateInfo.lastCheck?new Date(updateInfo.lastCheck).toLocaleString('pt-BR'):'Ainda não consultado';const notes=$('#updateNotes');if(notes)notes.textContent=updateInfo.notes||'O app preserva o banco local. A atualização do PWA requer conexão com o endereço publicado.'}
 const parseAppVersion=value=>{
@@ -4329,13 +4384,15 @@ async function integrityMonitor() {
 async function integrityScan() {
   if (!canStartDiagnostic()) return;
   integrityRunning = diagnosticRunning = true;
-  const dialog = document.createElement('dialog');
+  const host=!usesMobileNavigation()&&$('#integrityProgressHost');
+  const dialog = document.createElement(host?'section':'dialog');
   const names = ['Varredura de integridade','Autocorreção','Monitoramento e checagem','Diagnóstico'];
   dialog.setAttribute('aria-label','Central de Integridade');
-  dialog.className = 'card integrity-progress';
+  dialog.className = host?'integrity-progress integrity-progress-inline':'card integrity-progress';
   dialog.innerHTML = '<div class="settings-card-head"><span class="settings-icon">'+icon('refresh')+'</span><div><h2>Central de Integridade</h2><p role="status" class="integrity-screen">Preparando verificações</p></div></div>'+names.map((name,index)=>'<div class="integrity-stage"><div><strong>'+name+'</strong><output>Aguardando</output></div><p class="integrity-stage-detail" id="integrity-stage-detail-'+index+'">Aguardando esta etapa</p><progress max="100" value="0" aria-label="'+name+'"></progress></div>').join('');
   dialog.addEventListener('cancel',event=>event.preventDefault());
-  document.body.append(dialog);
+  (host||document.body).append(dialog);
+  if(host)$('#integrityScanBtn').disabled=true;
   const outputs = dialog.querySelectorAll('output');
   const bars = dialog.querySelectorAll('progress');
   const details = [...dialog.querySelectorAll('.integrity-stage-detail')];
@@ -4371,7 +4428,7 @@ async function integrityScan() {
     } finally {cancelAnimationFrame(frame);clearTimeout(timer);}
   }
   try {
-    dialog.showModal();
+    if(!host)dialog.showModal();
     runId = crypto.randomUUID ? crypto.randomUUID() : 'run-'+Date.now()+'-'+Math.random().toString(16).slice(2);
     stages.push(await step(0,async update=>{
       update('Autenticando e validando a estrutura do banco');
@@ -4453,11 +4510,27 @@ async function integrityScan() {
     notify('Falha ao concluir a Central de Integridade.');
   } finally {
     dialog.remove();
+    if(host&&$('#integrityScanBtn'))$('#integrityScanBtn').disabled=false;
     integrityRunning = diagnosticRunning = false;
   }
 }
 integrityRecord('app.inicio','observado');
-document.addEventListener('click',event=>{if(event.target.closest('#integrityScanBtn')) void integrityScan();});
+document.addEventListener('click',event=>{
+  if(event.target.closest('#integrityScanBtn'))void integrityScan();
+  if(event.target.closest('[data-reset-transaction-filters]')){
+    Object.assign(state,{txFilter:'all',txSearch:'',txTag:'',txSubcategory:'',txCategorySet:null});
+    transactions();
+    $('#transactionSearch')?.focus();
+  }
+});
+for(const type of ['click','keydown','submit']){
+  document.addEventListener(type,event=>{
+    if(!event.isTrusted||!integrityRunning||!$('#integrityProgressHost > .integrity-progress'))return;
+    if(type==='keydown'&&event.key==='Tab')return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  },true);
+}
 document.addEventListener('securitypolicyviolation',()=>{
   integrityStoreCheck([{check:'politica.conteudo',status:'alerta'}]);
   void integrityHistory();

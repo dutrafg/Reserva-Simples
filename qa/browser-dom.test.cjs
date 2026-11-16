@@ -293,7 +293,14 @@ test('Central gera o relatório das quatro etapas e preserva a base ativa', { ti
   const { qa, window, downloads } = boot(t, {seed});
   const raw = window.localStorage.getItem(qa.STORE);
   await new Promise(resolve => setImmediate(resolve));
-  await qa.integrityScan();
+  qa.go('settings');
+  const scanRun=qa.integrityScan();
+  const progress=window.document.querySelector('#integrityProgressHost > section');
+  assert.ok(progress);
+  qa.render();
+  assert.equal(window.document.querySelector('#integrityProgressHost > section'),progress);
+  await scanRun;
+  assert.equal(window.document.querySelector('#integrityProgressHost > section'),null);
   assert.equal(window.localStorage.getItem(qa.STORE),raw);
   assert.equal(downloads.length,1);
   const json = await downloads[0].text();
@@ -316,7 +323,7 @@ test('Central gera o relatório das quatro etapas e preserva a base ativa', { ti
     assert.equal((suite.statusCounts.falha||0)+(suite.statusCounts.erro||0),0,name);
   }
   assert.equal(integrated.failures,0);
-  assert.equal(report.scan.checks.find(item => item.name === 'Matriz responsiva de navegação').status,'não_suportado');
+  assert.equal(report.scan.modules.find(module => module.module === 'home').checks.find(item => item.name === 'Matriz responsiva de navegação').status,'não_suportado');
   assert.equal(report.diagnosticContract.coverage.modules.length,9);
   assert.equal(report.diagnosticContract.coverage.releaseFiles.length,7);
   assert.equal(report.diagnosticContract.brokenSignatures.length,0);
@@ -369,4 +376,63 @@ test('preferência visitante permite reabrir sem solicitar cadastro e perfis seg
  assert.equal(window.document.querySelector('.page.active').id,'page-home');
  assert.equal(qa.getState().page,'home');
  assert.ok(window.document.querySelector('#headerSettings'));
+});
+
+test('limpar filtros mostra a despesa do mês novamente', t => {
+  const date=new Date().toLocaleDateString('sv-SE');
+  const {qa,get,window}=boot(t,{seed:{...stored(),records:[expense('qa-filter',date,1234,'Despesa visível')]}});
+  qa.go('transactions');
+  get('[data-tx-filter="goals"]').click();
+  const search=get('#transactionSearch');
+  search.value='texto sem correspondência';
+  search.dispatchEvent(new window.Event('input',{bubbles:true}));
+  get('[data-reset-transaction-filters]').click();
+  assert.equal(get('#transactionSearch').value,'');
+  assert.match(get('#transactionList').textContent,/Despesa visível/);
+});
+
+test('Mercado avisa nas quatro faixas semanais e reinicia na segunda-feira', t => {
+  const records=[
+    expense('qa-market-old','2026-11-15',18000),
+    expense('qa-market-25','2026-11-16',4375),
+    expense('qa-market-50','2026-11-17',4375),
+    expense('qa-market-75','2026-11-18',4375),
+    expense('qa-market-100','2026-11-19',4376)
+  ];
+  const {qa,document}=boot(t,{seed:{...stored(),records}});
+  const notices=date=>qa.desktopNotificationItems(date).filter(item=>item.kind==='market-week');
+  const start=notices('2026-11-16');
+  assert.equal(start.length,1);
+  assert.match(start[0].title,/25%/);
+  assert.equal(notices('2026-11-17').length,2);
+  assert.equal(notices('2026-11-18').length,3);
+  assert.equal(notices('2026-11-19').length,4);
+  assert.match(notices('2026-11-19')[0].title,/ultrapassado/);
+  assert.equal(notices('2026-11-23').length,0);
+  qa.openDesktopNotification(start[0]);
+  assert.equal(document.activeElement.id,'marketWeeklyCard');
+});
+
+test('histórico mostra despesas por categoria e distingue meses sem registro', t => {
+  const today=new Date();
+  const date=offset=>{
+    const month=new Date(today.getFullYear(),today.getMonth()+offset,2);
+    return month.toLocaleDateString('sv-SE');
+  };
+  const {qa,get}=boot(t,{seed:{...stored(),records:[
+    expense('qa-market-1',date(-1),12000),
+    expense('qa-market-2',date(-2),9000),
+    {...expense('qa-other',date(-2),8000),category:'Luz'},
+    expense('qa-market-4',date(-4),99000)
+  ]}});
+  qa.go('budget');
+  const history=get('#expenseHistoryCard');
+  const rows=[...history.querySelectorAll('tbody tr')];
+  const card=rows.find(row=>row.cells[0].textContent==='Mercado');
+  assert.equal(rows.find(row=>row.cells[0].textContent==='Luz').cells[4].textContent.includes('80,00'),true);
+  assert.equal(card.cells[1].textContent,'Sem registro');
+  assert.match(card.textContent,/120,00/);
+  assert.match(card.textContent,/90,00/);
+  assert.match(card.textContent,/105,00/);
+  assert.doesNotMatch(card.textContent,/990,00|170,00/);
 });

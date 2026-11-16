@@ -1,4 +1,4 @@
-const VERSION = '1.0.0-beta.3';
+const VERSION = '1.0.0-beta.4';
 const CACHE = 'reserva-simples-v' + VERSION + '-pwa';
 const INTEGRITY_MANIFEST = './integrity-manifest.json';
 const CHECKED_FILES = ['./index.html', './app.js', './accounts.js', './engines.js', './manifest.webmanifest', './version.json', './sw.js'];
