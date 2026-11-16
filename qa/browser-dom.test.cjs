@@ -312,3 +312,13 @@ test('Central gera o relatório das quatro etapas e preserva a base ativa', { ti
   assert.equal(report.diagnosticContract.brokenSignatures.length,0);
   assert.equal(json.includes('Registro da fixture'),false);
 });
+
+test('perfil ativo impede alteração de propriedade e mantém o banco original',async t=>{
+  const {qa,window}=boot(t);
+  const owner=qa.getDb().ownerId;
+  const raw=window.localStorage.getItem(qa.STORE);
+  assert.equal(owner,'00000000-0000-4000-8000-000000000001');
+  assert.equal(await qa.mutate(()=>{qa.getDb().ownerId='00000000-0000-4000-8000-000000000002'}),false);
+  assert.equal(qa.getDb().ownerId,owner);
+  assert.equal(window.localStorage.getItem(qa.STORE),raw);
+});
