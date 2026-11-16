@@ -3,6 +3,7 @@ const byAllocationDate = (a,b) => a.date.localeCompare(b.date) || Number(b.amoun
 const IOF_PERCENT = [0,96,93,90,86,83,80,76,73,70,66,63,60,56,53,50,46,43,40,36,33,30,26,23,20,16,13,10,6,3];
 const Accounts=window.ReservaAccounts;
 const ACCOUNT=Accounts.active(localStorage);
+const GUEST=!ACCOUNT&&localStorage.getItem('reserva.guest.enabled.v1')==='true';
 const STORE=ACCOUNT?Accounts.storeKey(ACCOUNT.id):'reserva-simples-v2';
 const userKey=key=>ACCOUNT?key+'::'+ACCOUNT.id:key;
 const Engines=window.ReservaEngines;
@@ -13,7 +14,7 @@ const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purp
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['budget','Orçamento','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='1.0.0-beta.2';
+const APP_VERSION='1.0.0-beta.3';
 const APP_CACHE_NAME='reserva-simples-v'+APP_VERSION+'-pwa';
 const TELEMETRY_SCHEMA='reserva.telemetry.event.v1';
 const diagnosticFixtureStorages = new WeakSet();
@@ -1111,7 +1112,7 @@ function moduleNavButton([id,label,ic],shortLabel=label){
 }
 function mobileDockMarkup(){
  const button=(id,label)=>moduleNavButton(PAGES.find(page=>page[0]===id),label);
- const otherSelected=!MOBILE_PRIMARY_MODULES.includes(state.page);
+ const otherSelected=state.page!=='settings'&&!MOBILE_PRIMARY_MODULES.includes(state.page);
  return [
    button('home','Hoje'),
    button('transactions','Mov.'),
@@ -1127,7 +1128,7 @@ function nav(){
  const desktopModules=PAGES.filter(([id])=>id!=='settings');
  $('#mobileNav').innerHTML=mobileDockMarkup();
  const more=$('#mobileMoreDialog .mobile-more-grid');
- if(more)more.innerHTML=PAGES.filter(([id])=>!MOBILE_PRIMARY_MODULES.includes(id)).map(module=>moduleNavButton(module)).join('');
+ if(more)more.innerHTML=PAGES.filter(([id])=>id!=='settings'&&!MOBILE_PRIMARY_MODULES.includes(id)).map(module=>moduleNavButton(module)).join('');
  $('#desktopNav').innerHTML=desktopModules.map(module=>moduleNavButton(module)).join('')+'<button class="nav-button" type="button" data-register-menu aria-label="Registrar" title="Registrar">'+icon('plus')+'<span class="nav-label">Registrar</span></button>'+PAGES.filter(([id])=>id==='settings').map(module=>moduleNavButton(module)).join('');syncSidebar();syncDesktopHeaderControls();const agendaButton=$('#headerCalendar');agendaButton?.classList.toggle('selected',state.page==='calendar');if(state.page==='calendar')agendaButton?.setAttribute('aria-current','page');else agendaButton?.removeAttribute('aria-current');const settings=$('#headerSettings');settings?.classList.toggle('selected',state.page==='settings');if(state.page==='settings')settings?.setAttribute('aria-current','page');else settings?.removeAttribute('aria-current');renderDesktopModuleBar();renderDesktopNotifications()}
 document.addEventListener('click',event=>{
  const dialog=$('#mobileMoreDialog');
@@ -2075,7 +2076,14 @@ async function createAccount(event){
 }
 
 function accountSettingsCard(){
- if(!ACCOUNT)return '';
+ if(!ACCOUNT)return `<article class="card settings-card account-card account-guest">
+   <div class="settings-card-head"><span class="settings-icon">${icon('wallet')}</span><div>
+   <h2>Modo sem cadastro</h2><p>Você está usando o Reserva Simples sem perfil protegido.</p>
+   </div></div>
+   <p>Seus dados ficam neste navegador e podem ser acessados por outras pessoas que utilizem este dispositivo, salvo se você ativou o cofre manualmente. Não há biometria nem recuperação de conta.</p>
+   <div class="setting-actions"><button class="btn primary" type="button" id="guestCreateProfile">Criar perfil protegido</button></div>
+   <p class="settings-note">Você pode vincular os registros atuais durante o cadastro. Uma cópia da base anterior será mantida.</p>
+   </article>`;
  const profile=db.profile||{name:'',email:'',phone:'',avatar:0,photo:''};
  const image=profile.photo||Accounts.avatar(profile.avatar||0);
  return `<article class="card settings-card account-card">
@@ -2163,7 +2171,7 @@ async function toggleBiometricEnable(){
 }
 
 
-document.addEventListener('cancel',event=>{if(event.target?.id==='accountDialog'&&!ACCOUNT)event.preventDefault()});
+document.addEventListener('cancel',event=>{if(event.target?.id==='accountDialog'&&!ACCOUNT&&!GUEST)event.preventDefault()});
 document.addEventListener('submit',event=>{
  if(event.target.id==='accountForm')void createAccount(event);
  if(event.target.id==='profileForm')void saveProfileForm(event);
@@ -2172,7 +2180,17 @@ document.addEventListener('change',event=>{
  if(event.target.id==='accountPhotoInput')void handleProfilePhoto(event.target.files?.[0]);
 });
 document.addEventListener('click',event=>{
- if(event.target.closest('#accountCreateMore'))showAccountDialog();
+ if(event.target.closest('#accountCreateMore')||event.target.closest('#guestCreateProfile'))showAccountDialog();
+ if(event.target.closest('#accountSkip')){
+   if(ACCOUNT)return;
+   try{
+     localStorage.setItem('reserva.guest.enabled.v1','true');
+     $('#accountDialog')?.close();
+     document.body.classList.remove('reserve-locked');
+     if(vault&&!vaultKey){showVaultDialog('unlock');return}
+     render();
+   }catch{const el=$('#accountError');if(el)el.textContent='Não foi possível iniciar o modo sem cadastro neste navegador.'}
+ }
  if(event.target.closest('#accountSwitch')){
    const id=$('#accountSelect')?.value;
    if(id&&id!==ACCOUNT?.id){Accounts.select(localStorage,id);document.body.classList.add('reserve-locked');location.reload()}
@@ -2284,7 +2302,7 @@ document.addEventListener('focusout', () => {
 });
 const pageRenderers={home,transactions,budget,calendar,goals,investments,analysis,reports,settings};
 function render(){
-  if(!ACCOUNT){document.body.classList.add('reserve-locked');showAccountDialog();return}
+  if(!ACCOUNT&&!GUEST){document.body.classList.add('reserve-locked');showAccountDialog();return}
   if(vault&&!vaultKey){document.body.classList.add('reserve-locked');showVaultDialog('unlock');return}
   document.body.classList.remove('reserve-locked');
   marketRefreshPending=false;
@@ -4265,7 +4283,7 @@ function integrityInterface() {
     const screen=document.querySelectorAll('#page-'+id);
     const hasRenderer=typeof pageRenderers[id]==='function';
     const desktopLink=$('#desktopNav [data-page="'+id+'"]');
-    const mobileLink=$('#mobileNav [data-page="'+id+'"],#mobileMoreDialog [data-page="'+id+'"]');
+    const mobileLink=id==='settings'?$('#headerSettings'):$('#mobileNav [data-page="'+id+'"],#mobileMoreDialog [data-page="'+id+'"]');
     return {check:'interface.'+id,
       status:screen.length===1&&hasRenderer&&desktopLink&&mobileLink?'aprovada':'alerta',
       action:'verificar_tela_renderizador_e_navegacao'};
