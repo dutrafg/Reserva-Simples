@@ -247,7 +247,7 @@ test('descarta um lembrete ignorado sem apagar o recebimento', t => {
 test('Central verifica os arquivos e só repara conteúdo da mesma versão', async t => {
   const { qa, window } = boot(t);
   const manifest = JSON.parse(read('integrity-manifest.json'));
-  const name = '1.0.0-beta.1-pwa';
+  const name = qa.APP_VERSION+'-pwa';
   const files = new Map(Object.keys(manifest.assets).map(path => [path.slice(2), read(path)]));
   files.set('integrity-manifest.json', JSON.stringify(manifest));
   const cache = new Map(files);
@@ -299,6 +299,8 @@ test('Central gera o relatório das quatro etapas e preserva a base ativa', { ti
   for (const check of [...report.scan.checks, ...report.scan.modules.flatMap(module => module.checks)]) {
     if (check.status === 'alerta') t.diagnostic(check.name + ' · ' + check.reason);
   }
+  const locFailures=report.scan.locTests.filter(item=>item.status==='falha'||item.status==='erro');
+  if(locFailures.length)t.diagnostic('Falhas LOC: '+JSON.stringify(locFailures.map(item=>({id:item.id,title:item.title,reason:item.reason,evidence:item.evidence}))));
   const suites = report.scan.testSuiteSummary.suites;
   for (const [name,suite] of Object.entries(suites)) {
     assert.equal((suite.statusCounts.falha||0)+(suite.statusCounts.erro||0),0,name);
