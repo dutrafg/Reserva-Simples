@@ -3,7 +3,7 @@ const byAllocationDate = (a,b) => a.date.localeCompare(b.date) || Number(b.amoun
 const IOF_PERCENT = [0,96,93,90,86,83,80,76,73,70,66,63,60,56,53,50,46,43,40,36,33,30,26,23,20,16,13,10,6,3];
 const Accounts=window.ReservaAccounts;
 const ACCOUNT=Accounts.active(localStorage);
-const GUEST=!ACCOUNT&&localStorage.getItem('reserva.guest.enabled.v1')==='true';
+let GUEST=!ACCOUNT&&localStorage.getItem('reserva.guest.enabled.v1')==='true';
 const STORE=ACCOUNT?Accounts.storeKey(ACCOUNT.id):'reserva-simples-v2';
 const userKey=key=>ACCOUNT?key+'::'+ACCOUNT.id:key;
 const Engines=window.ReservaEngines;
@@ -2185,6 +2185,7 @@ document.addEventListener('click',event=>{
    if(ACCOUNT)return;
    try{
      localStorage.setItem('reserva.guest.enabled.v1','true');
+     GUEST=true;
      $('#accountDialog')?.close();
      document.body.classList.remove('reserve-locked');
      if(vault&&!vaultKey){showVaultDialog('unlock');return}
