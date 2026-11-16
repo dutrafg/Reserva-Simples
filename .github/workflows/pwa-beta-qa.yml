@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - feature/perfis-cofre-biometria-1-0
+      - fix/mobile-settings-duplicate-beta3
+      - main
   workflow_dispatch:
 
 permissions:
