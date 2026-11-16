@@ -1,7 +1,9 @@
 (()=>{'use strict';
 const byAllocationDate = (a,b) => a.date.localeCompare(b.date) || Number(b.amount > 0) - Number(a.amount > 0) || a.id.localeCompare(b.id);
 const IOF_PERCENT = [0,96,93,90,86,83,80,76,73,70,66,63,60,56,53,50,46,43,40,36,33,30,26,23,20,16,13,10,6,3];
-const STORE='reserva-simples-v2';
+const Accounts=window.ReservaAccounts;
+const ACCOUNT=Accounts.active(localStorage);
+const STORE=ACCOUNT?Accounts.storeKey(ACCOUNT.id):'reserva-simples-v2';
 const Engines=window.ReservaEngines;
 const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const CATS=['Água','Luz','Internet','Faculdade','Farmácia','Cartões','Telefone','Mercado','Comida / Marmita','Moradia','Transporte','Saúde','Lazer','Assinaturas','Pecuária','Outros'];
@@ -188,7 +190,7 @@ const uid=()=>typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID()
 const toCents=value=>{const n=Number(value),cents=Math.round(n*100);return Number.isFinite(n)&&cents>0&&n<=100000000?cents:NaN};
 const icon=name=>`<svg aria-hidden="true"><use href="#${name}"/></svg>`;
 const sum=a=>a.reduce((v,n)=>v+n,0);
-const empty=()=>({version:4,investments:[],records:[],jars:[],allocations:[],recurring:[],tasks:[],notes:[],institutions:[{id:'inter-default',name:'Banco Inter',type:'bank',cdiPercent:100,guaranteeFund:'fgc',conglomerate:'Banco Inter',otherCoveredBalance:0,isDefault:true}],prefs:{dark:!!window.matchMedia?.('(prefers-color-scheme: dark)').matches,balanceAnchorCents:null,balanceAnchorDate:'',emergencyMonths:6,categoryBudgets:{},billReminders:false,billReminderDays:1}});
+const empty=()=>({version:4,ownerId:null,profile:null,investments:[],records:[],jars:[],allocations:[],recurring:[],tasks:[],notes:[],institutions:[{id:'inter-default',name:'Banco Inter',type:'bank',cdiPercent:100,guaranteeFund:'fgc',conglomerate:'Banco Inter',otherCoveredBalance:0,isDefault:true}],prefs:{dark:!!window.matchMedia?.('(prefers-color-scheme: dark)').matches,balanceAnchorCents:null,balanceAnchorDate:'',emergencyMonths:6,categoryBudgets:{},billReminders:false,billReminderDays:1}});
 function validDate(s){if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return false;const [y,m,d]=s.split('-').map(Number);const dt=new Date(Date.UTC(y,m-1,d));return dt.getUTCFullYear()===y&&dt.getUTCMonth()===m-1&&dt.getUTCDate()===d}
 function normalizeTags(value){const input=Array.isArray(value)?value:String(value||'').split(/[;,]/);return [...new Set(input.map(x=>String(x||'').trim().replace(/^#+/,'').slice(0,30)).filter(Boolean).map(x=>x.slice(0,30)))].slice(0,8)}
 function verify(src){if(!src||![2,3,4].includes(src.version)||!Array.isArray(src.records)||!Array.isArray(src.jars)||!Array.isArray(src.allocations)||src.records.length>50000||src.jars.length>5000||src.allocations.length>50000||!Array.isArray(src.recurring||[])||(src.recurring||[]).length>5000||!Array.isArray(src.tasks||[])||(src.tasks||[]).length>10000||!Array.isArray(src.institutions??[])||(src.institutions??[]).length>5000)return null;
@@ -250,6 +252,8 @@ function verify(src){if(!src||![2,3,4].includes(src.version)||!Array.isArray(src
  clean.prefs.billReminders=src.prefs?.billReminders===true;clean.prefs.billReminderDays=[0,1,3,7].includes(src.prefs?.billReminderDays)?src.prefs.billReminderDays:1;
  clean.notes=validateCalendarNotes(src.notes);
  if(!clean.notes)return null;
+ if(src.ownerId!=null){if(typeof src.ownerId!=='string'||!/^[a-f0-9-]{36}$/i.test(src.ownerId))return null;clean.ownerId=src.ownerId}
+ if(src.profile!=null){try{if(!clean.ownerId)return null;clean.profile=Accounts.profile(src.profile,clean.ownerId)}catch{return null}}
  return clean;
 }
 let storageRecoveryRaw=null,recoveryArchived=false,loadedStoreRaw=null;
@@ -402,7 +406,7 @@ async function submitVault(event) {
 }
 function load(){let raw=null;try{raw=localStorage.getItem(STORE);loadedStoreRaw=raw;if(!raw){const fresh=empty();try{fresh.notes=validateCalendarNotes(JSON.parse(localStorage.getItem('reserva.calendarNotes')||'[]'))||[]}catch{}return fresh}const parsed=JSON.parse(raw);if(parsed&&parsed.notes===undefined&&parsed.format!=='reserva-vault-1'){try{parsed.notes=validateCalendarNotes(JSON.parse(localStorage.getItem('reserva.calendarNotes')||'[]'))||[]}catch{}}if(parsed?.format==='reserva-vault-1'){vault=parsed;return empty()}const clean=verify(parsed);if(clean)return clean;storageRecoveryRaw=raw}catch(e){try{raw=localStorage.getItem(STORE)}catch(ignore){}}if(raw){diagnostics.record('storage.recovery');storageRecoveryRaw=raw;try{recoveryArchived=false;for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key?.startsWith(`${STORE}-corrompido-`)&&localStorage.getItem(key)===raw){recoveryArchived=true;break}}if(!recoveryArchived){localStorage.setItem(`${STORE}-corrompido-${Date.now()}`,raw);recoveryArchived=true}}catch(e){recoveryArchived=false}}return empty()}
 let db=load();diagnostics.step('app.initialized', 'home');const todayAtStart=new Date();let state={page:preferredStartPage(),year:todayAtStart.getFullYear(),month:todayAtStart.getMonth(),modal:'',editJarId:null,editRecordId:null,editInstitutionId:null,editAllocationId:null,simGoal:'',simAmount:'200',txFilter:'all',txSearch:'',txTag:'',txSubcategory:'',txCategorySet:null,copyCandidates:[],modalTrigger:null,calendarDate:''};let toastTimer;
-let backupDirectory=null,backupConflict=false,backupTimer=null,persistenceStatus='Consultando a proteção de armazenamento…';const BACKUP_DB='reserva-simples-backup-handles',BACKUP_FILE='Reserva_Simples_backup.json';
+let backupDirectory=null,backupConflict=false,backupTimer=null,persistenceStatus='Consultando a proteção de armazenamento…';const BACKUP_DB='reserva-simples-backup-handles'+(ACCOUNT?'-'+ACCOUNT.id:''),BACKUP_FILE='Reserva_Simples_backup.json';
 const backupPayload=()=>({...db,appVersion:APP_VERSION,savedAt:new Date().toISOString()});const canonicalData=value=>JSON.stringify(verify(value)||value);const hasSavedData=value=>!!(value&&(value.investments?.length||value.records?.length||value.jars?.length||value.allocations?.length||value.recurring?.length||value.tasks?.length||(value.institutions||[]).some(x=>!x.isDefault)));
 async function save({folderBackup=true,recover=false}={}){
   if(integrityContainmentLock&&!(recover&&storageRecoveryRaw&&recoveryArchived)){
@@ -527,7 +531,7 @@ async function removeBackupHandle(){const d=await openBackupDb();await new Promi
 async function hasFolderPermission(request=false){if(!backupDirectory)return false;try{let p=await backupDirectory.queryPermission({mode:'readwrite'});if(p!=='granted'&&request)p=await backupDirectory.requestPermission({mode:'readwrite'});return p==='granted'}catch(e){return false}}
 async function folderFile(create=false){return backupDirectory.getFileHandle(BACKUP_FILE,{create})}
 function scheduleFolderBackup(){if(!backupDirectory||backupConflict)return;clearTimeout(backupTimer);backupTimer=setTimeout(()=>writeFolderBackup(false),900)}
-const ENCRYPTED_FOLDER_FILE = 'Reserva_Simples_cifrado.json';
+const ENCRYPTED_FOLDER_FILE = ACCOUNT?'Reserva_Simples_cifrado_'+ACCOUNT.id+'.json':'Reserva_Simples_cifrado.json';
 function requestFolderPassword(title, confirmPassword, action) {
   showVaultDialog('folder');
   $('#vaultTitle').textContent = title;
