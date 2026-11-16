@@ -14,7 +14,7 @@ const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purp
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['budget','Orçamento','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='1.0.0-beta.6';
+const APP_VERSION='1.0.0-beta.7';
 const APP_CACHE_NAME='reserva-simples-v'+APP_VERSION+'-pwa';
 const TELEMETRY_SCHEMA='reserva.telemetry.event.v1';
 const diagnosticFixtureStorages = new WeakSet();
@@ -1307,7 +1307,7 @@ function homeCalendarPreview(){
     const dayEvents=events.get(date)||[], count=dayEvents.length, hasNotes=notes.has(date);
     const expense=expensesByDay.get(date),heat=levelFor(date);
     const label=[dateBR(date), expense&&!hideValues?'Despesas: '+money(expense):'', count?count+' evento(s)':'', hasNotes?'com notas':'', ...dayEvents.slice(0,3).map(event=>event.title)].filter(Boolean).join(' · ');
-    return `<button type="button" data-open-calendar-date="${date}" ${heat?`data-expense-heat="${heat}"`: ''} class="home-calendar-day${count||hasNotes?' has-events':''}${date===today?' is-today':''}" aria-label="${esc(label)}" title="${esc(label)}" ${date===today?'aria-current="date"':''}>${day}${count?'<small aria-hidden="true">'+count+'</small>':''}</button>`;
+    return `<button type="button" data-open-calendar-date="${date}" ${heat?`data-expense-heat="${heat}"`: ''} class="home-calendar-day${date===today?' is-today':''}" aria-label="${esc(label)}" title="${esc(label)}" ${date===today?'aria-current="date"':''}>${day}</button>`;
   }).join('');
   return `<article class="card home-calendar-preview">
     <div class="card-head"><div><h2>Calendário</h2><p>${esc(monthLabel())}</p></div>

@@ -446,3 +446,12 @@ test('histórico mostra despesas por categoria e distingue meses sem registro', 
   assert.match(card.textContent,/90,00/);
   assert.doesNotMatch(card.textContent,/990,00|170,00/);
 });
+
+test('calendário de Hoje exibe só o dia e colore despesas', t => {
+  const date=new Date().toLocaleDateString('sv-SE');
+  const {get}=boot(t,{seed:{...stored(),records:[expense('qa-calendar-expense',date,2500)]}});
+  const cell=get('#page-home .home-calendar-day[data-open-calendar-date="'+date+'"]');
+  assert.equal(cell.textContent,String(Number(date.slice(-2))));
+  assert.equal(cell.dataset.expenseHeat,'5');
+  assert.match(cell.getAttribute('aria-label'),/25,00/);
+});
