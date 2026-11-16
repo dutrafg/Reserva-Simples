@@ -2163,6 +2163,7 @@ async function toggleBiometricEnable(){
 }
 
 
+document.addEventListener('cancel',event=>{if(event.target?.id==='accountDialog'&&!ACCOUNT)event.preventDefault()});
 document.addEventListener('submit',event=>{
  if(event.target.id==='accountForm')void createAccount(event);
  if(event.target.id==='profileForm')void saveProfileForm(event);
