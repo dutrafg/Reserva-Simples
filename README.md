@@ -1,4 +1,4 @@
-# Reserva Simples — v1.0.0-beta.2
+# Reserva Simples — v1.0.0-beta.3
 
 Aplicativo financeiro local para registrar rendas, despesas e movimentações de metas de reserva.
 
@@ -95,3 +95,11 @@ Execute `npm ci --prefix qa`, `npm test --prefix qa` e `node qa/integrity-manife
 - Em Ajustes, o usuário edita o perfil, envia uma foto comprimida, troca de perfil e bloqueia o aplicativo. Os backups de pasta usam nomes e permissões separados por perfil; para uma nova pasta, deve ser usada a senha do cofre.
 - O desbloqueio biométrico depende de WebAuthn PRF, autenticação do aparelho e contexto HTTPS. Se indisponível, permanece a senha do cofre. Não existe servidor de contas, recuperação por e-mail ou sincronização.
 - A biometria é um atalho criptográfico para liberar a senha local sem salvá-la em texto puro; o usuário deve guardar a senha para recuperação e migração.
+
+
+## Cadastro opcional e modo visitante (beta.3)
+
+- No primeiro acesso, é possível criar um perfil cifrado ou selecionar **Continuar sem cadastro**. Em modo visitante, os registros permanecem no armazenamento local deste navegador, sem a criptografia automática de um perfil; evite dispositivos compartilhados.
+- O modo visitante não abre nem utiliza bancos de perfis cadastrados. Se a base antiga tiver um cofre, ele continua exigindo sua senha; ignorar o cadastro não desbloqueia o cofre.
+- Em **Ajustes**, a opção **Criar perfil protegido** permite vincular registros anteriores, preservando a cópia original. A migração de cofre antigo exige a senha existente.
+- No smartphone, **Ajustes** fica somente na engrenagem do cabeçalho, não duplicado em **Mais módulos**. A Central de Integridade verifica o acesso direto a esse módulo.
