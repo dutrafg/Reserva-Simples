@@ -1,0 +1,33 @@
+name: QA da beta de perfis
+on:
+  push:
+    branches:
+      - feature/perfis-cofre-biometria-1-0
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pwa-security-and-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Obter código
+        uses: actions/checkout@v4
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar sintaxe dos scripts
+        run: |
+          node --check app.js
+          node --check accounts.js
+          node --check engines.js
+          node --check sw.js
+      - name: Conferir integridade dos arquivos publicados
+        run: node qa/integrity-manifest.cjs --check
+      - name: Instalar dependências de QA
+        run: npm ci --prefix qa --no-audit --no-fund
+      - name: Executar testes de regressão e segurança
+        run: npm test --prefix qa

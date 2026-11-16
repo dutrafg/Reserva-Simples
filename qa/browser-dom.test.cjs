@@ -68,7 +68,13 @@ function boot(testContext, { width = 1440, coarse = false, seed, query = '' } = 
       Object.defineProperty(window.navigator, 'onLine', { value: false, configurable: true });
       window.requestAnimationFrame = callback => window.setTimeout(() => callback(window.performance.now()), 0);
       window.cancelAnimationFrame = id => window.clearTimeout(id);
-      if (seed) window.localStorage.setItem('reserva-simples-v2', JSON.stringify(seed));
+      const id='00000000-0000-4000-8000-000000000001';
+      const profile={id,name:'Usuário de teste',phone:'',email:'',avatar:0,photo:''};
+      window.localStorage.setItem('reserva.accounts.index.v1',JSON.stringify([{id,label:'Usuário 1'}]));
+      window.localStorage.setItem('reserva.accounts.active.v1',id);
+      window.localStorage.setItem('reserva-simples-account-'+id,JSON.stringify({
+        ...(seed||{version:4,records:[],jars:[],allocations:[],recurring:[],investments:[],tasks:[],prefs:{}}),ownerId:id,profile
+      }));
     }
   });
   const { window } = dom;
@@ -78,6 +84,7 @@ function boot(testContext, { width = 1440, coarse = false, seed, query = '' } = 
     assert.deepEqual(errors.map(error => error.message), []);
   });
   window.eval(read('engines.js'));
+  window.eval(read('accounts.js'));
   window.eval(appSource);
   const { document, qa } = window;
   const get = selector => {
@@ -237,10 +244,10 @@ test('descarta um lembrete ignorado sem apagar o recebimento', t => {
   assert.equal(window.localStorage.getItem(qa.STORE), raw);
 });
 
-test('Central verifica seis arquivos e só repara conteúdo da mesma versão', async t => {
+test('Central verifica os arquivos e só repara conteúdo da mesma versão', async t => {
   const { qa, window } = boot(t);
   const manifest = JSON.parse(read('integrity-manifest.json'));
-  const name = '1.0.0-beta.1-pwa';
+  const name = qa.APP_VERSION+'-pwa';
   const files = new Map(Object.keys(manifest.assets).map(path => [path.slice(2), read(path)]));
   files.set('integrity-manifest.json', JSON.stringify(manifest));
   const cache = new Map(files);
@@ -258,7 +265,7 @@ test('Central verifica seis arquivos e só repara conteúdo da mesma versão', a
     })
   };
   const trace = await qa.integrityAssets();
-  assert.equal(trace.length, 7);
+  assert.equal(trace.length, 8);
   assert.equal(trace.find(item => item.check === './app.js').status, 'alerta');
   window.fetch = async url => new Response(filename(url)==='app.js'?'arquivo de outra versão':files.get(filename(url)));
   const rejected = await qa.integrityAssets(true);
@@ -268,7 +275,7 @@ test('Central verifica seis arquivos e só repara conteúdo da mesma versão', a
   cache.delete('integrity-manifest.json');
   const restored = await qa.integrityAssets(true);
   assert.equal(restored.filter(item => item.status === 'corrigida').length, 2);
-  assert.equal((await qa.integrityAssets()).filter(item => item.status === 'aprovada').length, 7);
+  assert.equal((await qa.integrityAssets()).filter(item => item.status === 'aprovada').length, 8);
 });
 
 test('Central gera o relatório das quatro etapas e preserva a base ativa', { timeout: 60_000 }, async t => {
@@ -292,6 +299,8 @@ test('Central gera o relatório das quatro etapas e preserva a base ativa', { ti
   for (const check of [...report.scan.checks, ...report.scan.modules.flatMap(module => module.checks)]) {
     if (check.status === 'alerta') t.diagnostic(check.name + ' · ' + check.reason);
   }
+  const locFailures=report.scan.locTests.filter(item=>item.status==='falha'||item.status==='erro');
+  if(locFailures.length)t.diagnostic('Falhas LOC: '+JSON.stringify(locFailures.map(item=>({id:item.id,title:item.title,reason:item.reason,evidence:item.evidence}))));
   const suites = report.scan.testSuiteSummary.suites;
   for (const [name,suite] of Object.entries(suites)) {
     assert.equal((suite.statusCounts.falha||0)+(suite.statusCounts.erro||0),0,name);
@@ -299,7 +308,17 @@ test('Central gera o relatório das quatro etapas e preserva a base ativa', { ti
   assert.equal(integrated.failures,0);
   assert.equal(report.scan.checks.find(item => item.name === 'Matriz responsiva de navegação').status,'não_suportado');
   assert.equal(report.diagnosticContract.coverage.modules.length,9);
-  assert.equal(report.diagnosticContract.coverage.releaseFiles.length,6);
+  assert.equal(report.diagnosticContract.coverage.releaseFiles.length,7);
   assert.equal(report.diagnosticContract.brokenSignatures.length,0);
   assert.equal(json.includes('Registro da fixture'),false);
+});
+
+test('perfil ativo impede alteração de propriedade e mantém o banco original',async t=>{
+  const {qa,window}=boot(t);
+  const owner=qa.getDb().ownerId;
+  const raw=window.localStorage.getItem(qa.STORE);
+  assert.equal(owner,'00000000-0000-4000-8000-000000000001');
+  assert.equal(await qa.mutate(()=>{qa.getDb().ownerId='00000000-0000-4000-8000-000000000002'}),false);
+  assert.equal(qa.getDb().ownerId,owner);
+  assert.equal(window.localStorage.getItem(qa.STORE),raw);
 });

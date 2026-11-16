@@ -1,4 +1,4 @@
-# Reserva Simples — v1.0.0-beta.1
+# Reserva Simples — v1.0.0-beta.2
 
 Aplicativo financeiro local para registrar rendas, despesas e movimentações de metas de reserva.
 
@@ -85,3 +85,13 @@ Publique esta pasta em HTTPS e instale pelo navegador. O atualizador verifica `v
 ## Testes automatizados
 
 Execute `npm ci --prefix qa`, `npm test --prefix qa` e `node qa/integrity-manifest.cjs --check`. A suíte usa dados sintéticos para verificar módulos, persistência, cálculos financeiros e o ciclo do Service Worker. As medidas visuais são executadas no navegador pela Central de Integridade.
+
+
+## Perfis locais (beta.2)
+
+- O primeiro acesso exige cadastro local de nome, telefone e e-mail, seleção de um entre cinco avatares financeiros e criação de senha do cofre com pelo menos 12 caracteres.
+- Cada perfil guarda seu banco e os dados de cadastro em um cofre AES-256-GCM separado; o índice de perfis armazena apenas identificadores e rótulos genéricos.
+- Quem já usava o aplicativo pode importar a base anterior durante o primeiro cadastro, informando a senha antiga quando ela já estava cifrada. Os dados originais não são apagados automaticamente.
+- Em Ajustes, o usuário edita o perfil, envia uma foto comprimida, troca de perfil e bloqueia o aplicativo. Os backups de pasta usam nomes e permissões separados por perfil; para uma nova pasta, deve ser usada a senha do cofre.
+- O desbloqueio biométrico depende de WebAuthn PRF, autenticação do aparelho e contexto HTTPS. Se indisponível, permanece a senha do cofre. Não existe servidor de contas, recuperação por e-mail ou sincronização.
+- A biometria é um atalho criptográfico para liberar a senha local sem salvá-la em texto puro; o usuário deve guardar a senha para recuperação e migração.
