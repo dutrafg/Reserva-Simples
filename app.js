@@ -300,6 +300,8 @@ function showVaultDialog(mode) {
   $('#vaultHelp').textContent = mode==='setup'?'Use pelo menos 12 caracteres e repita a senha no segundo campo.':mode==='disable'?'Digite a senha do cofre. Os registros ficarão salvos sem criptografia neste navegador.':'';
   $('#vaultError').textContent = '';
   if (!dialog.open) dialog.showModal();
+  const biometric=$('#accountBioUnlock');
+  if(biometric)biometric.hidden=!(mode==='unlock'&&ACCOUNT&&Accounts.biometricConfigured(localStorage,ACCOUNT.id));
 }
 function storeIsCurrent(){
   return localStorage.getItem(STORE)===loadedStoreRaw;
@@ -2017,6 +2019,171 @@ document.addEventListener('change', event=>{
   if(key==='reserva.home.period')home();
   if(key==='reserva.home.categoryView')budget();
 });
+function showAccountDialog(){
+ const dlg=$('#accountDialog');if(!dlg||dlg.open)return;
+ const legacy=!ACCOUNT&&!!localStorage.getItem('reserva-simples-v2');
+ $('#accountLegacy').hidden=!legacy;
+ $('#accountImportLegacy').checked=legacy;
+ $('#accountError').textContent='';
+ $('#accountAvatarChoices').innerHTML=Array.from({length:5},(_,i)=>
+   '<label class="account-avatar-option"><input type="radio" name="avatar" value="'+i+'" '+(i===0?'checked':'')+'><img alt="Avatar financeiro '+(i+1)+'" src="'+Accounts.avatar(i)+'"></label>'
+ ).join('');
+ dlg.showModal();
+}
+
+async function createAccount(event){
+ event.preventDefault();
+ const form=event.target,err=$('#accountError'),button=form.querySelector('button[type="submit"]');
+ if(button.disabled)return;
+ button.disabled=true;err.textContent='';
+ let newKey='';
+ try{
+   if(!globalThis.crypto?.subtle||!crypto.randomUUID)throw Error('Cadastro exige HTTPS e navegador com criptografia.');
+   const password=form.elements.password.value;
+   if(password.length<12||password!==form.elements.confirm.value)throw Error('A senha deve ter 12 caracteres ou mais, com confirmação igual.');
+   const id=crypto.randomUUID();
+   const profile=Accounts.profile({name:form.elements.name.value,email:form.elements.email.value,
+     phone:form.elements.phone.value,avatar:form.elements.avatar.value,photo:''},id);
+   let source=empty();
+   if(!ACCOUNT&&$('#accountImportLegacy').checked){
+     const old=localStorage.getItem('reserva-simples-v2');
+     if(old){
+       const parsed=JSON.parse(old);
+       if(parsed.format==='reserva-vault-1'){
+         const previousKey=await deriveVaultKey(password,from64(parsed.salt));
+         source=await openVault(parsed,previousKey);
+       }else source=verify(parsed);
+       if(!source)throw Error('Base antiga inválida. Preserve e exporte seus dados antes de cadastrar.');
+     }
+   }
+   source={...source,ownerId:id,profile};
+   if(!verify(source))throw Error('Não foi possível validar a base do perfil.');
+   const salt=bytesTo64(crypto.getRandomValues(new Uint8Array(16)));
+   const key=await deriveVaultKey(password,from64(salt));
+   const sealed=await sealVault(source,key,salt);
+   await openVault(sealed,key);
+   newKey=Accounts.storeKey(id);
+   localStorage.setItem(newKey,JSON.stringify(sealed));
+   Accounts.add(localStorage,id);
+   document.body.classList.add('reserve-locked');
+   location.reload();
+ }catch(error){
+   if(newKey&&!Accounts.list(localStorage).some(x=>Accounts.storeKey(x.id)===newKey))localStorage.removeItem(newKey);
+   err.textContent=error?.message||'Não foi possível criar o perfil.';
+ }finally{button.disabled=false}
+}
+
+function accountSettingsCard(){
+ if(!ACCOUNT)return '';
+ const profile=db.profile||{name:'',email:'',phone:'',avatar:0,photo:''};
+ const image=profile.photo||Accounts.avatar(profile.avatar||0);
+ return `<article class="card settings-card account-card">
+  <div class="settings-card-head"><img class="account-current-avatar" src="${esc(image)}" alt=""><div><h2>Meu perfil</h2><p>Dados protegidos pela senha do cofre neste aparelho.</p></div></div>
+  <form id="profileForm" class="form-grid">
+   <label class="field"><span>Nome</span><input name="name" maxlength="80" minlength="2" required value="${esc(profile.name||'')}"></label>
+   <label class="field"><span>Telefone</span><input name="phone" type="tel" maxlength="24" value="${esc(profile.phone||'')}"></label>
+   <label class="field full"><span>E-mail</span><input name="email" type="email" maxlength="120" value="${esc(profile.email||'')}"></label>
+   <div class="field full"><span>Avatar financeiro</span><div class="account-avatar-grid">${Array.from({length:5},(_,i)=>`<label class="account-avatar-option"><input type="radio" name="avatar" value="${i}" ${Number(profile.avatar||0)===i?'checked':''}><img src="${Accounts.avatar(i)}" alt="Avatar ${i+1}"></label>`).join('')}</div></div>
+   <div class="form-buttons"><button class="btn primary" type="submit">Salvar perfil</button><label class="btn" for="accountPhotoInput">Enviar foto</label><input type="file" id="accountPhotoInput" accept="image/png,image/jpeg,image/webp" hidden><button class="btn" type="button" id="accountRemovePhoto" ${profile.photo?'':'hidden'}>Remover foto</button></div>
+  </form>
+  <div class="account-security">
+   <h3>Segurança e biometria</h3><p>O cofre exige senha. A biometria usa uma credencial criptográfica WebAuthn PRF, se compatível.</p>
+   <label class="field">Confirme a senha do cofre para ativar biometria<input id="accountBioPassword" type="password" autocomplete="current-password" placeholder="Senha do cofre"></label>
+   <div class="setting-actions"><button class="btn primary" id="accountEnableBio" type="button">Ativar biometria</button>
+   <button class="btn" id="accountDisableBio" type="button" ${Accounts.biometricConfigured(localStorage,ACCOUNT.id)?'':'hidden'}>Remover biometria</button>
+   <button class="btn" id="accountLock" type="button">Bloquear agora</button></div>
+   <p id="accountBioStatus" class="settings-note" role="status">${Accounts.biometricConfigured(localStorage,ACCOUNT.id)?'Biometria configurada.':'Biometria ainda não configurada neste navegador.'}</p>
+  </div>
+  <div class="account-switch">
+   <h3>Perfis deste aparelho</h3>
+   <div class="setting-actions"><select id="accountSelect" aria-label="Escolher perfil">${Accounts.list(localStorage).map((x,i)=>`<option value="${esc(x.id)}" ${x.id===ACCOUNT.id?'selected':''}>Perfil ${i+1}${x.id===ACCOUNT.id?' (atual)':''}</option>`).join('')}</select>
+   <button type="button" class="btn" id="accountSwitch">Trocar perfil</button><button type="button" class="btn" id="accountCreateMore">Novo perfil</button></div>
+   <p class="settings-note">Perfis e backups são independentes. Não há conta remota nem sincronização. Guarde a senha do cofre.</p>
+  </div>
+ </article>`;
+}
+
+async function saveProfileForm(event){
+ event.preventDefault();
+ const f=event.target;
+ try{
+   const profile=Accounts.profile({...db.profile,name:f.elements.name.value,
+     phone:f.elements.phone.value,email:f.elements.email.value,avatar:f.elements.avatar.value},ACCOUNT.id);
+   if(await mutate(()=>{db.profile=profile;db.ownerId=ACCOUNT.id}))notify('Perfil atualizado.');
+ }catch(err){notify(err.message||'Dados inválidos.')}
+}
+
+async function handleProfilePhoto(file){
+ if(!file||!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>5000000)
+   return notify('Envie JPEG, PNG ou WebP de até 5 MB.');
+ try{
+   const dataUrl=await new Promise((resolve,reject)=>{
+     const url=URL.createObjectURL(file),img=new Image();
+     img.onload=()=>{
+       try{
+         const canvas=document.createElement('canvas'),scale=Math.min(1,256/Math.max(img.width,img.height));
+         canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));
+         canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+         const data=canvas.toDataURL('image/jpeg',.77);
+         URL.revokeObjectURL(url);resolve(data);
+       }catch(err){URL.revokeObjectURL(url);reject(err)}
+     };
+     img.onerror=()=>{URL.revokeObjectURL(url);reject(Error('Imagem inválida'))};img.src=url;
+   });
+   if(!Accounts.photoValid(dataUrl))return notify('Foto muito grande após compressão.');
+   if(await mutate(()=>{db.profile.photo=dataUrl}))notify('Foto salva no cofre.');
+ }catch{notify('Não foi possível processar a foto.')}
+}
+
+async function unlockWithBiometric(){
+ const error=$('#vaultError');
+ try{
+   if(!ACCOUNT||!vault)throw Error('Nenhum cofre associado ao perfil.');
+   const password=await Accounts.unlock(localStorage,ACCOUNT.id);
+   const key=await deriveVaultKey(password,from64(vault.salt));
+   const restored=await openVault(vault,key);
+   if(restored.ownerId!==ACCOUNT.id||restored.profile?.id!==ACCOUNT.id)throw Error('Cofre pertence a outro perfil.');
+   db=restored;vaultKey=key;$('#vaultDialog').close();render();
+ }catch(err){error.textContent=err.message||'Biometria indisponível. Use a senha.'}
+}
+
+async function toggleBiometricEnable(){
+ const status=$('#accountBioStatus'),password=$('#accountBioPassword')?.value||'';
+ try{
+   if(!ACCOUNT||!vault)throw Error('Cofre não está ativo.');
+   const key=await deriveVaultKey(password,from64(vault.salt));
+   const verified=await openVault(vault,key);
+   if(verified.ownerId!==ACCOUNT.id)throw Error('Perfil incorreto.');
+   await Accounts.enroll(localStorage,ACCOUNT.id,password);
+   $('#accountBioPassword').value='';
+   status.textContent='Biometria configurada. A senha continua como alternativa.';
+   render();
+ }catch(err){status.textContent=err.message||'Dispositivo não compatível com a biometria criptográfica.'}
+}
+
+
+document.addEventListener('submit',event=>{
+ if(event.target.id==='accountForm')void createAccount(event);
+ if(event.target.id==='profileForm')void saveProfileForm(event);
+});
+document.addEventListener('change',event=>{
+ if(event.target.id==='accountPhotoInput')void handleProfilePhoto(event.target.files?.[0]);
+});
+document.addEventListener('click',event=>{
+ if(event.target.closest('#accountCreateMore'))showAccountDialog();
+ if(event.target.closest('#accountSwitch')){
+   const id=$('#accountSelect')?.value;
+   if(id&&id!==ACCOUNT?.id){Accounts.select(localStorage,id);document.body.classList.add('reserve-locked');location.reload()}
+ }
+ if(event.target.closest('#accountLock')){document.body.classList.add('reserve-locked');location.reload()}
+ if(event.target.closest('#accountEnableBio'))void toggleBiometricEnable();
+ if(event.target.closest('#accountDisableBio')&&ACCOUNT){
+   if(confirm('Remover biometria deste perfil? A senha continuará funcionando.')){Accounts.disableBiometric(localStorage,ACCOUNT.id);render()}
+ }
+ if(event.target.closest('#accountRemovePhoto'))void mutate(()=>{db.profile.photo=''});
+ if(event.target.closest('#accountBioUnlock'))void unlockWithBiometric();
+});
+
 function settings(){
  const total=db.records.length+db.allocations.length;const institutionsCard=institutionRegistryCard();const recoveryCard=storageRecoveryRaw?`<article class="card settings-card settings-danger"><div class="settings-card-head"><span class="settings-icon">${icon('expense')}</span><div><h2>Recuperação de dados</h2><p>Os dados salvos não puderam ser lidos. O app pausou gravações para não sobrescrever o arquivo original.</p></div></div><div class="setting-actions"><button class="btn primary" id="exportCorruptBtn">Baixar cópia dos dados</button><button class="btn negative" id="startFreshAfterCorruptBtn">Iniciar base nova</button></div><p class="settings-note">${recoveryArchived?'Uma cópia também foi guardada neste navegador.':'Não foi possível arquivar a cópia automaticamente; exporte o arquivo antes de iniciar uma base nova.'}</p></article>`:'';
  $('#page-settings').innerHTML=`${heading('Configurações','Ajuste a aparência e organize seus dados.')}<div class="settings-grid">${recoveryCard}${accountSettingsCard()}<article class="card settings-card"><div class="settings-card-head"><div><h2>Central de Integridade</h2><p>Verifique o banco e gere um relatório técnico.</p></div></div><button class="btn primary" id="integrityScanBtn">Escanear</button><p id="integritySummary" role="status"></p></article>${institutionsCard}
