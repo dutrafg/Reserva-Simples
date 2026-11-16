@@ -3,7 +3,7 @@
   "version": "1.0.0-beta.2",
   "assets": {
     "./index.html": "19283cb2be715d1ff111f6cca2c893dbe3e9dd2b90dbe47353248baa7f70c3fa",
-    "./app.js": "d0bd72ade0787a76e8c94a759a1f93f6119c2ca686a0a3ca358eeb669e8fa531",
+    "./app.js": "98fe7671ba88b135dae1ec1465ac996eeff74589885d0379b61052da1bd6271a",
     "./accounts.js": "7677ab4ca50d7c1982f961009af93477992e59875b1cd01370e53d4aff26a568",
     "./engines.js": "ae559a790d2bb67bb5bed9e8ba425a5d1a11c241e6c21d61728e14669d819090",
     "./manifest.webmanifest": "836e8e7556f06749933119a613cadc4fce46314c6e8eed64a8072081d856859f",
