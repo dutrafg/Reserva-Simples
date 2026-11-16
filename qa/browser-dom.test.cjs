@@ -21,7 +21,7 @@ const appSource = originalApp
 assert.notEqual(originalApp, appSource);
 const pages = ['home', 'transactions', 'budget', 'calendar', 'goals', 'investments', 'analysis', 'reports', 'settings'];
 
-function boot(testContext, { width = 1440, coarse = false, seed, query = '' } = {}) {
+function boot(testContext, { width = 1440, coarse = false, seed, query = '', noAccount = false, guest = false } = {}) {
   const errors = [], downloads = [];
   const console = new VirtualConsole();
   console.on('jsdomError', error => {
@@ -68,6 +68,10 @@ function boot(testContext, { width = 1440, coarse = false, seed, query = '' } = 
       Object.defineProperty(window.navigator, 'onLine', { value: false, configurable: true });
       window.requestAnimationFrame = callback => window.setTimeout(() => callback(window.performance.now()), 0);
       window.cancelAnimationFrame = id => window.clearTimeout(id);
+      if (guest) window.localStorage.setItem('reserva.guest.enabled.v1','true');
+      if (noAccount) {
+        if (seed) window.localStorage.setItem('reserva-simples-v2',JSON.stringify(seed));
+      } else {
       const id='00000000-0000-4000-8000-000000000001';
       const profile={id,name:'Usuário de teste',phone:'',email:'',avatar:0,photo:''};
       window.localStorage.setItem('reserva.accounts.index.v1',JSON.stringify([{id,label:'Usuário 1'}]));
@@ -75,6 +79,7 @@ function boot(testContext, { width = 1440, coarse = false, seed, query = '' } = 
       window.localStorage.setItem('reserva-simples-account-'+id,JSON.stringify({
         ...(seed||{version:4,records:[],jars:[],allocations:[],recurring:[],investments:[],tasks:[],prefs:{}}),ownerId:id,profile
       }));
+      }
     }
   });
   const { window } = dom;
@@ -128,10 +133,15 @@ test('Orçamento no celular e menu Mais com atalhos de tablet', t => {
   get('#mobileMoreButton').click();
   assert.equal(get('#mobileMoreDialog').open, true);
   assert.deepEqual([...get('.mobile-more-grid').children].map(el => el.dataset.page),
-    ['calendar', 'goals', 'investments', 'analysis', 'reports', 'settings']);
+    ['calendar', 'goals', 'investments', 'analysis', 'reports']);
   get('#mobileMoreDialog [data-page="reports"]').click();
   assert.equal(qa.getState().page, 'reports');
   assert.equal(get('#mobileMoreDialog').open, false);
+  assert.equal(window.document.querySelectorAll('#mobileMoreDialog [data-page="settings"]').length,0);
+  assert.equal(qa.integrityInterface().find(item=>item.check==='interface.settings').status,'aprovada');
+  get('#headerSettings').click();
+  assert.equal(qa.getState().page,'settings');
+  assert.equal(get('#mobileMoreButton').classList.contains('selected'),false);
   for (const [width, parent] of [[768,'header'], [1280,'header'], [1440,'sidebar-control']]) {
     window.innerWidth = width;
     window.dispatchEvent(new window.Event('resize'));
@@ -321,4 +331,42 @@ test('perfil ativo impede alteração de propriedade e mantém o banco original'
   assert.equal(await qa.mutate(()=>{qa.getDb().ownerId='00000000-0000-4000-8000-000000000002'}),false);
   assert.equal(qa.getDb().ownerId,owner);
   assert.equal(window.localStorage.getItem(qa.STORE),raw);
+});
+
+test('primeiro acesso oferece cadastro opcional e modo visitante explícito',t=>{
+ const {qa,window,get}=boot(t,{noAccount:true,width:390,coarse:true});
+ assert.equal(get('#accountDialog').open,true);
+ assert.equal(window.document.body.classList.contains('reserve-locked'),true);
+ assert.equal(window.localStorage.getItem('reserva.guest.enabled.v1'),null);
+ get('#accountSkip').click();
+ assert.equal(window.localStorage.getItem('reserva.guest.enabled.v1'),'true');
+ assert.equal(get('#accountDialog').open,false);
+ assert.equal(window.document.querySelector('.page.active').id,'page-home');
+ assert.equal(window.document.body.classList.contains('reserve-locked'),false);
+ assert.equal(window.localStorage.getItem('reserva.accounts.index.v1'),null);
+ qa.go('settings');
+ assert.ok(get('#page-settings').textContent.includes('Modo sem cadastro'));
+ get('#guestCreateProfile').click();
+ assert.equal(get('#accountDialog').open,true);
+});
+
+test('modo visitante não perde os registros antigos e mantém a conversão opcional',t=>{
+ const seed={...stored(),records:[expense('legado-1','2026-11-15',1650,'Café legado')]};
+ const {qa,window,get}=boot(t,{noAccount:true,seed});
+ assert.equal(get('#accountDialog').open,true);
+ assert.equal(get('#accountLegacy').hidden,false);
+ assert.equal(get('#accountImportLegacy').checked,true);
+ get('#accountSkip').click();
+ assert.equal(qa.getDb().records.length,1);
+ assert.equal(qa.getDb().records[0].id,'legado-1');
+ assert.equal(window.localStorage.getItem('reserva.accounts.index.v1'),null);
+ assert.equal(JSON.parse(window.localStorage.getItem('reserva-simples-v2')).records[0].id,'legado-1');
+});
+
+test('preferência visitante permite reabrir sem solicitar cadastro e perfis seguem independentes',t=>{
+ const {qa,window,get}=boot(t,{noAccount:true,guest:true});
+ assert.equal(get('#accountDialog').open,false);
+ assert.equal(window.document.querySelector('.page.active').id,'page-home');
+ assert.equal(qa.getState().page,'home');
+ assert.ok(window.document.querySelector('#headerSettings'));
 });
