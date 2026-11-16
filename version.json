@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "1.0.0-beta.4",
+  "version": "1.0.0-beta.5",
   "channel": "beta",
-  "updatedAt": "2026-11-16T18:50:32.988Z",
+  "updatedAt": "2026-11-16T18:57:07.638Z",
   "source": "same-origin PWA release",
-  "notes": "Histórico por categoria, alertas semanais de Mercado, limpeza de filtros e varredura no card."
+  "notes": "Compromissos e contas a pagar em Orçamento, histórico por categoria em Hoje e etapas da Central sempre visíveis no card."
 }

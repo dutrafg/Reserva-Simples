@@ -1,13 +1,13 @@
 {
   "format": 1,
-  "version": "1.0.0-beta.4",
+  "version": "1.0.0-beta.5",
   "assets": {
-    "./index.html": "53ee7e98358b83412283ff7b41b6443e14b5e3f6d2f7d8a0c006d0c784351914",
-    "./app.js": "6dfd9e93f55b0321fe3c796c3824a0f05cc5267c318846cef38759e2c4b398c2",
+    "./index.html": "08c3809d0443758c12817f50bede3a965214087e78ccc54fed38bb529e692107",
+    "./app.js": "3fc4c6149263af791ecac9c1c420414df0e4ab85e95adfe819ac0ee9871aa69a",
     "./accounts.js": "7677ab4ca50d7c1982f961009af93477992e59875b1cd01370e53d4aff26a568",
     "./engines.js": "ae559a790d2bb67bb5bed9e8ba425a5d1a11c241e6c21d61728e14669d819090",
     "./manifest.webmanifest": "836e8e7556f06749933119a613cadc4fce46314c6e8eed64a8072081d856859f",
-    "./version.json": "3e34b9e6ff34cf82dfce6dcdbf3a3acddec6f403b730c65737dfcaff5099429b",
-    "./sw.js": "295d6f61460daf49e5d5ee0b22510ab297126ce41555eee2190ec2c74997068c"
+    "./version.json": "44a5fa9e9e7de173b232c5053aae1b6e6860441fe93f5186ee9b5797e3683818",
+    "./sw.js": "ca1dddb54e6c97e84ad08a31d05ae84a4a2d60f0954f240336f4072e727ada20"
   }
 }

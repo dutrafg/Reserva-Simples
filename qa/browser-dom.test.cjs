@@ -294,13 +294,17 @@ test('Central gera o relatório das quatro etapas e preserva a base ativa', { ti
   const raw = window.localStorage.getItem(qa.STORE);
   await new Promise(resolve => setImmediate(resolve));
   qa.go('settings');
+  const idle=window.document.querySelector('#integrityProgressHost > section');
+  assert.equal(idle.querySelectorAll('progress[value="0"]').length,4);
   const scanRun=qa.integrityScan();
   const progress=window.document.querySelector('#integrityProgressHost > section');
   assert.ok(progress);
   qa.render();
   assert.equal(window.document.querySelector('#integrityProgressHost > section'),progress);
   await scanRun;
-  assert.equal(window.document.querySelector('#integrityProgressHost > section'),null);
+  assert.equal(window.document.querySelector('#integrityProgressHost > section'),progress);
+  assert.equal(progress.querySelectorAll('progress[value="100"]').length,4);
+  assert.match(progress.querySelector('.integrity-screen').textContent,/concluída/);
   assert.equal(window.localStorage.getItem(qa.STORE),raw);
   assert.equal(downloads.length,1);
   const json = await downloads[0].text();
@@ -425,8 +429,11 @@ test('histórico mostra despesas por categoria e distingue meses sem registro', 
     {...expense('qa-other',date(-2),8000),category:'Luz'},
     expense('qa-market-4',date(-4),99000)
   ]}});
-  qa.go('budget');
-  const history=get('#expenseHistoryCard');
+  qa.go('home');
+  const history=get('#page-home #expenseHistoryCard');
+  get('#page-budget #accountsPayableCard');
+  get('#page-budget #upcomingCommitmentsCard');
+  assert.equal(history.ownerDocument.querySelector('#page-home #upcomingCommitmentsCard, #page-home #accountsPayableCard, #page-budget #expenseHistoryCard'),null);
   const rows=[...history.querySelectorAll('tbody tr')];
   const card=rows.find(row=>row.cells[0].textContent==='Mercado');
   assert.equal(rows.find(row=>row.cells[0].textContent==='Luz').cells[4].textContent.includes('80,00'),true);

@@ -14,7 +14,7 @@ const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purp
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['budget','Orçamento','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='1.0.0-beta.4';
+const APP_VERSION='1.0.0-beta.5';
 const APP_CACHE_NAME='reserva-simples-v'+APP_VERSION+'-pwa';
 const TELEMETRY_SCHEMA='reserva.telemetry.event.v1';
 const diagnosticFixtureStorages = new WeakSet();
@@ -1317,7 +1317,7 @@ function homeCalendarPreview(){
     <div class="home-calendar-key"><small>Cores mais fortes indicam mais gastos no mês.</small>${highestDailyExpense?`<span class="calendar-heat-legend" aria-hidden="true"><small>Menos</small>${[1,2,3,4,5].map(level=>`<i data-heat-level="${level}"></i>`).join('')}<small>Mais</small></span>`:'<small>Sem despesas registradas.</small>'}</div>
   </article>`;
 }
-function homeAgendaCard(){const today=isoToday(),upcoming=db.tasks.filter(task=>!task.done&&task.date>=today).sort((a,b)=>a.date.localeCompare(b.date)||(a.time||'').localeCompare(b.time||'')).slice(0,4),total=db.tasks.filter(task=>!task.done&&task.date>=today).length;const content=upcoming.length?`<div class="home-agenda-list">${upcoming.map(task=>`<button type="button" class="home-agenda-item" data-open-calendar-date="${task.date}"><span class="home-agenda-color" style="--task-color:${calendarTaskColor(task.color)}"></span><span class="home-agenda-copy"><b>${esc(task.title)}</b><small>${dateBR(task.date)}${task.time?' · '+esc(task.time):''}${task.note?' · '+esc(task.note):''}</small></span><span class="home-agenda-arrow" aria-hidden="true">›</span></button>`).join('')}</div>`:`<p class="home-agenda-empty">Agenda livre por enquanto. Adicione compromissos para se organizar por aqui.</p>`;return `<article class="card home-agenda-card"><div class="home-agenda-head"><div><h2>Próximos compromissos</h2><p>${total?`${total} compromisso${total===1?'':'s'} pendente${total===1?'':'s'}`:'Organize suas tarefas e compromissos futuros'}</p></div><div class="actions"><button type="button" class="btn small primary" data-calendar-new-task data-home-new-task>Novo compromisso</button><button type="button" class="btn small" data-page="calendar">Abrir agenda</button></div></div>${content}</article>`}
+function upcomingCommitmentsCard(){const today=isoToday(),upcoming=db.tasks.filter(task=>!task.done&&task.date>=today).sort((a,b)=>a.date.localeCompare(b.date)||(a.time||'').localeCompare(b.time||'')).slice(0,4),total=db.tasks.filter(task=>!task.done&&task.date>=today).length;const content=upcoming.length?`<div class="home-agenda-list">${upcoming.map(task=>`<button type="button" class="home-agenda-item" data-open-calendar-date="${task.date}"><span class="home-agenda-color" style="--task-color:${calendarTaskColor(task.color)}"></span><span class="home-agenda-copy"><b>${esc(task.title)}</b><small>${dateBR(task.date)}${task.time?' · '+esc(task.time):''}${task.note?' · '+esc(task.note):''}</small></span><span class="home-agenda-arrow" aria-hidden="true">›</span></button>`).join('')}</div>`:`<p class="home-agenda-empty">Agenda livre por enquanto. Adicione compromissos para se organizar por aqui.</p>`;return `<article class="card home-agenda-card" id="upcomingCommitmentsCard"><div class="home-agenda-head"><div><h2>Próximos compromissos</h2><p>${total?`${total} compromisso${total===1?'':'s'} pendente${total===1?'':'s'}`:'Organize suas tarefas e compromissos futuros'}</p></div><div class="actions"><button type="button" class="btn small primary" data-calendar-new-task data-home-new-task>Novo compromisso</button><button type="button" class="btn small" data-page="calendar">Abrir agenda</button></div></div>${content}</article>`}
 
 function categorySpendCard(m){
  const rows=horizontalCategories(m.records),total=rows.reduce((n,x)=>n+x[1],0),mode=localStorage.getItem(userKey('reserva.home.categoryView'))||'distribution';
@@ -1389,20 +1389,21 @@ function budgetDueCard(){
   const dueWeek=bills.filter(bill=>bill.daysUntil>0&&bill.daysUntil<=7).length;
   return `<article class="card" id="budgetDueCard">${cardTitle('Próximos vencimentos','Contas previstas para os próximos 30 dias e vencimentos recentes')}<div class="actions home-finance-actions"><button type="button" class="btn small primary" data-home-finance-entry="due">Adicionar vencimento</button><button type="button" class="btn small" data-page="calendar">Abrir calendário</button></div><div class="home-due-summary"><div><small>Vencidos</small><strong>${dueOverdue}</strong></div><div><small>Hoje</small><strong>${dueToday}</strong></div><div><small>Próximos 7 dias</small><strong>${dueWeek}</strong></div></div>${bills.length?`<div class="upcoming-list">${bills.map(t=>`<button type="button" class="upcoming-row" data-open-calendar-date="${t.date}"><span class="upcoming-day">${dateBR(t.date).slice(0,5)}</span><span><b>${esc(t.category)}</b><small>${t.daysLate?`<span class="overdue-label">Vencida há ${t.daysLate} dia(s)</span> · `:t.daysUntil===0?'Vence hoje · ':t.daysUntil===1?'Vence amanhã · ':`Vence em ${t.daysUntil} dias · `}${esc(t.note||'Conta prevista')}</small></span><strong>${money(t.amount)}</strong></button>`).join('')}</div>`:`<div class="empty-inline">Nenhum vencimento na lista. Use Adicionar vencimento para cadastrar uma conta.</div>`}</article>`;
 }
-function homeBudgetLinks(monthData,bills){
+function homeBudgetOverview(monthData){
   const cardSpent=sum(monthData.records.filter(record=>record.kind==='expense'&&record.category==='Cartões').map(record=>record.amount));
-  const next=bills.find(bill=>bill.daysUntil>=0);
-  const overdue=bills.filter(bill=>bill.daysLate>0).length;
-  return `<div class="home-reference-pair">
-    <article class="card home-budget-link"><h2>Orçamento do mês</h2><p>${esc(monthLabel())}</p>
+  return `<article class="card home-budget-link"><h2>Orçamento do mês</h2><p>${esc(monthLabel())}</p>
       <dl><div><dt>Despesas registradas</dt><dd>${money(monthData.expenses)}</dd></div><div><dt>Gastos com cartões</dt><dd>${money(cardSpent)}</dd></div></dl>
       <div class="actions"><button type="button" class="btn small" data-page="budget">Abrir orçamento</button><button type="button" class="btn small" data-home-budget>Gerenciar limites</button></div></article>
-    <article class="card home-budget-link"><h2>Contas a pagar</h2>
+    `;
+}
+function accountsPayableCard(bills){
+  const next=bills.find(bill=>bill.daysUntil>=0);
+  const overdue=bills.filter(bill=>bill.daysLate>0).length;
+  return `<article class="card home-budget-link" id="accountsPayableCard"><h2>Contas a pagar</h2>
       <p>${next?'Próximo vencimento em '+dateBR(next.date):'Sem contas previstas nos próximos 30 dias.'}</p>
       ${next?`<strong>${esc(next.note||next.category)} · ${money(next.amount)}</strong>`:''}
       ${overdue?`<p>${overdue} conta(s) vencida(s) recentemente.</p>`:''}
-      <div class="actions"><button type="button" class="btn small" data-budget-target="budgetDueCard">Ver vencimentos</button></div></article>
-  </div>`;
+      <div class="actions"><button type="button" class="btn small" data-budget-target="budgetDueCard">Ver vencimentos</button></div></article>`;
 }
 function budgetRecurrenceCard(){
   const pending=pendingRecurring();
@@ -1433,15 +1434,16 @@ function budget(){
       ${stat('Contas previstas',money(pendingTotal),'No mês selecionado · contas que ainda não viraram lançamento','calendar')}
     </div>
     <div class="budget-card-grid">
+      ${upcomingCommitmentsCard()}${accountsPayableCard(upcomingBillInstances(30))}
       ${budgetDueCard()}${homeSmartFinanceCard(m)}
       ${categorySpendCard(m)}${homeForecastCard()}
-      ${marketWeeklyCard()}${expenseHistoryCard()}${marketBudgetCard(m)}${categoryBudgetCard(m)}
+      ${marketWeeklyCard()}${marketBudgetCard(m)}${categoryBudgetCard(m)}
       ${expenseComparisonCards(m)}
       ${paydayPaceCard(m)}${cashflowCard()}
       ${budgetRecurrenceCard()}${debtCompareCard()}
     </div>`;
 }
-function home(){const m=month(),activeJars=db.jars.filter(j=>!j.archived&&!j.paused);const dueItems=upcomingBillInstances(30),dueToday=dueItems.filter(x=>x.daysUntil===0).length,dueWeek=dueItems.filter(x=>x.daysUntil>0&&x.daysUntil<=7).length;const period=homePeriodMetrics(),periodNet=period.income-period.expenses,periodChange=periodNet-(period.previous.income-period.previous.expenses),usesMonthlyBalance=period.mode==='today',displayBalance=usesMonthlyBalance?m.balance:periodNet,primary=displayBalance>=0?money(displayBalance):`−${money(Math.abs(displayBalance))}`,primaryLabel=usesMonthlyBalance?(m.balance>=0?'Você ainda pode gastar':'Saídas acima da renda'):(periodNet>=0?'Entradas menos despesas no período':'Despesas acima das receitas');$('#page-home').innerHTML=`<div class="today-top-grid"><article class="today-card"><div class="home-result-header"><h2>Saldo disponível</h2><div id="homeResultActions"><div class="home-result-tools"><button class="btn" data-home-month="prev" aria-label="Mês anterior">‹</button><button class="btn" data-home-month="pick">${esc(monthLabel())} ▾</button><button class="btn" data-home-month="next" aria-label="Próximo mês">›</button></div><button type="button" class="today-eye" data-home-action="privacy" aria-label="Ocultar valores" aria-pressed="${hideValues}" title="${hideValues?'Mostrar valores':'Ocultar valores'}">${hideValues?icon('eye').replace('</svg>','<path d="M3 3l18 18"/></svg>'):icon('eye')}</button></div></div><div class="today-balance-line"><strong class="today-amount ${m.balance<0?'over-budget':''}">${money(m.balance)}</strong></div><p>Saldo de ${esc(monthLabel())}. Receitas e despesas abaixo · ${esc(period.label)}.</p><div class="home-period-disclosure">${homePeriodControls()}</div><div class="today-income-expense"><button type="button" data-home-action="detail" data-route="transactions" data-filter="income"><span>${icon('income')}Receitas</span><strong>${money(period.income)}</strong></button><button type="button" data-home-action="detail" data-route="transactions" data-filter="expense"><span>${icon('expense')}Despesas</span><strong>${money(period.expenses)}</strong></button><button type="button" data-page="goals"><span>${icon('piggy')}Guardado no mês</span><strong>${money(m.saved)}</strong></button></div><p>${usesMonthlyBalance?'O saldo considera os lançamentos de todo o mês. Entradas e despesas mostram somente hoje.':`${periodChange>=0?'Resultado melhorou ':'Resultado caiu '}${money(Math.abs(periodChange))} em relação ao período anterior. ${primaryLabel}.`}</p>${period.income?`<div class="budget-progress"><div class="budget-progress-track"><span style="width:${Math.min(100,period.expenses/period.income*100)}%;background:${period.expenses>=period.income?'var(--danger)':period.expenses/period.income>=.8?'var(--warning)':'var(--primary)'}"></span></div><div class="budget-progress-caption"><span>${percent(period.expenses/period.income*100)} das receitas usadas</span><span>${period.expenses>=period.income?'Despesas acima das receitas':period.expenses/period.income>=.8?'Atenção ao ritmo':'Saldo positivo'}</span></div></div>`:`<div class="empty-inline">${usesMonthlyBalance?'Não houve receita registrada hoje; o saldo mensal considera também os lançamentos anteriores.':'Adicione uma receita no período para ver a comparação.'}</div>`}</article>${homeCalendarPreview()}</div><div class="home-reference-summary">${[['Receitas complementares',money(sum(m.records.filter(record=>record.kind==='income'&&record.source!=='salary').map(record=>record.amount))),'Registradas no mês selecionado','transactions','income'],['Metas',money(activeJars.reduce((total,jar)=>total+estimateCdbJar(jar.id).net,0)),'Guardado nos cofrinhos','goals','target'],['Investimentos',money(sum(db.investments.map(item=>item.balance))),'Carteira atual','investments','piggy'],['Próximos vencimentos',dueToday+dueWeek+' contas','Nos próximos 7 dias','budget','calendar']].map(([label,value,hint,page,ic])=>`<button class="card home-reference-stat" data-page="${page}"><span>${icon(ic)} ${label}</span><strong>${value}</strong><small>${hint}</small></button>`).join('')}</div>${homeBudgetLinks(m,dueItems)}<div class="mobile-home-shortcuts" aria-label="Atalhos"><button class="btn primary" data-open="expense">Nova despesa</button><button class="btn" data-page="analysis">Ver Insights</button><button class="btn" data-page="transactions">Lançamentos</button></div><details class="mobile-home-disclosure" ${mobileHomeOpen()}><summary>Gráficos, agenda e detalhes do mês</summary><div class="mobile-home-detail-content"><div class="home-reference-pair">${homeTrendCard()}${homeAgendaCard()}</div><div class="today-stats home-mobile-summary"></div>${goalProgressSummary('home-mobile-summary')}</div></details>`;syncDesktopHeaderControls();}
+function home(){const m=month(),activeJars=db.jars.filter(j=>!j.archived&&!j.paused);const dueItems=upcomingBillInstances(30),dueToday=dueItems.filter(x=>x.daysUntil===0).length,dueWeek=dueItems.filter(x=>x.daysUntil>0&&x.daysUntil<=7).length;const period=homePeriodMetrics(),periodNet=period.income-period.expenses,periodChange=periodNet-(period.previous.income-period.previous.expenses),usesMonthlyBalance=period.mode==='today',displayBalance=usesMonthlyBalance?m.balance:periodNet,primary=displayBalance>=0?money(displayBalance):`−${money(Math.abs(displayBalance))}`,primaryLabel=usesMonthlyBalance?(m.balance>=0?'Você ainda pode gastar':'Saídas acima da renda'):(periodNet>=0?'Entradas menos despesas no período':'Despesas acima das receitas');$('#page-home').innerHTML=`<div class="today-top-grid"><article class="today-card"><div class="home-result-header"><h2>Saldo disponível</h2><div id="homeResultActions"><div class="home-result-tools"><button class="btn" data-home-month="prev" aria-label="Mês anterior">‹</button><button class="btn" data-home-month="pick">${esc(monthLabel())} ▾</button><button class="btn" data-home-month="next" aria-label="Próximo mês">›</button></div><button type="button" class="today-eye" data-home-action="privacy" aria-label="Ocultar valores" aria-pressed="${hideValues}" title="${hideValues?'Mostrar valores':'Ocultar valores'}">${hideValues?icon('eye').replace('</svg>','<path d="M3 3l18 18"/></svg>'):icon('eye')}</button></div></div><div class="today-balance-line"><strong class="today-amount ${m.balance<0?'over-budget':''}">${money(m.balance)}</strong></div><p>Saldo de ${esc(monthLabel())}. Receitas e despesas abaixo · ${esc(period.label)}.</p><div class="home-period-disclosure">${homePeriodControls()}</div><div class="today-income-expense"><button type="button" data-home-action="detail" data-route="transactions" data-filter="income"><span>${icon('income')}Receitas</span><strong>${money(period.income)}</strong></button><button type="button" data-home-action="detail" data-route="transactions" data-filter="expense"><span>${icon('expense')}Despesas</span><strong>${money(period.expenses)}</strong></button><button type="button" data-page="goals"><span>${icon('piggy')}Guardado no mês</span><strong>${money(m.saved)}</strong></button></div><p>${usesMonthlyBalance?'O saldo considera os lançamentos de todo o mês. Entradas e despesas mostram somente hoje.':`${periodChange>=0?'Resultado melhorou ':'Resultado caiu '}${money(Math.abs(periodChange))} em relação ao período anterior. ${primaryLabel}.`}</p>${period.income?`<div class="budget-progress"><div class="budget-progress-track"><span style="width:${Math.min(100,period.expenses/period.income*100)}%;background:${period.expenses>=period.income?'var(--danger)':period.expenses/period.income>=.8?'var(--warning)':'var(--primary)'}"></span></div><div class="budget-progress-caption"><span>${percent(period.expenses/period.income*100)} das receitas usadas</span><span>${period.expenses>=period.income?'Despesas acima das receitas':period.expenses/period.income>=.8?'Atenção ao ritmo':'Saldo positivo'}</span></div></div>`:`<div class="empty-inline">${usesMonthlyBalance?'Não houve receita registrada hoje; o saldo mensal considera também os lançamentos anteriores.':'Adicione uma receita no período para ver a comparação.'}</div>`}</article>${homeCalendarPreview()}</div><div class="home-reference-summary">${[['Receitas complementares',money(sum(m.records.filter(record=>record.kind==='income'&&record.source!=='salary').map(record=>record.amount))),'Registradas no mês selecionado','transactions','income'],['Metas',money(activeJars.reduce((total,jar)=>total+estimateCdbJar(jar.id).net,0)),'Guardado nos cofrinhos','goals','target'],['Investimentos',money(sum(db.investments.map(item=>item.balance))),'Carteira atual','investments','piggy'],['Próximos vencimentos',dueToday+dueWeek+' contas','Nos próximos 7 dias','budget','calendar']].map(([label,value,hint,page,ic])=>`<button class="card home-reference-stat" data-page="${page}"><span>${icon(ic)} ${label}</span><strong>${value}</strong><small>${hint}</small></button>`).join('')}</div><div class="home-reference-pair">${homeBudgetOverview(m)}${expenseHistoryCard()}</div><div class="mobile-home-shortcuts" aria-label="Atalhos"><button class="btn primary" data-open="expense">Nova despesa</button><button class="btn" data-page="analysis">Ver Insights</button><button class="btn" data-page="transactions">Lançamentos</button></div><details class="mobile-home-disclosure" ${mobileHomeOpen()}><summary>Gráficos e detalhes do mês</summary><div class="mobile-home-detail-content">${homeTrendCard()}<div class="today-stats home-mobile-summary"></div>${goalProgressSummary('home-mobile-summary')}</div></details>`;syncDesktopHeaderControls();}
 function income(){const m=month();$('#page-income').innerHTML=`${heading('Tudo que entra','Duas opções: salário e complemento.',`<button class="btn primary" data-open="income">${icon('plus')}Adicionar renda</button>`)}<div class="stats">${stat('Salário',money(m.salary),'Total recebido no mês','income')}${stat('Complemento',money(m.complement),'Ganhos adicionais','wallet')}${stat('Renda total',money(m.income),'Base para calcular o mínimo de 10%','income')}${stat('Mínimo para guardar',money(m.minimum),'10% da renda total','piggy')}</div><article class="card">${cardTitle('Entradas de '+monthLabel(),'Informe cada recebimento com valor e data.')}${recentTable(m.records,'income')}</article>`}
 function transactionItems(){const key=mkey(state.year,state.month),rows=db.records.filter(x=>x.date.startsWith(key)).map(x=>({id:x.id,date:x.date,type:x.kind,category:x.category||'',amount:x.kind==='income'?x.amount:-x.amount,impact:x.kind==='income'?x.amount:-x.amount,title:x.kind==='income'?(x.source==='salary'?'Salário':'Complemento'):x.category,detail:[x.subcategory,x.note,...(x.tags||[]).map(tag=>'#'+tag)].filter(Boolean).join(' · ')||(x.kind==='income'?'Renda':'Despesa'),tags:x.tags||[],subcategory:x.subcategory||'',search:[x.kind,x.category,x.subcategory,x.source,x.note,...(x.tags||[]),x.date]}));const transfers=db.allocations.filter(x=>x.date.startsWith(key)).map(x=>{const cashImpact=x.amount>0?-x.amount:(x.netReceived??-x.amount);return{id:x.id,date:x.date,type:'goals',amount:cashImpact,impact:cashImpact,title:db.jars.find(j=>j.id===x.jarId)?.name||'Cofrinho',detail:x.amount>0?'Depósito · valor reservado':'Resgate · valor líquido recebido',search:['meta',x.note,x.date,db.jars.find(j=>j.id===x.jarId)?.name||'']}});return [...rows,...transfers].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id))}
 let transactionLimit=30, transactionQueryKey="";
@@ -2260,6 +2262,8 @@ document.addEventListener('click',event=>{
 
 function settings(){
  const scanProgress=$('#integrityProgressHost > .integrity-progress');
+ const scanSummary=$('#integritySummary')?.textContent||'';
+ const scanDisabled=$('#integrityScanBtn')?.disabled||false;
  const total=db.records.length+db.allocations.length;const institutionsCard=institutionRegistryCard();const recoveryCard=storageRecoveryRaw?`<article class="card settings-card settings-danger"><div class="settings-card-head"><span class="settings-icon">${icon('expense')}</span><div><h2>Recuperação de dados</h2><p>Os dados salvos não puderam ser lidos. O app pausou gravações para não sobrescrever o arquivo original.</p></div></div><div class="setting-actions"><button class="btn primary" id="exportCorruptBtn">Baixar cópia dos dados</button><button class="btn negative" id="startFreshAfterCorruptBtn">Iniciar base nova</button></div><p class="settings-note">${recoveryArchived?'Uma cópia também foi guardada neste navegador.':'Não foi possível arquivar a cópia automaticamente; exporte o arquivo antes de iniciar uma base nova.'}</p></article>`:'';
  $('#page-settings').innerHTML=`${heading('Configurações','Ajuste a aparência e organize seus dados.')}<div class="settings-grid">${recoveryCard}${accountSettingsCard()}<article class="card settings-card"><div class="settings-card-head"><div><h2>Central de Integridade</h2><p>Verifique o banco e gere um relatório técnico.</p></div></div><button class="btn primary" id="integrityScanBtn">Escanear</button><p id="integritySummary" role="status"></p><div id="integrityProgressHost"></div></article>${institutionsCard}
  <article class="card settings-card"><div class="settings-card-head"><span class="settings-icon">${icon('settings')}</span><div><h2>Aparência</h2><p>Escolha como o aplicativo aparece neste aparelho.</p></div></div><div class="setting-row"><div><h3>Tema escuro</h3><p>Reduz o brilho da tela.</p></div><label class="switch"><input id="darkMode" type="checkbox" ${db.prefs.dark?'checked':''}>Ativar</label></div><div class="field"><span>Paleta de cores</span><div class="theme-palette-grid" role="group" aria-label="Selecione a paleta de cores">${[['blue','Azul','#1762c4'],['emerald','Esmeralda','#16834b'],['petrol','Petróleo','#08796e'],['plum','Ameixa','#7444a5'],['graphite','Grafite','#525d70'],['carbon','Preto/amarelo','#ffd43b']].map(([id,label,color])=>`<button type="button" class="theme-palette-choice ${(db.prefs.palette||'blue')===id?'selected':''}" data-palette-pick="${id}" aria-pressed="${(db.prefs.palette||'blue')===id}" title="${label}"><i style="--palette-chip:${color}"></i><span>${label}</span></button>`).join('')}</div></div></article><article class="card settings-card"><h2>Notificações</h2><p>Som ao atingir 75% ou 100% da cota de Mercado no mês atual, com o app aberto.</p><label class="switch"><input type="checkbox" id="budgetSound" ${db.prefs.budgetSound?'checked':''}>Ativar som</label> <button type="button" class="btn small" id="testBudgetSound">Testar som</button><div class="setting-row"><div><h3>Lembretes de contas</h3><p>Usa as contas recorrentes e as datas exibidas na agenda.</p></div><label class="switch"><input type="checkbox" id="billReminders" ${db.prefs.billReminders?'checked':''}>Ativar</label></div><label class="field">Avisar com antecedência<select id="billReminderDays">${[[0,'No dia do vencimento'],[1,'1 dia antes'],[3,'3 dias antes'],[7,'7 dias antes']].map(([value,label])=>`<option value="${value}" ${db.prefs.billReminderDays===value?'selected':''}>${label}</option>`).join('')}</select></label><div class="setting-actions"><button type="button" class="btn" id="enableBillNotifications">Permitir avisos no aparelho</button></div><p class="settings-note" id="billNotificationStatus">${esc(billNotificationPermission())} Os avisos automáticos são verificados quando o app está aberto.</p></article>
@@ -2275,7 +2279,9 @@ function settings(){
  <article class="card settings-card diagnostic-advanced-card" hidden><div class="settings-card-head"><span class="settings-icon">${icon('report')}</span><div><h2>Diagnóstico avançado</h2><p>Ferramenta de desenvolvimento e QA, destinada a uso com orientação técnica.</p></div></div><p>Varre todos os módulos, estrutura e layout, cálculos, persistência isolada, regressões, acessibilidade, segurança e APIs locais. Os testes sintéticos preservam os registros reais. A análise pode levar até 60 segundos.</p><p>O JSON distingue falhas, erros, pendências e recursos não suportados. Inclui esqueleto técnico do DOM sem textos visíveis, valores de campos ou dados financeiros e pessoais. Para investigar um problema, envie o JSON, um print separado e a descrição do comportamento. Nada é enviado automaticamente.</p><p>${diagnostics.report().events.length} evento(s) técnico(s) no histórico local.</p><div class="setting-actions"><button type="button" class="btn primary" id="runDiagnosticScan">Executar análise completa e baixar JSON</button><button type="button" class="btn" id="exportDiagnostics">Baixar logs JSONL</button><button type="button" class="btn" id="clearDiagnostics">Limpar logs</button></div><p id="diagnosticScanStatus" role="status" aria-live="polite">A análise percorre os módulos; testes que dependem de navegador, aparelho ou serviços externos aparecem como pendentes.</p></article>
  <article class="card settings-card settings-danger"><div class="settings-card-head"><span class="settings-icon">${icon('expense')}</span><div><h2>Apagar dados</h2><p>Remove ${total} movimentações e ${db.jars.length} cofrinhos salvos neste navegador.</p></div></div><div class="setting-actions"><button class="btn negative" id="clearBtn">Apagar todos os dados</button></div></article>
  </div><div class="notice">Versão ${APP_VERSION}. Os cálculos são feitos no próprio aparelho. Mantenha backups atualizados para evitar perder seus registros.</div>`
- if(scanProgress){$('#integrityProgressHost').append(scanProgress);$('#integrityScanBtn').disabled=true;}
+ $('#integrityProgressHost').append(scanProgress||createIntegrityProgress());
+ $('#integritySummary').textContent=scanSummary;
+ $('#integrityScanBtn').disabled=scanDisabled;
 }
 function setUpdateStatus(status,state='waiting'){updateInfo.status=status;updateInfo.state=state;const el=$('#updateState');if(el){el.textContent=status;el.dataset.state=state}const button=$('#applyUpdateBtn');if(button)button.hidden=!updateInfo.available;const latest=$('#updateLatest');if(latest)latest.textContent='v'+updateInfo.latest;const checked=$('#updateLastCheck');if(checked)checked.textContent=updateInfo.lastCheck?new Date(updateInfo.lastCheck).toLocaleString('pt-BR'):'Ainda não consultado';const notes=$('#updateNotes');if(notes)notes.textContent=updateInfo.notes||'O app preserva o banco local. A atualização do PWA requer conexão com o endereço publicado.'}
 const parseAppVersion=value=>{
@@ -3675,16 +3681,16 @@ async function runLocProposalTests(onCaseProgress) {
     return {passed:yearEnd.date==='2027-12-31'&&yearStart.date==='2027-12-31'&&yearEnd.dismissalId!==yearStart.dismissalId&&
       leap.date==='2028-02-29'&&!closing('2027-12-15')&&state.page==='reports'&&$('#monthlyCloseChecklist')?.dataset.month==='2027-12'};
   }));
-  add(56,'Hoje mantém atalhos, calendário e cadastro rápido de compromisso',()=>withDiagnosticSandbox({state:{page:'home'}},async()=>{
+  add(56,'Hoje mostra o histórico e Orçamento oferece cadastro rápido de compromisso',()=>withDiagnosticSandbox({state:{page:'budget'}},async()=>{
     try{
       render();
-      const paired=Boolean($('#page-home .home-calendar-preview')&&$('#page-home [data-page="budget"]'));
-      $('#page-home [data-home-new-task]').click();
+      const paired=Boolean($('#page-home #expenseHistoryCard')&&$('#page-home .home-calendar-preview')&&$('#page-budget #accountsPayableCard'));
+      $('#page-budget [data-home-new-task]').click();
       const dialog=$('#calendarComposeDialog'),form=$('#calendarTaskForm');
       const opened=dialog.open;
       form.elements.title.value='Compromisso de teste';
       await submitCalendarTask({preventDefault(){},target:form});
-      return {passed:paired&&opened&&!dialog.open&&state.page==='home'&&db.tasks.some(task=>task.title==='Compromisso de teste')};
+      return {passed:paired&&opened&&!dialog.open&&state.page==='budget'&&db.tasks.some(task=>task.title==='Compromisso de teste')};
     }finally{if($('#calendarComposeDialog').open)$('#calendarComposeDialog').close()}
   }));
   add(57,'Carteira usa uma grade única ordenada por data',()=>withDiagnosticSandbox({},()=>{
@@ -4381,18 +4387,27 @@ async function integrityMonitor() {
   finally {integrityMonitoring = false;}
 
 }
+function integrityStageNames(){
+  return ['Varredura de integridade','Autocorreção','Monitoramento e checagem','Diagnóstico'];
+}
+function createIntegrityProgress(){
+  const panel=document.createElement('section');
+  panel.setAttribute('aria-label','Etapas da Central de Integridade');
+  panel.className='integrity-progress integrity-progress-inline';
+  panel.innerHTML='<p role="status" class="integrity-screen">Aguardando varredura</p>'+integrityStageNames().map((name,index)=>'<div class="integrity-stage"><div><strong>'+name+'</strong><output>Aguardando</output></div><p class="integrity-stage-detail" id="integrity-stage-detail-'+index+'">Aguardando esta etapa</p><progress max="100" value="0" aria-label="'+name+'"></progress></div>').join('');
+  return panel;
+}
 async function integrityScan() {
   if (!canStartDiagnostic()) return;
+  const host=$('#integrityProgressHost');
+  if(!host)return;
   integrityRunning = diagnosticRunning = true;
-  const host=!usesMobileNavigation()&&$('#integrityProgressHost');
-  const dialog = document.createElement(host?'section':'dialog');
-  const names = ['Varredura de integridade','Autocorreção','Monitoramento e checagem','Diagnóstico'];
-  dialog.setAttribute('aria-label','Central de Integridade');
-  dialog.className = host?'integrity-progress integrity-progress-inline':'card integrity-progress';
-  dialog.innerHTML = '<div class="settings-card-head"><span class="settings-icon">'+icon('refresh')+'</span><div><h2>Central de Integridade</h2><p role="status" class="integrity-screen">Preparando verificações</p></div></div>'+names.map((name,index)=>'<div class="integrity-stage"><div><strong>'+name+'</strong><output>Aguardando</output></div><p class="integrity-stage-detail" id="integrity-stage-detail-'+index+'">Aguardando esta etapa</p><progress max="100" value="0" aria-label="'+name+'"></progress></div>').join('');
-  dialog.addEventListener('cancel',event=>event.preventDefault());
-  (host||document.body).append(dialog);
-  if(host)$('#integrityScanBtn').disabled=true;
+  const dialog=createIntegrityProgress();
+  const names=integrityStageNames();
+  dialog.querySelector('.integrity-screen').textContent='Preparando verificações';
+  host.replaceChildren(dialog);
+  $('#integritySummary').textContent='';
+  $('#integrityScanBtn').disabled=true;
   const outputs = dialog.querySelectorAll('output');
   const bars = dialog.querySelectorAll('progress');
   const details = [...dialog.querySelectorAll('.integrity-stage-detail')];
@@ -4428,7 +4443,7 @@ async function integrityScan() {
     } finally {cancelAnimationFrame(frame);clearTimeout(timer);}
   }
   try {
-    if(!host)dialog.showModal();
+
     runId = crypto.randomUUID ? crypto.randomUUID() : 'run-'+Date.now()+'-'+Math.random().toString(16).slice(2);
     stages.push(await step(0,async update=>{
       update('Autenticando e validando a estrutura do banco');
@@ -4492,6 +4507,7 @@ async function integrityScan() {
       (history.status!=='aprovada'?' · Histórico cifrado não confirmado.':'');
     const completedAt=new Date().toISOString();
     download(JSON.stringify({...diagnosticReport(scan),centralDeIntegridade:{schemaVersion:'reserva.integrity.report.v3',runId,startedAt:scanStartedAt,completedAt,durationMs:Math.round(performance.now()-scanStartedPerf),stages,stageTimings,history,totals}},null,2),'application/json','Reserva_Simples_Diagnostico_Integridade.json');
+    dialog.querySelector('.integrity-screen').textContent='Varredura concluída';
     notify('Diagnóstico da Central de Integridade gerado.');
   } catch(error) {
     const errorType=['Error','TypeError','ReferenceError','SyntaxError','RangeError','QuotaExceededError','SecurityError','NetworkError','AbortError','NotAllowedError'].includes(error?.name)?error.name:'Error';
@@ -4507,10 +4523,10 @@ async function integrityScan() {
       startedAt:scanStartedAt,completedAt,durationMs:Math.round(performance.now()-scanStartedPerf),stages,stageTimings,history,totals,
       failure:{stage:stageTimings.at(-1)?.stage||names[stageTimings.length],type:errorType}}},null,2),
       'application/json','Reserva_Simples_Diagnostico_Integridade.json');
+    dialog.querySelector('.integrity-screen').textContent='Varredura interrompida';
     notify('Falha ao concluir a Central de Integridade.');
   } finally {
-    dialog.remove();
-    if(host&&$('#integrityScanBtn'))$('#integrityScanBtn').disabled=false;
+    if($('#integrityScanBtn'))$('#integrityScanBtn').disabled=false;
     integrityRunning = diagnosticRunning = false;
   }
 }

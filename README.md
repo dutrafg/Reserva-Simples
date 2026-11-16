@@ -1,4 +1,4 @@
-# Reserva Simples — v1.0.0-beta.4
+# Reserva Simples — v1.0.0-beta.5
 
 Aplicativo financeiro local para registrar rendas, despesas e movimentações de metas de reserva.
 
