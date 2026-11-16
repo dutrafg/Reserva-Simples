@@ -4165,7 +4165,7 @@ async function integrityBank() {
     return raw === localStorage.getItem(STORE) ? 'aprovada' : 'pendente';
   } catch {return 'alerta';}
 }
-const releaseFiles=['./index.html','./app.js','./engines.js','./manifest.webmanifest','./version.json','./sw.js'];
+const releaseFiles=['./index.html','./app.js','./accounts.js','./engines.js','./manifest.webmanifest','./version.json','./sw.js'];
 const releaseManifestPath='./integrity-manifest.json';
 function validReleaseManifest(manifest){
   return manifest?.format===1&&manifest.version===APP_VERSION&&manifest.assets&&
