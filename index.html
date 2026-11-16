@@ -735,10 +735,16 @@ button,input,select,textarea{font-family:var(--app-system-font)!important;letter
 <div class="shell">
  
  <aside id="desktopSidebar" aria-label="Menu lateral"><div class="sidebar-brand"><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20512%20512%22%3E%3Crect%20width%3D%22512%22%20height%3D%22512%22%20fill%3D%22%23112c55%22%2F%3E%3Ccircle%20cx%3D%22256%22%20cy%3D%22256%22%20r%3D%22166%22%20fill%3D%22%231a4d95%22%2F%3E%3Cpath%20d%3D%22M180%20353V157h82a58%2058%200%200%201%200%20116h-82m73%200%2067%2080%22%20fill%3D%22none%22%20stroke%3D%22%23fff%22%20stroke-width%3D%2231%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%22347%22%20cy%3D%22160%22%20r%3D%2220%22%20fill%3D%22%2368e0b4%22%2F%3E%3C%2Fsvg%3E%0A" width="36" height="36" alt=""><strong>Reserva Simples</strong></div><nav id="desktopNav" aria-label="Módulos"></nav></aside><main class="main"><div class="sidebar-control"><button id="sidebarToggle" class="btn" type="button" aria-controls="desktopNav"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14"/></svg></button></div><header class="header"><div class="header-intro"><div><p class="subtitle">SEU PLANEJAMENTO FINANCEIRO</p><h1 id="pageTitle">Início</h1></div><button type="button" id="headerCalendar" class="header-calendar" data-page="calendar" aria-label="Abrir agenda" title="Agenda"><svg aria-hidden="true"><use href="#calendar"></use></svg><span>Agenda</span></button><button type="button" id="headerSettings" class="header-settings" data-page="settings" aria-label="Abrir Ajustes" title="Ajustes"><svg aria-hidden="true"><use href="#settings"></use></svg><span>Ajustes</span></button></div><div class="header-right"><button id="privacyToggle" type="button" class="btn small" aria-pressed="false">Ocultar valores</button><div class="month-picker"><button id="prevMonth" title="Mês anterior" aria-label="Mês anterior">‹</button><button id="monthTitle" class="month-title-button" aria-label="Escolher mês" title="Toque para escolher mês"><span id="monthTitleLabel">Janeiro de 2027</span><svg class="month-chevron" aria-hidden="true" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button><button id="nextMonth" title="Mês seguinte" aria-label="Mês seguinte">›</button><button id="todayBtn" class="btn small today-button" hidden>Hoje</button></div></div><div id="desktopNotificationWrap"><form id="reservaSearch" role="search"><label for="reservaSearchInput" class="search-label"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4 4"/></svg></label><input id="reservaSearchInput" type="search" autocomplete="off" placeholder="Buscar no Reserva" aria-label="Buscar no Reserva Simples" aria-controls="reservaSearchResults" aria-expanded="false"><div id="reservaSearchResults" hidden></div></form><button type="button" id="desktopNotificationBell" class="desktop-notification-bell" aria-label="Notificações" aria-expanded="false" title="Notificações"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg><span id="desktopNotificationCount" hidden></span></button><div id="desktopNotificationPanel" class="desktop-notification-panel" hidden></div></div></header><div id="desktopModuleToolbar" class="desktop-module-toolbar" aria-label="Ações do módulo"></div>
- <section id="page-home" class="page active"></section><section id="page-transactions" class="page"></section><section id="page-calendar" class="page"></section><section id="page-goals" class="page"></section><section id="page-investments" class="page"></section><section id="page-analysis" class="page"></section><section id="page-reports" class="page"></section><section id="page-settings" class="page"></section>
+ <section id="page-home" class="page active"></section><section id="page-transactions" class="page"></section><section id="page-budget" class="page"></section><section id="page-calendar" class="page"></section><section id="page-goals" class="page"></section><section id="page-investments" class="page"></section><section id="page-analysis" class="page"></section><section id="page-reports" class="page"></section><section id="page-settings" class="page"></section>
  </main>
 </div>
 <nav id="mobileNav" class="floating-nav" aria-label="Menu de módulos"></nav>
+<dialog id="mobileMoreDialog" aria-labelledby="mobileMoreTitle">
+  <div class="mobile-more-content">
+    <div class="mobile-more-head"><h2 id="mobileMoreTitle">Mais módulos</h2><button type="button" class="btn small" data-close-mobile-more>Fechar</button></div>
+    <div class="mobile-more-grid"></div>
+  </div>
+</dialog>
 <div id="modal" class="modal" aria-hidden="true"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="dialog-title"><h2 id="modalTitle">Novo registro</h2><button id="closeModal" aria-label="Fechar">×</button></div><div id="modalContent"></div></div></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <dialog id="vaultDialog" aria-labelledby="vaultTitle"><form id="vaultForm"><h2 id="vaultTitle">Cofre local</h2><p id="vaultHelp"></p><div class="field"><label for="vaultPassword">Senha</label><input id="vaultPassword" type="password" required aria-describedby="vaultHelp"></div><div class="field" id="vaultConfirmField" hidden><label for="vaultConfirm">Confirme a senha</label><input id="vaultConfirm" type="password" autocomplete="new-password"></div><p id="vaultError" role="alert"></p><button class="btn primary" type="submit">Continuar</button><button class="btn" type="button" id="vaultCancel">Cancelar</button></form></dialog>
@@ -1056,6 +1062,10 @@ body .main>.header #desktopNotificationWrap{width:44px}
   #desktopSidebar,.sidebar-control{display:none!important}
   #mobileNav{display:grid!important}
   .main{padding-block:18px calc(100px + env(safe-area-inset-bottom))!important;padding-inline:clamp(12px,3vw,28px)!important}
+  body .main>.header{display:flex!important;flex-wrap:wrap;gap:10px}
+  body .main>.header>.header-intro{width:auto!important;min-width:0;flex:1}
+  body .main>.header :is(#headerCalendar,#headerSettings){min-height:44px}
+  body .main>.header #headerSettings{display:inline-flex}
 }
 </style>
 <style id="calendar-expense-heatmap">
@@ -1189,6 +1199,158 @@ body :is(.sidebar-control,.header) #desktopNotificationWrap{
 .home-card-records h3{margin:0 0 4px;font-size:13px}
 .home-card-records button span{min-width:0;overflow-wrap:anywhere}
 .home-card-records>.text-link{margin-block:8px}
+</style>
+<style id="budget-and-portfolio">
+#page-budget.active{display:grid;gap:14px;min-width:0}
+.budget-month{margin-block:0}
+.budget-card-grid,.insight-priorities-grid{display:grid;gap:14px;min-width:0;align-items:start}
+.budget-card-grid>.card{min-width:0;margin:0}
+.budget-card-grid .smart-detail-grid{grid-template-columns:minmax(0,1fr)}
+#page-budget .home-category-layout{grid-template-columns:minmax(90px,145px) minmax(0,1fr);gap:12px}
+#page-budget .home-category-donut{width:min(100%,145px)}
+#page-budget .upcoming-day{width:auto;min-width:44px;padding-inline:4px}
+#page-budget .upcoming-row span:nth-child(2){min-width:0;overflow-wrap:anywhere}
+.home-budget-link h2,.investment-portfolio>h2{margin:0 0 6px;font-size:16px}
+.home-budget-link p{margin:6px 0;color:var(--muted)}
+.home-budget-link dl{display:grid;gap:8px;margin:12px 0}
+.home-budget-link dl>div{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 8px}
+.home-budget-link dd{margin:0;font-weight:750}
+#page-home .home-reference-pair>.home-budget-link{min-height:0}
+#page-home .home-calendar-preview{display:grid;grid-template-rows:auto minmax(0,1fr) auto;align-content:stretch;align-self:stretch;min-height:0}
+#page-home .home-calendar-grid{height:auto;grid-auto-rows:minmax(41px,1fr);align-items:stretch}
+#page-home .home-calendar-grid>b{align-self:center}
+#page-home .home-calendar-day{border:1px solid var(--line);color:var(--ink);min-width:0;cursor:pointer}
+.home-calendar-day.has-events:not([data-expense-heat]){border-style:dashed;background:var(--bg)}
+.home-calendar-day[data-expense-heat="1"]{--heat:18%}
+.home-calendar-day[data-expense-heat="2"]{--heat:30%}
+.home-calendar-day[data-expense-heat="3"]{--heat:43%}
+.home-calendar-day[data-expense-heat="4"]{--heat:57%}
+.home-calendar-day[data-expense-heat="5"]{--heat:72%}
+#page-home .home-calendar-day[data-expense-heat]{background:color-mix(in srgb,var(--danger) var(--heat),var(--card))}
+#page-home .home-calendar-day small{color:inherit}
+#page-home .home-calendar-day:hover{outline:2px solid var(--primary);outline-offset:-2px}
+.home-calendar-key{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;color:var(--muted)}
+.home-calendar-key .calendar-heat-legend{display:inline-flex;align-items:center;gap:4px}
+#page-investments .investment-portfolio{min-width:0;grid-column:1/-1}
+.investment-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,235px),1fr));gap:14px;align-items:start}
+.investment-card-grid .investment-tile{padding:14px}
+.investment-card-grid .investment-tile>summary{grid-template-rows:auto auto auto auto;gap:5px 8px}
+.investment-card-grid .investment-tile>summary time{grid-column:1/-1;font-size:11px;color:var(--muted)}
+.investment-card-grid .investment-tile>summary b{font-size:16px;white-space:normal;overflow-wrap:anywhere}
+.investment-card-grid .investment-tile>summary strong{font-size:16px;line-height:1.3;text-align:end}
+.investment-card-grid .investment-tile-detail .actions{display:flex;flex-wrap:wrap;gap:6px}
+#page-analysis.active>.insight-priorities{grid-column:1/-1}
+.insight-priority{padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+.insight-priority.danger{border-color:color-mix(in srgb,var(--danger) 55%,var(--line))}
+.insight-priority h3{margin:0;font-size:14px}
+.insight-priority p{color:var(--muted);margin:6px 0 10px}
+@media(min-width:761px){
+  .budget-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .insight-priorities-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));align-items:stretch}
+}
+@media(max-width:760px){
+  #mobileNav{grid-template-columns:repeat(8,minmax(44px,1fr));justify-content:start}
+  #page-home .home-calendar-grid{grid-auto-rows:minmax(36px,1fr)}
+}
+@media(max-width:540px){
+  #page-budget .home-category-layout{grid-template-columns:minmax(0,1fr)}
+}
+</style>
+<style>
+.reserve-ignored-list{display:grid;gap:6px;max-block-size:calc(3 * 74px + 12px);overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;margin-block-start:8px;padding-inline-end:4px}
+.reserve-ignored-list:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.reserve-ignored-item{display:grid;min-block-size:74px;gap:4px;align-content:center;padding:6px 8px;border:1px solid var(--line);border-radius:9px;background:var(--bg)}
+.reserve-ignored-item .actions{margin:0;gap:6px;flex-wrap:wrap}
+</style>
+<style id="insights-compact-layout">
+#page-analysis.active{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+#page-analysis.active>*{grid-column:1/-1;min-width:0;margin-block:0}
+#page-analysis :is(.insights-compact-grid,.insights-extras-grid,.insight-priorities-grid){
+  display:grid;grid-template-columns:minmax(0,1fr);gap:10px;min-width:0;align-items:start
+}
+#page-analysis details>.insights-compact-grid{margin-block-start:10px}
+#page-analysis :is(.insights-compact-grid,.insights-extras-grid)>*{grid-column:auto;min-width:0;margin:0}
+#page-analysis :is(.insights-compact-grid,.insights-extras-grid)>.card{
+  width:auto;max-width:none;padding:12px;overflow-wrap:anywhere
+}
+#page-analysis :is(.insights-compact-grid,.insights-extras-grid) .card-head h2{font-size:15px}
+#page-analysis .insights-overview-grid .insight-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+#page-analysis .insights-overview-grid .insight{padding:8px}
+#page-analysis .insights-compact-grid .prediction-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,113px),1fr));gap:6px}
+#page-analysis .insights-compact-grid .chart-month{min-width:0}
+#page-analysis .insights-compact-grid .chart-wrap{min-width:0;overflow-x:auto}
+@media(min-width:761px){
+  #page-analysis :is(.insights-compact-grid,.insights-extras-grid,.insight-priorities-grid){grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(min-width:1390px){
+  #page-analysis :is(.insights-overview-grid,.insights-extras-grid,.insight-priorities-grid){grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+</style>
+<style id="budget-card-alignment">
+#page-budget .budget-stats,#page-budget .budget-card-grid{gap:12px;align-items:stretch}
+#page-budget .budget-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+#page-budget .budget-stats>.stat,#page-budget .budget-card-grid>.card{
+  width:100%;max-width:none;min-width:0;margin:0;align-self:stretch;padding:14px;
+  box-sizing:border-box;overflow-wrap:anywhere
+}
+#page-budget .budget-card-grid>.card{
+  display:flex;flex-direction:column;justify-content:flex-start;gap:8px
+}
+#page-budget .budget-card-grid>.card>:is(h2,h3,p,.card-head,.empty-inline,.empty){margin-block:0}
+#page-budget .budget-card-grid>.card h2{font-size:15px}
+#page-budget .budget-card-grid :is(.home-finance-actions,.home-card-records){margin-block:0}
+#page-budget .budget-card-grid :is(.upcoming-list,.category-budget-list,.report-category-list,.smart-detail-grid,.home-category-legend,.home-category-trend,.table-wrap){
+  max-block-size:18rem;overflow-y:auto;overscroll-behavior:contain
+}
+#page-budget .budget-card-grid .table-wrap{max-width:100%;overflow-x:auto}
+#page-budget .budget-card-grid .smart-detail-grid{gap:8px}
+#page-budget .budget-card-grid .smart-detail-section{padding:10px}
+@media(max-width:760px){
+  #page-budget .budget-card-grid>.card{padding:12px}
+}
+@media(max-width:420px){
+  #page-budget .budget-stats{grid-template-columns:minmax(0,1fr)}
+}
+</style>
+<style id="module-content-alignment">
+#page-transactions.active>.transaction-card{grid-column:1/-1;min-width:0}
+.goal-review-grid{display:grid;gap:12px;min-width:0}
+.goal-review-grid>.card{min-width:0;margin:0}
+#page-goals .goal-review-grid:empty{display:none}
+#page-budget .recurring-cards{max-block-size:19rem;overflow:auto;overscroll-behavior:contain}
+#page-budget .recurring-row{display:flex;flex-wrap:wrap;gap:6px}
+#page-budget .recurring-copy{min-width:0;flex:1 1 135px;overflow-wrap:anywhere}
+#page-reports .report-annual-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(min-width:761px){.goal-review-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+#page-analysis .insights-overview-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr))}
+</style>
+<style id="compact-mobile-dock">
+#mobileNav.floating-nav{
+  grid-template-columns:repeat(5,minmax(44px,1fr));width:min(480px,calc(100vw - 16px));
+  max-width:calc(100vw - 16px);gap:2px;padding:5px;overflow:visible;box-sizing:border-box
+}
+#mobileNav .nav-button{width:100%;min-height:52px;min-width:44px;padding:3px 0;gap:4px;justify-content:center}
+#mobileNav .nav-label{display:none}
+#mobileNav .nav-short{display:block;font-size:clamp(9px,2.7vw,11px);line-height:1.15;white-space:nowrap}
+#mobileNav .dock-register svg{padding:3px;border-radius:8px;background:var(--primary);color:#fff}
+#mobileMoreDialog{
+  position:fixed;inset:auto 0 max(8px,env(safe-area-inset-bottom));margin:0 auto;
+  width:min(480px,calc(100% - 16px));max-height:85dvh;box-sizing:border-box;
+  border:1px solid var(--line);border-radius:16px;background:var(--card);color:var(--ink);padding:0
+}
+#mobileMoreDialog{overflow:auto}
+#mobileMoreDialog::backdrop{background:#0008}
+.mobile-more-content{padding:12px}
+.mobile-more-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-block-end:10px}
+.mobile-more-head h2{font-size:16px;margin:0}
+.mobile-more-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.mobile-more-grid .nav-button{
+  display:flex;flex-direction:row;align-items:center;justify-content:flex-start;min-height:48px;
+  min-width:0;padding:6px 8px;gap:6px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)
+}
+.mobile-more-grid .nav-button.selected{background:var(--mint);color:var(--green)}
+.mobile-more-grid .nav-label{display:inline;font-size:12px;overflow-wrap:anywhere}
+.mobile-more-grid .nav-short{display:none}
 </style>
 </body>
 </html>

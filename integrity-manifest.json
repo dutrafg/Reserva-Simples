@@ -1,0 +1,12 @@
+{
+  "format": 1,
+  "version": "1.0.0-beta.1",
+  "assets": {
+    "./index.html": "8239543524bef7326b82b61a560303e110b3c3371d51e6bf55cb7d3ef5702ea1",
+    "./app.js": "efc410a8056ed15162504be64c07f21a1dffc9dd30f0166047db4817081f4362",
+    "./engines.js": "ae559a790d2bb67bb5bed9e8ba425a5d1a11c241e6c21d61728e14669d819090",
+    "./manifest.webmanifest": "836e8e7556f06749933119a613cadc4fce46314c6e8eed64a8072081d856859f",
+    "./version.json": "f059e15c9efc84a351ac2da56351466a1aa4d044c2067422bcbf29ba84f5e401",
+    "./sw.js": "436d551fe2e39602a9441975da030d362af87c2be9427f98fd6cfe93543e7869"
+  }
+}

@@ -1,3 +1,12 @@
+## v1.0.0-beta.1
+
+- Orçamento reúne limites, cartões, vencimentos, recorrências, previsões e comparação de despesas. Hoje oferece resumos e atalhos para os controles.
+- A navegação móvel oferece Orçamento diretamente e reúne os demais módulos em Mais. A busca e os avisos ficam acessíveis nos layouts de toque.
+- O calendário de Hoje e o módulo Calendário compartilham a escala de gastos da célula inteira. Investimentos usam uma grade única por data, e Insights e Metas usam cards mais compactos.
+- Em Metas, lembretes ignorados podem ser reativados ou descartados na lista rolável. Avisos de vencimento abrem Orçamento, e os de fechamento levam ao mês correto em Relatórios.
+- O calendário, as previsões e a projeção de caixa usam o mesmo cálculo de recorrências. O armazenamento detecta versões desatualizadas da base antes de gravar.
+- A Central de Integridade verifica os nove módulos, mede cards em quatro perfis de tela e compara seis arquivos essenciais com o manifesto SHA-256 da versão.
+
 ## v0.39.43 RC1
 
 - Hoje ganha calendário de consulta, cartões em pares e cadastros rápidos de compromissos, gastos com cartão e vencimentos.

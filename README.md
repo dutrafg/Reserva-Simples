@@ -1,4 +1,4 @@
-# Reserva Simples — v0.39.43
+# Reserva Simples — v1.0.0-beta.1
 
 Aplicativo financeiro local para registrar rendas, despesas e movimentações de metas de reserva.
 
@@ -10,13 +10,13 @@ Aplicativo financeiro local para registrar rendas, despesas e movimentações de
 - Os aportes são registros manuais: o app não transfere dinheiro automaticamente.
 - Dados antigos do desafio/cartela de R$ 10 mil são convertidos em uma meta comum; depósitos e histórico continuam preservados.
 
-## Motores financeiros em Insights
+## Planejamento financeiro
 
-- Previsão de caixa em 30, 60 e 90 dias com saldo de referência, contas recorrentes e lançamentos futuros cadastrados. Configure o saldo e a data em Ajustes.
-- Reserva de emergência baseada na média de despesas observadas nos últimos meses fechados, com meta configurável de 3, 6, 9 ou 12 meses.
-- Comparação do valor de quitação com o valor presente de parcelas, usando o rendimento líquido estimado do CDB como custo de oportunidade. Os valores dependem da proposta real da instituição.
-- Cenário de metas corrigidas pelo IPCA acumulado dos últimos 12 meses, sem tratar a inflação passada como previsão futura.
-- Monitoramento informativo de exposição a FGC/FGCoop por conglomerado, incluindo outros saldos declarados pelo usuário. A ferramenta não confirma elegibilidade nem calcula limites globais usados anteriormente.
+- Em Orçamento, previsão de caixa em 30, 60 e 90 dias com saldo de referência, contas recorrentes e lançamentos futuros cadastrados. Configure o saldo e a data em Ajustes.
+- Em Metas, reserva de emergência baseada na média de despesas observadas nos últimos meses fechados, com meta configurável de 3, 6, 9 ou 12 meses.
+- Em Orçamento, comparação do valor de quitação com o valor presente de parcelas, usando o rendimento líquido estimado do CDB como custo de oportunidade. Os valores dependem da proposta real da instituição.
+- Em Insights, cenário de metas corrigidas pelo IPCA acumulado dos últimos 12 meses, sem tratar a inflação passada como previsão futura.
+- Em Investimentos, monitoramento informativo de exposição a FGC/FGCoop por conglomerado, incluindo outros saldos declarados pelo usuário. A ferramenta não confirma elegibilidade nem calcula limites globais usados anteriormente.
 - Gráficos de saldo projetado, reserva, comparação de quitação e IPCA facilitam a leitura dos resultados.
 
 ## CDB e CDI
@@ -29,19 +29,20 @@ Aplicativo financeiro local para registrar rendas, despesas e movimentações de
 ## Outros módulos
 
 - **Hoje:** resumo de orçamento, saldo disponível, despesas por dia e metas ativas.
-- **Lançamentos:** rendas, despesas, busca, filtros e contas recorrentes.
+- **Lançamentos:** rendas, despesas, filtros e busca por descrição, categoria e valor.
+- **Orçamento:** limites por categoria, cartões, vencimentos, recorrências e projeções. Ao lançar uma previsão, os totais de Calendário, Lançamentos e Relatórios são atualizados.
 - **Calendário e agenda:** toque em uma data para abrir a agenda do dia em sobreposição. Os painéis de tarefas e notas acompanham a data selecionada. É possível criar, editar, reagendar e excluir tarefas, além de criar, mover, fixar e excluir notas.
 - **Etiquetas:** lançamentos aceitam subcategorias e até oito etiquetas, com filtros na lista e exportação CSV.
 - **Lembretes:** avisos configuráveis de vencimentos de contas recorrentes, vinculados às datas do calendário; dependem de permissão e do app ativo ou reaberto.
-- **Investimentos:** aplicações com o mesmo nome ficam agrupadas, com saldo total e detalhes por registro.
+- **Investimentos:** aplicações em cards por data, com saldo líquido e detalhes expansíveis.
 - **Insights:** comparativo por categoria com a média dos três meses anteriores, gastos fixos e variáveis e maiores despesas do mês.
 - **Relatórios:** PDF, checklist de fechamento e comparação diária acumulada entre o mês selecionado e o anterior.
-- **Diagnóstico:** em Ajustes, execute verificações locais e exporte o JSON técnico. O relatório distingue resultados e casos pendentes, sem envio automático.
+- **Central de Integridade:** em Ajustes, verifica os nove módulos, armazenamento, arquivos essenciais do cache, integrações com dados sintéticos e layout em diferentes larguras. O JSON identifica verificações que dependem de permissões ou de teste manual.
 - **Configurações:** aparência, atualização, backup e restauração.
 
 ## Responsividade
 
-A interface adapta menu, cartões, formulários e tabelas a smartphone, tablet e desktop. O menu flutuante inferior respeita as áreas seguras do aparelho.
+A interface adapta menu, cartões, formulários e tabelas a smartphone, tablet e desktop. O menu inferior oferece Hoje, Movimentações, Registrar, Orçamento e Mais, com acesso aos outros módulos.
 
 ## Backup e dados
 
@@ -49,7 +50,7 @@ O banco principal fica no armazenamento local do navegador. A pasta de backup re
 
 ## Instalação e atualização
 
-Publique esta pasta em HTTPS e instale pelo navegador. O atualizador verifica `version.json`; a versão do Service Worker e `APP_VERSION` precisam acompanhar cada release. Para testar localmente: `python3 -m http.server 8080`.
+Publique esta pasta em HTTPS e instale pelo navegador. O atualizador verifica `version.json`. Alinhe a versão em `app.js`, `sw.js` e `version.json` e execute `node qa/integrity-manifest.cjs` antes de publicar. Para testar localmente: `python3 -m http.server 8080`.
 
 `index.html` apresenta a interface; `app.js` contém telas e interações; `engines.js` reúne cálculos locais; `sw.js`, manifesto e ícones habilitam PWA e cache offline.
 
@@ -80,3 +81,7 @@ Publique esta pasta em HTTPS e instale pelo navegador. O atualizador verifica `v
 
 - Engrenagem vetorial redesenhada com oito dentes, eixo circular, tons de aço e base prateada inspirada no ícone Ajustes do iOS.
 - Mantidos contraste, tamanho de toque e rótulo acessível no cabeçalho.
+
+## Testes automatizados
+
+Execute `npm ci --prefix qa`, `npm test --prefix qa` e `node qa/integrity-manifest.cjs --check`. A suíte usa dados sintéticos para verificar módulos, persistência, cálculos financeiros e o ciclo do Service Worker. As medidas visuais são executadas no navegador pela Central de Integridade.

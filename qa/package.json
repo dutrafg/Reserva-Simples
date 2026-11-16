@@ -1,0 +1,6 @@
+{
+  "name": "reserva-simples-qa",
+  "private": true,
+  "scripts": { "test": "node --test *.test.cjs" },
+  "devDependencies": { "jsdom": "26.1.0" }
+}

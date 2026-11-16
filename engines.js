@@ -19,6 +19,47 @@
     if (!xs.length) return null;
     const n = xs.length; return Math.round(n % 2 ? nth(xs, (n - 1) / 2) : (nth(xs, n / 2 - 1) + nth(xs, n / 2)) / 2);
   };
+  const dateAtOffset = (date, days) => {
+    const utc = new Date(date + 'T00:00:00Z');
+    utc.setUTCDate(utc.getUTCDate() + days);
+    return utc.toISOString().slice(0, 10);
+  };
+
+  function monthBounds(year, month) {
+    const first = period(year, month) + '-01';
+    const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    return { first, last: period(year, month) + '-' + String(lastDay).padStart(2, '0') };
+  }
+
+  function pendingOccurrences(db, start, end, kindFilter = null) {
+    if (start > end) return [];
+    const recorded = new Set();
+    const key = (id, kind, month) => JSON.stringify([id, kind, month]);
+    for (const record of db.records || []) {
+      if (record.recurringId) {
+        recorded.add(key(record.recurringId, record.kind, record.recurringMonth || asPeriod(record.date)));
+      }
+    }
+    const templates = (db.recurring || []).filter(item => !item.paused);
+    const result = [];
+    const monthIndex = date => Number(date.slice(0, 4)) * 12 + Number(date.slice(5, 7)) - 1;
+    const lastMonth = monthIndex(end);
+    for (let index = monthIndex(start); index <= lastMonth; index++) {
+      const year = Math.floor(index / 12), month = index % 12;
+      const keyMonth = period(year, month);
+      const lastDay = Number(monthBounds(year, month).last.slice(8));
+      for (const template of templates) {
+        const kind = template.kind || 'expense';
+        if (kindFilter && kind !== kindFilter) continue;
+        if (keyMonth < template.startMonth || (template.endMonth && keyMonth > template.endMonth)) continue;
+        if (recorded.has(key(template.id, kind, keyMonth))) continue;
+        const date = keyMonth + '-' + String(Math.min(template.day, lastDay)).padStart(2, '0');
+        if (date >= start && date <= end) result.push({ ...template, kind, date, recurringMonth: keyMonth });
+      }
+    }
+    return result.sort((a,b) => a.date.localeCompare(b.date) || a.day-b.day);
+  }
+
   const investmentCashEvents = db => (db.investments || []).flatMap(position => [
     ...(!position.existing ? [{date:position.date, amount:-position.cost}] : []),
     ...(position.redemptions ?? [])
@@ -83,10 +124,13 @@
     const pending=Math.max(0,jar.target-current),deadline=asPeriod(jar.dueDate),dueYear=Number(deadline.slice(0,4)),dueMonth=Number(deadline.slice(5,7))-1;
     const monthsRemaining=Math.max(0,(dueYear-y)*12+(dueMonth-m)+1);
     const perMonth=pending===0?0:monthsRemaining>0?Math.ceil(pending/monthsRemaining):null;
-    const closedMonth=addMonths(y,m,-1),recentPeriods=history(db,closedMonth.year,closedMonth.month,3);
+    const recentKeys=[-3,-2,-1].map(delta=>{
+      const closed=addMonths(y,m,delta);
+      return period(closed.year,closed.month);
+    });
     const movements=(db.allocations||[]).filter(x=>x.jarId===jar.id&&asPeriod(x.date)<selectedKey);
     const first=movements.length?movements.map(x=>asPeriod(x.date)).sort()[0]:null;
-    const recent=first?recentPeriods.filter(x=>x.key>=first).map(periodData=>sum(movements.filter(x=>asPeriod(x.date)===periodData.key).map(x=>x.amount))):[];
+    const recent=first?recentKeys.filter(key=>key>=first).map(key=>sum(movements.filter(x=>asPeriod(x.date)===key).map(x=>x.amount))):[];
     const monthlyPace=recent.length>=2?Math.round(sum(recent)/recent.length):null;
     let status = 'sem_historico';
     if (pending === 0) status = 'concluida';
@@ -133,5 +177,5 @@
     if (goalsView.affordable === false) add('attention', 'Metas exigem ajuste', 'A soma mensal necessária para os cofrinhos supera a sobra mensal estimada antes de guardar.');
     return { items, now, byCat, projection, goals: goalsView };
   }
-  return Object.freeze({ investmentCashEvents, monthData, history, median, forecast, categories, balanceAt, goal, goals, insights });
+  return Object.freeze({ dateAtOffset, monthBounds, pendingOccurrences, investmentCashEvents, monthData, history, median, forecast, categories, balanceAt, goal, goals, insights });
 });
