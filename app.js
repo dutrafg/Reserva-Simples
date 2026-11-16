@@ -14,7 +14,7 @@ const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purp
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['budget','Orçamento','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='1.0.0-beta.5';
+const APP_VERSION='1.0.0-beta.6';
 const APP_CACHE_NAME='reserva-simples-v'+APP_VERSION+'-pwa';
 const TELEMETRY_SCHEMA='reserva.telemetry.event.v1';
 const diagnosticFixtureStorages = new WeakSet();
@@ -472,16 +472,18 @@ function marketWeeklyStatus(today=isoToday()){
   return {start,end,spent,milestones:MARKET_WEEK_MILESTONES.filter(level=>spent*100>=MARKET_WEEK_LIMIT*level)};
 }
 function expenseHistoryCard(){
-  const months=[];
-  let start=isoToday().slice(0,7)+'-01';
-  for(let index=0;index<3;index++){
+  const today=isoToday();
+  const currentMonth=today.slice(0,7);
+  const months=[currentMonth];
+  let start=currentMonth+'-01';
+  for(let index=0;index<2;index++){
     const month=Engines.dateAtOffset(start,-1).slice(0,7);
     months.unshift(month);
     start=month+'-01';
   }
   const totals=new Map(months.map(month=>[month,new Map()]));
   for(const record of db.records){
-    if(record.kind!=='expense')continue;
+    if(record.kind!=='expense'||record.date>today)continue;
     const categories=totals.get(record.date.slice(0,7));
     if(categories)categories.set(record.category,(categories.get(record.category)||0)+record.amount);
   }
@@ -493,9 +495,9 @@ function expenseHistoryCard(){
     return `<tr><th scope="row">${esc(category)}</th>${values.map(value=>`<td>${cell(value)}</td>`).join('')}<td>${cell(average)}</td></tr>`;
   }).join('');
   return `<article class="card" id="expenseHistoryCard"><h2>Histórico por categoria</h2>
-    <p>Últimos três meses fechados. A média usa os meses com registro em cada categoria.</p>
+    <p>Mês atual (parcial) e dois meses anteriores. A média usa os meses com registro em cada categoria.</p>
     <div class="table-wrap"><table class="data-table"><thead><tr><th scope="col">Categoria</th>
-    ${months.map(month=>`<th scope="col">${MONTHS[Number(month.slice(5))-1]} de ${month.slice(0,4)}</th>`).join('')}
+    ${months.map(month=>`<th scope="col">${MONTHS[Number(month.slice(5))-1]} de ${month.slice(0,4)}${month===currentMonth?' (parcial)':''}</th>`).join('')}
     <th scope="col">Média mensal</th></tr></thead><tbody>${rows}</tbody></table></div></article>`;
 }
 function marketWeeklyCard(){

@@ -427,7 +427,8 @@ test('histórico mostra despesas por categoria e distingue meses sem registro', 
     expense('qa-market-1',date(-1),12000),
     expense('qa-market-2',date(-2),9000),
     {...expense('qa-other',date(-2),8000),category:'Luz'},
-    expense('qa-market-4',date(-4),99000)
+    expense('qa-market-4',date(-4),99000),
+    expense('qa-market-current',today.toLocaleDateString('sv-SE'),6000)
   ]}});
   qa.go('home');
   const history=get('#page-home #expenseHistoryCard');
@@ -437,9 +438,11 @@ test('histórico mostra despesas por categoria e distingue meses sem registro', 
   const rows=[...history.querySelectorAll('tbody tr')];
   const card=rows.find(row=>row.cells[0].textContent==='Mercado');
   assert.equal(rows.find(row=>row.cells[0].textContent==='Luz').cells[4].textContent.includes('80,00'),true);
-  assert.equal(card.cells[1].textContent,'Sem registro');
+  assert.equal(rows.find(row=>row.cells[0].textContent==='Luz').cells[3].textContent,'Sem registro');
+  assert.match(history.querySelector('thead').textContent,/parcial/);
+  assert.match(card.cells[3].textContent,/60,00/);
   assert.match(card.textContent,/120,00/);
   assert.match(card.textContent,/90,00/);
-  assert.match(card.textContent,/105,00/);
+  assert.match(card.textContent,/90,00/);
   assert.doesNotMatch(card.textContent,/990,00|170,00/);
 });

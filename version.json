@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "1.0.0-beta.5",
+  "version": "1.0.0-beta.6",
   "channel": "beta",
-  "updatedAt": "2026-11-16T18:57:07.638Z",
+  "updatedAt": "2026-11-16T19:02:35.640Z",
   "source": "same-origin PWA release",
-  "notes": "Compromissos e contas a pagar em Orçamento, histórico por categoria em Hoje e etapas da Central sempre visíveis no card."
+  "notes": "Histórico por categoria inclui o mês atual e os dois anteriores."
 }
