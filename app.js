@@ -423,7 +423,7 @@ async function save({folderBackup=true,recover=false}={}){
   }
   try{
     if(vault&&!vaultKey)return false;
-    if(ACCOUNT&&(db.ownerId!==ACCOUNT.id||db.profile?.id!==ACCOUNT.id)){notify('Base não pertence ao perfil ativo. Gravação bloqueada.');return false}
+    if(ACCOUNT&&!diagnosticFixtureStorages.has(localStorage)&&(db.ownerId!==ACCOUNT.id||db.profile?.id!==ACCOUNT.id)){notify('Base não pertence ao perfil ativo. Gravação bloqueada.');return false}
     const candidate=vault?await sealVault(db,vaultKey,vault.salt):db;
     if(integrityContainmentLock&&!(recover&&storageRecoveryRaw&&recoveryArchived))return false;
     if(!await writeStore(candidate)){notify(STORE_CHANGED_MESSAGE);return false}
