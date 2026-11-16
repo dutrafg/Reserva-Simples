@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "channel": "beta",
-  "updatedAt": "2026-11-16T02:16:03Z",
+  "updatedAt": "2026-11-16T02:35:00.000Z",
   "source": "same-origin PWA release",
-  "notes": "Versão de teste com Orçamento integrado, navegação móvel, calendários de gastos e Central de Integridade ampliada."
+  "notes": "Teste de perfis locais cifrados, cadastro e avatares financeiros, biometria WebAuthn PRF compatível e correções de foco e isolamento de backups."
 }
