@@ -1,3 +1,7 @@
+## v0.39.42 RC1
+
+- Corrigido o hash esperado de `index.html` na Central de Integridade; o hash antigo gerava alertas repetidos mesmo com o arquivo correto no cache e na rede.
+
 ## v0.39.41 RC1
 
 - Investimentos CDB vinculados ao CDI exibem estimativa bruta e líquida, com IOF e IR aproximados.

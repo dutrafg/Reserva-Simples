@@ -10,7 +10,7 @@ const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purp
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='0.39.41';
+const APP_VERSION='0.39.42';
 const APP_CACHE_NAME='reserva-simples-v'+APP_VERSION+'-rc1';
 const TELEMETRY_SCHEMA='reserva.telemetry.event.v1';
 const diagnosticFixtureStorages = new WeakSet();
@@ -3186,7 +3186,7 @@ async function integrityBank() {
     return raw === localStorage.getItem(STORE) ? 'aprovada' : 'pendente';
   } catch {return 'alerta';}
 }
-const integrityHashes = {"./engines.js": "883f3a55c2650d231a6a5b83bcc35274b3de79c99dacf8e0734774dafc4f42a8", "./index.html": "16a59316dd36dda27ae9ddf436e2c3cd930fa95eeb7323ba14b8092af9ae1abe"};
+const integrityHashes = {"./engines.js": "883f3a55c2650d231a6a5b83bcc35274b3de79c99dacf8e0734774dafc4f42a8", "./index.html": "baf3296333c832e6ee29eb5cde1439a6c718f527008ede2ea49f01042b74709a"};
 async function integrityAssets(repair = false) {
   if (!/^https?:$/.test(location.protocol) || !navigator.serviceWorker?.controller || !globalThis.caches)
     return [{check:'cache_pwa',status:'pendente',reason:'Service Worker ou cache da versão indisponível'}];

@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "0.39.41",
+  "version": "0.39.42",
   "channel": "rc1",
-  "updatedAt": "2026-11-15T22:20:00.000Z",
+  "updatedAt": "2026-11-16T00:48:50.000Z",
   "source": "same-origin PWA release",
-  "notes": "Adiciona estimativa líquida aproximada de CDBs do Meu Porquinho por Objetivo baseada no CDI e usa o saldo conferido como referência."
+  "notes": "Corrige o hash de integridade do index.html para a versão atual, eliminando o alerta falso do Centro de Integridade."
 }
