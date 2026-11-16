@@ -1,3 +1,10 @@
+## v0.39.43 RC1
+
+- Hoje ganha calendário de consulta, cartões em pares e cadastros rápidos de compromissos, gastos com cartão e vencimentos.
+- Busca global e lembretes de fechamento no dia 1 e no último dia do mês.
+- Relatórios abre os dez dias mais recentes, com expansão para o mês inteiro. Insights, Metas e Investimentos adotam cartões compactos.
+- Central de Integridade inclui regressões para os novos fluxos e sinaliza falhas no diagnóstico integrado.
+
 ## v0.39.42 RC1
 
 - Corrigido o hash esperado de `index.html` na Central de Integridade; o hash antigo gerava alertas repetidos mesmo com o arquivo correto no cache e na rede.
