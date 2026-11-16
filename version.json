@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "1.0.0-beta.2",
+  "version": "1.0.0-beta.3",
   "channel": "beta",
-  "updatedAt": "2026-11-16T02:35:00.000Z",
+  "updatedAt": "2026-11-16T08:40:31.506Z",
   "source": "same-origin PWA release",
-  "notes": "Teste de perfis locais cifrados, cadastro e avatares financeiros, biometria WebAuthn PRF compatível e correções de foco e isolamento de backups."
+  "notes": "Cadastro opcional com modo visitante e conversão para perfil protegido; remoção de Ajustes duplicado no menu móvel."
 }

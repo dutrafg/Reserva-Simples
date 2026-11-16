@@ -1,3 +1,10 @@
+## v1.0.0-beta.3
+
+- Primeiro acesso oferece **Continuar sem cadastro**; modo visitante preserva registros locais e permite criar perfil cifrado posteriormente.
+- Aviso claro sobre a ausência de proteção automática em modo visitante; perfis cifrados continuam independentes.
+- Ajustes foi removido da lista **Mais módulos** no smartphone e permanece disponível na engrenagem; Central de Integridade atualizada para o novo acesso.
+- Adicionados cenários de QA para navegação visitante, dados legados e ausência de duplicação.
+
 ## v1.0.0-beta.1
 
 - Orçamento reúne limites, cartões, vencimentos, recorrências, previsões e comparação de despesas. Hoje oferece resumos e atalhos para os controles.
