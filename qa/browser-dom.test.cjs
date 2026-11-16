@@ -265,7 +265,7 @@ test('Central verifica os arquivos e só repara conteúdo da mesma versão', asy
     })
   };
   const trace = await qa.integrityAssets();
-  assert.equal(trace.length, 7);
+  assert.equal(trace.length, 8);
   assert.equal(trace.find(item => item.check === './app.js').status, 'alerta');
   window.fetch = async url => new Response(filename(url)==='app.js'?'arquivo de outra versão':files.get(filename(url)));
   const rejected = await qa.integrityAssets(true);
@@ -275,7 +275,7 @@ test('Central verifica os arquivos e só repara conteúdo da mesma versão', asy
   cache.delete('integrity-manifest.json');
   const restored = await qa.integrityAssets(true);
   assert.equal(restored.filter(item => item.status === 'corrigida').length, 2);
-  assert.equal((await qa.integrityAssets()).filter(item => item.status === 'aprovada').length, 7);
+  assert.equal((await qa.integrityAssets()).filter(item => item.status === 'aprovada').length, 8);
 });
 
 test('Central gera o relatório das quatro etapas e preserva a base ativa', { timeout: 60_000 }, async t => {
