@@ -276,7 +276,7 @@ test('sino liga o fechamento mensal à data correta e o vencimento ao Orçamento
 test('atualizador ordena as versões 0.x, beta e 1.0 estável', async t => {
   const { qa } = boot(t);
   assert.equal(qa.APP_VERSION, JSON.parse(read('version.json')).version);
-  assert.equal(qa.APP_VERSION,'1.0.0-beta.35');
+  assert.equal(qa.APP_VERSION,'1.0.0-beta.36');
   assert.ok(qa.compareVersions('1.0.0-beta.1', '0.39.43') > 0);
   assert.ok(qa.compareVersions('1.0.0-beta.2', '1.0.0-beta.1') > 0);
   assert.ok(qa.compareVersions('1.0.0-beta.10', '1.0.0-beta.2') > 0);
@@ -376,6 +376,7 @@ test('Central gera o relatório das quatro etapas e preserva a base ativa', { ti
   assert.deepEqual(report.scan.modules.map(module => module.module),pages);
   const checks = central.stages.flat();
   const integrated = checks.find(item => item.check === 'diagnostico.integrado');
+  assert.equal(integrated.status, integrated.pending ? 'pendente' : 'aprovada');
   t.diagnostic(JSON.stringify(report.scan.testSuiteSummary.locCoverage));
   t.diagnostic(integrated.reason);
   for (const check of [...report.scan.checks, ...report.scan.modules.flatMap(module => module.checks)]) {

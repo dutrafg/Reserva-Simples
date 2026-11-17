@@ -2189,7 +2189,7 @@ async function integrityScan() {
       const failures=items.filter(item=>['falha','erro','contrato_incompativel'].includes(item.status)).length;
       const warnings=items.filter(item=>item.status==='alerta').length;
       const pending=items.filter(item=>['pendente','ignorado','não_suportado','manual'].includes(item.status)).length;
-      const summary={check:'diagnostico.integrado',status:failures||warnings?'alerta':'aprovada',runId,
+      const summary={check:'diagnostico.integrado',status:failures||warnings?'alerta':pending?'pendente':'aprovada',runId,
         durationMs:result.durationMs,modules:result.modules.length,checks:items.length,failures,warnings,pending,
         action:'executar_diagnostico_normal_tela_a_tela',
         reason:`${failures} falha(s), ${warnings} aviso(s) e ${pending} verificação(ões) sem conclusão automática.`};

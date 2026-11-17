@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "1.0.0-beta.35",
+  "version": "1.0.0-beta.36",
   "channel": "beta",
-  "updatedAt": "2026-11-17T19:54:37.719Z",
+  "updatedAt": "2026-11-17T20:15:00.000Z",
   "source": "same-origin PWA release",
-  "notes": "Publica a interface integrada; corrige relatório oculto duplicado na Central, referência do calendário em Hoje, navegação responsiva e altura dos cartões de Sistema. Inclui CSV, PDF e migração AAD."
+  "notes": "A Central sinaliza como pendente o diagnóstico quando ainda há verificações sem conclusão automática; falhas e alertas continuam bloqueando a aprovação."
 }

@@ -1,14 +1,14 @@
 {
   "format": 1,
-  "version": "1.0.0-beta.35",
+  "version": "1.0.0-beta.36",
   "assets": {
     "./index.html": "ab6aad01de88d88f7fe15e55edd85d32b778d8d12be59c22ca5702b0202269d7",
-    "./app.js": "b1821143fdb0c9df5215fe9eeb904bba72979b0072a3b1799991ee254a43d758",
+    "./app.js": "b03ef793eb7547d1f17a0323ef044acdbf7c77f87996c3cbc3efd225b8b8acee",
     "./diagnostics.js": "ac4411f9ac41cfbcc1510e2823ac246ee5db046d9e2cd4dec67c35afb1124452",
     "./accounts.js": "0b60880441fcb858ce72b736585d0656f86055502faeb25d8b0990102a17a786",
     "./engines.js": "4ad1dc0e8db6658194687f64eeb5c33a384a63b6d4580eb99460ad9ac3fe4180",
     "./manifest.webmanifest": "836e8e7556f06749933119a613cadc4fce46314c6e8eed64a8072081d856859f",
-    "./version.json": "8af4cfb06a08539de56ff796863a6927e7f2a1def27fe0aff3eebc92ffdf47d8",
-    "./sw.js": "7564a33602173b7c2a44fe4ff222ec38cd5e5f8fc1ad695590bc0833243857f6"
+    "./version.json": "062672e61d92d8d445e046a5ca1596165a1b477bb59ce4d134d6b4bd2a24179c",
+    "./sw.js": "485e88b15adb802978cbd5b230020904a976084d0d727a75720395bbf23d6f49"
   }
 }

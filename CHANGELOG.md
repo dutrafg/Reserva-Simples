@@ -1,3 +1,9 @@
+## 1.0.0-beta.36 — 2026-11-17
+
+- A Central deixa de marcar o diagnóstico integrado como aprovado quando ainda existem verificações sem conclusão automática.
+- Falhas ou avisos continuam classificados como alerta; aprovação agora exige zero falhas, zero avisos e zero itens pendentes.
+- Adiciona regressão para a classificação do diagnóstico integrado.
+
 ## 1.0.0-beta.35 — 2026-11-17
 
 - Corrige IDs duplicados na varredura após abrir Relatórios dentro de Análises.
