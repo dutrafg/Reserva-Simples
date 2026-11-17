@@ -20,6 +20,17 @@ function settings(){
  $('#integrityProgressHost').append(scanProgress||createIntegrityProgress());
  $('#integritySummary').textContent=scanSummary;
  $('#integrityScanBtn').disabled=scanDisabled;
+ organizeSettingsNavigation();
+}
+function organizeSettingsNavigation(){
+ const root=$('#page-settings'),grid=root?.querySelector('.settings-grid');if(!grid)return;
+ const groups=[['general','Geral'],['notifications','Notificações'],['system','Sistema']];
+ const nav=document.createElement('nav');nav.className='finance-section-nav settings-section-nav';nav.setAttribute('aria-label','Seções de Ajustes');
+ const content=document.createElement('div');content.className='settings-tab-content';
+ for(const [id,label] of groups){const button=document.createElement('button');button.type='button';button.dataset.settingsTab=id;button.textContent=label;if(id===(state.settingsView||'general')){button.classList.add('selected');button.setAttribute('aria-current','page')}nav.append(button);const panel=document.createElement('section');panel.className='settings-tab-panel';panel.dataset.settingsPanel=id;panel.hidden=id!==(state.settingsView||'general');content.append(panel)}
+ for(const card of [...grid.querySelectorAll(':scope > .settings-card')]){const title=card.querySelector('h2')?.textContent?.trim().toLocaleLowerCase('pt-BR')||'';const group=/notifica|lembrete/.test(title)?'notifications':/aparência/.test(title)?'general':'system';content.querySelector(`[data-settings-panel="${group}"]`)?.append(card)}
+ const systemPanel=content.querySelector('[data-settings-panel="system"]');for(const pattern of [/atualiza/,/privacidade/,/apagar dados/]){const card=[...systemPanel.querySelectorAll('.settings-card')].find(item=>pattern.test(item.querySelector('h2')?.textContent?.toLocaleLowerCase('pt-BR')||''));if(card)systemPanel.append(card)}
+ grid.replaceWith(nav,content);
 }
 function setUpdateStatus(status,state='waiting'){updateInfo.status=status;updateInfo.state=state;const el=$('#updateState');if(el){el.textContent=status;el.dataset.state=state}const button=$('#applyUpdateBtn');if(button)button.hidden=!updateInfo.available;const latest=$('#updateLatest');if(latest)latest.textContent='v'+updateInfo.latest;const checked=$('#updateLastCheck');if(checked)checked.textContent=updateInfo.lastCheck?new Date(updateInfo.lastCheck).toLocaleString('pt-BR'):'Ainda não consultado';const notes=$('#updateNotes');if(notes)notes.textContent=updateInfo.notes||'O app preserva o banco local. A atualização do PWA requer conexão com o endereço publicado.'}
 const parseAppVersion=value=>{
@@ -100,4 +111,4 @@ document.addEventListener('focusout', () => {
     if (marketRefreshPending && !state.modal && !editingField()) render();
   }, 0);
 });
-const pageRenderers={home,transactions,budget,calendar,goals,investments,analysis,reports,settings};
+const pageRenderers={home,transactions,register,budget,calendar,goals,investments,analysis,reports,settings};

@@ -10,9 +10,11 @@ function htmlReportToModel(html){
   const sections=[];
   doc.querySelectorAll('section').forEach(section=>{
     const heading=clean(section.querySelector('h2'))||'Detalhes';
-    const table=section.querySelector('table');
-    if(!table){const p=section.querySelector('p');sections.push({heading,rows:[[clean(p)||'Sem registros.']]});return}
-    sections.push({heading,rows:[...table.querySelectorAll('tr')].map(row=>[...row.querySelectorAll('th,td')].map(clean)).filter(row=>row.length)});
+    const tables=[...section.querySelectorAll('table')];
+    const paragraphs=[...section.querySelectorAll('p')].filter(p=>!p.closest('table')).map(clean).filter(Boolean);
+    if(paragraphs.length)sections.push({heading,rows:paragraphs.map(p=>[p])});
+    if(!tables.length&&!paragraphs.length)sections.push({heading,rows:[['Sem registros.']]});
+    tables.forEach(table=>sections.push({heading,rows:[...table.querySelectorAll('tr')].map(row=>[...row.querySelectorAll('th,td')].map(clean)).filter(row=>row.length)}));
   });
   doc.querySelectorAll('table').forEach(table=>{if(table.closest('section'))return;sections.push({heading:'Detalhamento',rows:[...table.querySelectorAll('tr')].map(row=>[...row.querySelectorAll('th,td')].map(clean)).filter(row=>row.length)})});
   doc.querySelectorAll('.notes').forEach(node=>sections.push({heading:'Observações',rows:[[clean(node)]]}));
@@ -41,7 +43,19 @@ function downloadPdfReport(title,html,targetDocument=document,targetWindow=windo
     const rows=section.rows||[];if(!rows.length){text(left,y,'Sem registros.',8,muted);y+=18;continue}
     const n=Math.max(1,...rows.map(r=>r.length)),headers=rows[0];
     const weights=Array.from({length:n},(_,i)=>{const h=(headers[i]||'').toLowerCase();return /descri|observ|aplica|institui|categoria|produto|cofrinho|meta|nome/.test(h)?1.65:/data|tipo|situa|prazo|confer|débito|dia|início|fim/.test(h)?0.9:/valor|saldo|receita|despesa|aporta|rendimento|líquido|objetivo|principal|ir est|iof/.test(h)?1.0:1.12});const total=weights.reduce((a,b)=>a+b,0),widths=weights.map(w=>usable*w/total);
-    const renderRow=(cells,index,header=false)=>{const wrapped=cells.map((cell,i)=>wrap(cell,Math.max(7,Math.floor((widths[i]||usable/n)/(header?4.2:4.0)))));const lines=Math.max(1,...wrapped.map(v=>v.length));const rh=Math.max(header?21:18,lines*(header?8:8.3)+7);if(y+rh>H-bottom){newPage();if(!header)renderRow(headers,0,true)}if(header){rect(left,y,usable,rh,blue)}else if(index%2===0){rect(left,y,usable,rh,'0.97 0.98 0.99')};let x=left;for(let i=0;i<n;i++){const cellLines=wrapped[i]||[''];for(let li=0;li<cellLines.length;li++){text(x+5,y+12+li*8,cellLines[li],header?6.7:7,header?'1 1 1':ink,header)}x+=widths[i]||usable/n}if(!header)rule(left,y+rh,W-right,line,.35);y+=rh};
+    const renderRow=(cells,index,header=false)=>{
+      const wrapped=cells.map((cell,i)=>wrap(cell,Math.max(7,Math.floor((widths[i]||usable/n)/(header?4.2:4.0))))),lines=Math.max(1,...wrapped.map(v=>v.length));let offset=0;
+      while(offset<lines){
+        const available=Math.floor((H-bottom-y-7)/8.3);
+        if(available<1){newPage();if(!header)renderRow(headers,0,true);continue}
+        const count=Math.min(lines-offset,available),rh=Math.max(header?21:18,count*8.3+7);
+        if(y+rh>H-bottom){newPage();if(!header)renderRow(headers,0,true);continue}
+        if(header)rect(left,y,usable,rh,blue);else if(index%2===0)rect(left,y,usable,rh,'0.97 0.98 0.99');let x=left;
+        for(let i=0;i<n;i++){const chunk=(wrapped[i]||[]).slice(offset,offset+count);chunk.forEach((value,li)=>text(x+5,y+12+li*8,value,header?6.7:7,header?'1 1 1':ink,header));x+=widths[i]||usable/n}
+        if(!header)rule(left,y+rh,W-right,line,.35);y+=rh;offset+=count;
+        if(offset<lines){newPage();if(!header)renderRow(headers,0,true)}
+      }
+    };
     renderRow(headers,0,true);for(let ri=1;ri<rows.length;ri++)renderRow(rows[ri],ri,false);y+=12;
   }
   finishPage();
@@ -76,49 +90,19 @@ function generateGlobalPdf(){
   const reportHtml=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Reserva Simples — Relatório geral</title><style>
   body{font:14px system-ui;color:#17263d;margin:24px}header{display:flex;align-items:center;gap:14px;border-bottom:3px solid #1a4d95;padding-bottom:12px}header img{width:46px;height:46px;border-radius:10px}h1{font-size:24px;margin:0}header p{margin:4px 0;color:#435772}.pdf-totals{display:flex;gap:12px;margin:16px 0}.pdf-totals article{flex:1;border:1px solid #b8cde7;border-top:3px solid #1a4d95;border-radius:8px;padding:10px;background:#eef5ff}.pdf-totals strong{display:block;font-size:18px;margin-top:4px}section{margin:24px 0}table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;border-bottom:1px solid #cbd5e1;padding:6px;overflow-wrap:anywhere}th{background:#e6effb;color:#112c55}tbody tr:nth-child(even){background:#f5f8fd}h2{font-size:16px;break-after:avoid}thead{display:table-header-group}tr{break-inside:avoid}button{padding:9px 14px}@media print{button{display:none}body{margin:0}table{font-size:9px}}@page{size:A4 landscape;margin:12mm}
   </style></head><body><header><img src="${esc(logo)}" alt=""><div><h1>Reserva Simples</h1><p>Relatório financeiro · ${esc(title)} · Emitido em ${dateBR(isoToday())}${hideValues?' · Valores ocultos':''}</p></div></header><div class="pdf-totals">${totals.map(([label,value])=>`<article>${label}<strong>${money(value)}</strong></article>`).join('')}</div><button type="button" class="no-print" id="downloadPdfButton">Baixar PDF</button><button type="button" class="no-print" onclick="window.focus();window.print()">Imprimir</button>${sections}
-<style id="desktop-integrated-page-header">
-@media (min-width:761px){
- .sidebar-control{height:72px!important;justify-content:flex-start!important;margin-bottom:14px!important}
- .sidebar-control .page-title-block{display:grid;align-content:center;gap:3px;flex:1;min-width:0;margin:0 18px}
- .sidebar-control .page-title-block .subtitle{margin:0;font-size:9px;line-height:1.1}
- .sidebar-control .page-title-block h1{margin:0;font-size:24px;line-height:1.05;letter-spacing:-.7px}
- .sidebar-control .header-right{flex:0 0 auto!important;margin-left:auto!important}
- .main>.header{display:none!important}
-}
-@media (min-width:761px) and (max-width:1023px){
- .sidebar-control{height:64px!important;margin-bottom:12px!important}
- .sidebar-control #sidebarToggle{display:none!important}
- .sidebar-control .page-title-block{margin-left:0;margin-right:12px}
- .sidebar-control .page-title-block h1{font-size:21px}
-}
-</style>
+
 
 
 
 
 </body></html>`;
-  const parsed=new DOMParser().parseFromString(reportHtml,'text/html');
+
   downloadPdfReport('Relatorio financeiro - '+title,reportHtml,document,window);
 }
 function generateCdbPdf(){const rows=db.jars.filter(j=>!j.archived).map(j=>{const e=estimateCdbJar(j.id),institution=db.institutions.find(i=>i.id===j.institutionId)||db.institutions[0];return{j,e,institution}});const total={principal:sum(rows.map(x=>x.e.principal)),gross:sum(rows.map(x=>x.e.gross)),gain:sum(rows.map(x=>x.e.gain)),iof:sum(rows.map(x=>x.e.iof)),ir:sum(rows.map(x=>x.e.ir)),net:sum(rows.map(x=>x.e.net))};const annual=currentCdiAnnual();const rowHtml=rows.map(({j,e,institution})=>`<tr><td><b>${esc(j.name)}</b><small>${esc(institution?.name||'Banco Inter')} · ${institution?.type==='cooperative'?'Cooperativa':'Banco'} · ${percent(institution?.cdiPercent||100)} do CDI</small></td><td>${money(e.principal)}</td><td>${money(e.gain)}</td><td>${money(e.iof)}</td><td>${money(e.ir)}</td><td><b>${money(e.net)}</b></td></tr>`).join('');const html=`<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Relatório de CDBs</title><style>*{box-sizing:border-box}body{font:14px Arial,sans-serif;color:#172235;margin:32px auto;max-width:1100px;padding:0 22px}h1{margin:0 0 6px;font-size:25px}.muted,small{color:#667386}small{display:block;margin-top:4px;font-size:11px}.top{display:flex;justify-content:space-between;gap:15px;align-items:flex-start;border-bottom:2px solid #dbe5ef;padding-bottom:18px}.badge{padding:8px 12px;border-radius:20px;background:#edf4ff;color:#2159a6;font-weight:bold}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:20px 0}.summary div{padding:13px;background:#f4f7fb;border-radius:12px}.summary span{display:block;color:#667386;font-size:11px}.summary b{display:block;font-size:19px;margin-top:7px}table{width:100%;border-collapse:collapse;margin-top:18px;font-size:12px}th,td{text-align:left;padding:11px 8px;border-bottom:1px solid #e5eaf0;vertical-align:top}th{background:#f4f7fb;font-size:10px;text-transform:uppercase;letter-spacing:.04em}.right{text-align:right}.notes{margin-top:18px;padding:14px;background:#fff8e8;border:1px solid #f1e1b9;border-radius:10px;color:#61522d;font-size:11px;line-height:1.55}.foot{margin-top:20px;font-size:10px;color:#667386}@media print{body{max-width:none;margin:0;padding:0}.no-print{display:none}.summary div{break-inside:avoid}tr{break-inside:avoid}thead{display:table-header-group}}</style><body><div class="top"><div><h1>Relatório de cofrinhos e CDBs</h1><div class="muted">Gerado em ${new Date().toLocaleString('pt-BR')} · valores informados no aplicativo</div></div><span class="badge">CDI ${annual===null?'indisponível':percent(annual)+' a.a.'}</span></div><div class="summary"><div><span>Total aportado</span><b>${money(total.principal)}</b></div><div><span>Rendimento bruto estimado</span><b>${money(total.gain)}</b></div><div><span>Saldo líquido estimado</span><b>${money(total.net)}</b></div></div><button type="button" class="no-print" id="downloadPdfButton">Baixar PDF</button><button type="button" class="no-print" onclick="window.focus();window.print()">Imprimir</button><p class="muted">Estimativa calculada em ${cdiDateBR(isoToday())}; taxa CDI mais recente de ${cdiDateBR(latestCdi()?.date)} pela série diária CDI do Banco Central (SGS 12).</p><table><thead><tr><th>Cofrinho / instituição</th><th>Aportado</th><th>Rendimento bruto</th><th>IOF est.</th><th>IR est.</th><th>Saldo líquido est.</th></tr></thead><tbody>${rowHtml||'<tr><td colspan="6">Nenhum cofrinho cadastrado.</td></tr>'}<tr><th>Total</th><th>${money(total.principal)}</th><th>${money(total.gain)}</th><th>${money(total.iof)}</th><th>${money(total.ir)}</th><th>${money(total.net)}</th></tr></tbody></table><div class="notes"><b>Importante:</b> este documento é uma estimativa para compartilhamento, não é extrato bancário, comprovante de investimento nem saldo oficial. O CDI futuro pode mudar. O cálculo assume os aportes e resgates informados, consome aportes mais antigos primeiro (FIFO) e ajusta proporcionalmente o valor restante de cada lote ao principal resgatado; aplica a porcentagem do CDI cadastrada e estima IOF/IR em caso de resgate hoje. Confirme os valores com a instituição financeira.</div><div class="foot">Reserva Simples · Não contém número de conta ou credenciais bancárias.</div>
-<style id="desktop-integrated-page-header">
-@media (min-width:761px){
- .sidebar-control{height:72px!important;justify-content:flex-start!important;margin-bottom:14px!important}
- .sidebar-control .page-title-block{display:grid;align-content:center;gap:3px;flex:1;min-width:0;margin:0 18px}
- .sidebar-control .page-title-block .subtitle{margin:0;font-size:9px;line-height:1.1}
- .sidebar-control .page-title-block h1{margin:0;font-size:24px;line-height:1.05;letter-spacing:-.7px}
- .sidebar-control .header-right{flex:0 0 auto!important;margin-left:auto!important}
- .main>.header{display:none!important}
-}
-@media (min-width:761px) and (max-width:1023px){
- .sidebar-control{height:64px!important;margin-bottom:12px!important}
- .sidebar-control #sidebarToggle{display:none!important}
- .sidebar-control .page-title-block{margin-left:0;margin-right:12px}
- .sidebar-control .page-title-block h1{font-size:21px}
-}
-</style>
 
-</body></html>`;const parsed=new DOMParser().parseFromString(html,'text/html');downloadPdfReport('Relatorio de cofrinhos e CDBs',html,document,window,'cdbPdfDownloadFallback')}
+
+</body></html>`;downloadPdfReport('Relatorio de cofrinhos e CDBs',html,document,window,'cdbPdfDownloadFallback')}
 function institutionRegistryCard(){const rows=db.institutions.map(i=>{const used=db.jars.filter(j=>j.institutionId===i.id).length;return `<div class="institution-row"><span><b>${esc(i.name)}</b><small>${i.type==='cooperative'?'Cooperativa':'Banco'} · ${percent(i.cdiPercent)} do CDI · ${fundLabel(i.guaranteeFund)} · ${used} cofrinho(s)</small></span><span class="institution-actions"><button class="btn small" data-open="institution" data-institution="${esc(i.id)}">${i.isDefault?'Ajustar':'Editar'}</button>${i.isDefault?'<span class="tag soft">Padrão</span>':`<button class="btn small negative" data-delete-institution="${esc(i.id)}">Excluir</button>`}</span></div>`}).join('');return `<article class="card settings-card institution-settings-card"><div class="settings-card-head"><span class="settings-icon">${icon('wallet')}</span><div><h2>Bancos e cooperativas</h2><p>Cadastre instituições, remuneração do CDB e referências de proteção para o monitoramento estimado.</p></div></div><div class="institution-list">${rows}</div><div class="setting-actions"><button class="btn primary" data-open="institution">Cadastrar banco ou cooperativa</button></div></article>`}
 async function deleteInstitution(id){const i=db.institutions.find(x=>x.id===id);if(!i)return;if(i.isDefault)return notify('A instituição padrão do Banco Inter não pode ser excluída.');const used=db.jars.filter(j=>j.institutionId===id);if(used.length)return notify('Antes de excluir, edite os cofrinhos vinculados e escolha outra instituição.');if(!confirm(`Excluir “${i.name}” da lista de instituições?`))return;if(await mutate(()=>db.institutions=db.institutions.filter(x=>x.id!==id)))notify('Instituição excluída.')}
 async function savePlanningPrefs(e){e.preventDefault();const raw=$('#balanceAnchorAmount').value.trim(),date=$('#balanceAnchorDate').value,months=Number($('#emergencyMonths').value);let balance=null,anchor='';if(raw||date){const n=Number(raw);if(!raw||!Number.isFinite(n)||n<0||n>100000000||!validDate(date)||date>isoToday()){notify('Informe um saldo válido e a data em que ele foi conferido.');return}balance=Math.round(n*100);anchor=date}if(![3,6,9,12].includes(months)){notify('Escolha um prazo válido para a reserva.');return}if(await mutate(()=>{db.prefs.balanceAnchorCents=balance;db.prefs.balanceAnchorDate=anchor;db.prefs.emergencyMonths=months}))notify('Referências de planejamento salvas.')}
@@ -168,7 +152,7 @@ async function createAccount(event){
      const old=localStorage.getItem('reserva-simples-v2');
      if(old){
        const parsed=JSON.parse(old);
-       if(parsed.format==='reserva-vault-1'){
+       if(isVaultFormat(parsed.format)){
          const previousKey=await deriveVaultKey(password,from64(parsed.salt));
          source=await openVault(parsed,previousKey);
        }else source=verify(parsed);

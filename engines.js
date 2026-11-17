@@ -149,8 +149,8 @@
     .filter(x => x.jarId === id && asPeriod(x.date) <= period(y, m)).map(x => x.amount)) + Number(db.goalBalanceAdjustments?.[period(y,m)]?.[id] || 0);
   function goal(db, jar, y, m) {
     const selectedKey=period(y,m),current=balanceAt(db,jar.id,y,m);
-    const pending=Math.max(0,jar.target-current),deadline=asPeriod(jar.dueDate),dueYear=Number(deadline.slice(0,4)),dueMonth=Number(deadline.slice(5,7))-1;
-    const monthsRemaining=Math.max(0,(dueYear-y)*12+(dueMonth-m)+1);
+    const pending=Math.max(0,jar.target-current),deadline=asPeriod(jar.dueDate||''),hasDeadline=/^\d{4}-\d{2}-\d{2}$/.test(jar.dueDate||''),dueYear=Number(deadline.slice(0,4)),dueMonth=Number(deadline.slice(5,7))-1;
+    const monthsRemaining=hasDeadline?Math.max(0,(dueYear-y)*12+(dueMonth-m)+1):0;
     const perMonth=pending===0?0:monthsRemaining>0?Math.ceil(pending/monthsRemaining):null;
     const recentKeys=[-3,-2,-1].map(delta=>{
       const closed=addMonths(y,m,delta);
@@ -162,7 +162,7 @@
     const monthlyPace=recent.length>=2?Math.round(sum(recent)/recent.length):null;
     let status = 'sem_historico';
     if (pending === 0) status = 'concluida';
-    else if (deadline < selectedKey) status = 'atrasada';
+    else if (hasDeadline && deadline < selectedKey) status = 'atrasada';
     else if (monthlyPace !== null && perMonth !== null && monthlyPace < perMonth) status = 'em_risco';
     else if (monthlyPace !== null) status = 'no_ritmo';
     const monthsAtPace = pending > 0 && monthlyPace > 0 ? Math.ceil(pending / monthlyPace) : null;

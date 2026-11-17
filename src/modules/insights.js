@@ -188,12 +188,22 @@ function insightPriorities(monthData){
     </article>`).join('')}</div></section>`;
 }
 function analysis(){
+ if(state.page==='analysis'&&state.analysisView==='reports'){
+   const source=$('#page-reports');
+   reports();
+   const content=[...source.childNodes];
+   $('#page-analysis').innerHTML=`${heading('Análises','Insights e relatórios dos seus dados financeiros.')}<nav class="finance-section-nav analysis-section-nav" aria-label="Seções de Análises"><button type="button" data-analysis-view="insights">Insights</button><button type="button" class="selected" data-analysis-view="reports" aria-current="page">Relatórios</button></nav><div class="analysis-embedded-content"></div>`;
+   $('#page-analysis .analysis-embedded-content').replaceChildren(...content);
+   syncMonthlyCloseChecklist();
+   return;
+ }
  const m=month();
  const result=Engines.insights(goalEngineData(state.year,state.month),state.year,state.month),pred=result.projection,cats=horizontalCategories(m.records);
  const withHistory=pred.afterMinimum!==null;
  const projectionCard=withHistory?`<div class="prediction-grid"><div><span>Renda provável</span><strong>${money(pred.income)}</strong></div><div><span>Despesas prováveis</span><strong>${money(pred.expenses)}</strong></div><div><span>Sobra após guardar 10%</span><strong class="${pred.afterMinimum<0?'danger-text':''}">${money(pred.afterMinimum)}</strong></div></div><p class="help">Estimativa ${pred.level}. Usa os meses fechados ${pred.monthsUsed.map(k=>{const [y,m]=k.split('-');return MONTHS[Number(m)-1]+' de '+y}).join(', ')}. Método: mediana das rendas e despesas dos mesmos meses. Não é garantia de saldo futuro.</p>`:`<div class="empty"><strong>Histórico ainda insuficiente</strong>Cadastre receitas e despesas de pelo menos dois meses para estimar o próximo mês.</div>`;
  const notices=result.items.slice().sort((a,b)=>({critical:0,attention:1,positive:2,info:3})[a.kind]-({critical:0,attention:1,positive:2,info:3})[b.kind]);
  $('#page-analysis').innerHTML=`
+ ${heading('Análises','Insights e relatórios dos seus dados financeiros.')}<nav class="finance-section-nav analysis-section-nav" aria-label="Seções de Análises"><button type="button" class="selected" data-analysis-view="insights" aria-current="page">Insights</button><button type="button" data-analysis-view="reports">Relatórios</button></nav><div class="analysis-embedded-content">
  ${insightPriorities(m)}
  <div class="stats">${stat('Entradas do mês',money(m.income),monthLabel(),'income')}${stat('Despesas do mês',money(m.expenses),monthLabel(),'expense')}${stat('Saldo disponível',money(m.balance),'Após despesas, cofrinhos e novos investimentos','wallet')}</div>
  <div class="insights-compact-grid insights-overview-grid">
@@ -205,5 +215,5 @@ function analysis(){
  ${monthlyInsightCards(m,cats)}</div></details>
  <details class="card insights-details"><summary>Análises de renda e projeção</summary><div class="insights-compact-grid"><article class="card">${cardTitle('De onde vem a renda',monthLabel())}<div class="bar-list">${m.income?`<div><div class="bar-label"><span>Salário</span><b>${money(m.salary)} · ${percent(m.salary/m.income*100)}</b></div><div class="bar-track"><span style="width:${m.salary/m.income*100}%;background:#3488f5"></span></div></div><div><div class="bar-label"><span>Complemento</span><b>${money(m.complement)} · ${percent(m.complement/m.income*100)}</b></div><div class="bar-track"><span style="width:${m.complement/m.income*100}%;background:#7a75e7"></span></div></div>`:'<div class="empty">Adicione salário ou complemento para visualizar.</div>'}</div></article>
  ${withHistory?`<article class="card">${cardTitle('Previsão para o próximo mês','Estimativa com base no histórico')}${projectionCard}</article>`:''}
- </div></details>`;
+ </div></details></div>`;
 }

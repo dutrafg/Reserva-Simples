@@ -12,14 +12,14 @@ const hook = `Object.assign(window, { qa: {
   go, render, verify, empty, isoToday, toCents, mutate, applyRecurring, pendingRecurring, upcomingBillInstances,
   calendarEventsForMonth, desktopNotificationItems, openDesktopNotification,
   integrityInterface, integrityBank, compareVersions, searchReserva,
-  submitEntry, importFile, integrityScan, integrityAssets, APP_VERSION, STORE, getDb:()=>db, getState:()=>state
+  submitEntry, submitCalendarTask, validTime, importFile, integrityScan, integrityAssets, APP_VERSION, STORE, getDb:()=>db, getState:()=>state
 }});\n`;
 const appSource = originalApp
   .replace(/\}\)\(\);\s*$/, hook + '})();')
   .replace('[6000,8000,12000,15000][index]', '1')
   .replace('14500*percent/100', '0');
 assert.notEqual(originalApp, appSource);
-const pages = ['home', 'transactions', 'budget', 'calendar', 'goals', 'investments', 'analysis', 'reports', 'settings'];
+const pages = ['home', 'register', 'transactions', 'budget', 'goals', 'investments', 'analysis', 'reports', 'settings'];
 
 function boot(testContext, { width = 1440, coarse = false, seed, query = '', noAccount = false, guest = false } = {}) {
   const errors = [], downloads = [];
@@ -111,8 +111,20 @@ function stored(version = 4) {
 
 test('abre os nove módulos e mantém somente uma tela ativa, sem IDs duplicados', t => {
   const { qa, document, get } = boot(t);
+  const enter={
+    register:()=>qa.go('register'),
+    home:()=>get('#desktopNav [data-page="home"]').click(),
+    transactions:()=>qa.go('transactions'),
+    budget:()=>get('#desktopNav [data-page="budget"]').click(),
+    calendar:()=>get('#desktopNav [data-page="calendar"]').click(),
+    goals:()=>qa.go('goals'),
+    investments:()=>qa.go('investments'),
+    analysis:()=>get('#desktopNav [data-page="analysis"]').click(),
+    reports:()=>qa.go('reports'),
+    settings:()=>get('#desktopNav [data-page="settings"]').click()
+  };
   for (const page of pages) {
-    get('#desktopNav [data-page="' + page + '"]').click();
+    enter[page]();
     assert.equal(qa.getState().page, page);
     assert.equal(document.querySelectorAll('.page.active').length, 1);
     assert.equal(get('.page.active').id, 'page-' + page);
@@ -125,6 +137,51 @@ test('abre os nove módulos e mantém somente uma tela ativa, sem IDs duplicados
   assert.equal(qa.integrityInterface().find(item => item.check === 'interface.budget').status, 'alerta');
 });
 
+test('painel de Hoje apresenta quatro indicadores e abre a categoria nos lançamentos', t => {
+  const today = new Date();
+  const date = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-10';
+  const { window, document, qa, get } = boot(t, {seed:{...stored(),records:[expense('market-workspace',date,12345)]}});
+  qa.go('home');
+  assert.equal(document.querySelectorAll('.workspace-metric').length, 4);
+  const search = get('[data-workspace-search]');
+  search.value = 'farmácia';
+  search.dispatchEvent(new window.Event('input', {bubbles:true}));
+  assert.equal(get('[data-home-category="Mercado"]').hidden, true);
+  search.value = 'mercado';
+  search.dispatchEvent(new window.Event('input', {bubbles:true}));
+  assert.equal(get('[data-home-category="Mercado"]').hidden, false);
+  get('[data-home-category="Mercado"]').click();
+  assert.equal(qa.getState().page, 'transactions');
+  assert.deepEqual(Array.from(qa.getState().txCategorySet), ['Mercado']);
+});
+
+test('Finanças agrupa os módulos e o atalho de investimento abre o formulário', t => {
+  const { qa, get, document } = boot(t);
+  qa.go('home');
+  assert.ok(get('#desktopNav [data-page="budget"]'));
+  assert.equal(document.querySelector('#desktopNav .desktop-nav-group'),null);
+  for (const page of ['transactions','investments','goals'])
+    assert.ok(get('#page-budget .finance-section-nav [data-page="' + page + '"]'));
+  assert.equal(get('#page-home [data-investment-new]').textContent.trim(), 'Investimento');
+  get('#page-home [data-investment-new]').click();
+  assert.equal(get('#investmentDialog').open, true);
+  assert.equal(get('#investmentTitle').textContent, 'Investimento com débito no saldo');
+  qa.go('budget');
+  assert.equal(document.querySelectorAll('#page-budget .finance-group').length, 3);
+  assert.equal(document.querySelectorAll('#page-budget .finance-period-summary>span').length, 2);
+  assert.equal(get('#page-budget .finance-group #upcomingCommitmentsCard').id, 'upcomingCommitmentsCard');
+  assert.equal(get('#page-budget #accountsPayableCard').tagName, 'DIV');
+  assert.ok(get('#page-budget #budgetRecurrenceCard'));
+  get('#page-budget .finance-section-nav [data-page="investments"]').click();
+  assert.equal(qa.getState().page,'budget');
+  assert.match(get('#page-budget #financeEmbeddedView').textContent,/Investimentos/);
+  get('#page-budget .finance-section-nav [data-page="goals"]').click();
+  assert.equal(qa.getState().page,'budget');
+  assert.match(get('#page-budget #financeEmbeddedView').textContent,/Metas/);
+  get('#page-budget .finance-section-nav [data-page="budget"]').click();
+  assert.ok(get('#page-budget .finance-group'));
+});
+
 test('Orçamento no celular e menu Mais com atalhos de tablet', t => {
   const { window, qa, get } = boot(t, { width: 390, coarse: true });
   assert.equal(get('#mobileNav').children.length, 5);
@@ -134,7 +191,7 @@ test('Orçamento no celular e menu Mais com atalhos de tablet', t => {
   get('#mobileMoreButton').click();
   assert.equal(get('#mobileMoreDialog').open, true);
   assert.deepEqual([...get('.mobile-more-grid').children].map(el => el.dataset.page),
-    ['calendar', 'goals', 'investments', 'analysis', 'reports']);
+    ['goals', 'investments', 'analysis', 'reports']);
   get('#mobileMoreDialog [data-page="reports"]').click();
   assert.equal(qa.getState().page, 'reports');
   assert.equal(get('#mobileMoreDialog').open, false);
@@ -143,10 +200,10 @@ test('Orçamento no celular e menu Mais com atalhos de tablet', t => {
   get('#headerSettings').click();
   assert.equal(qa.getState().page,'settings');
   assert.equal(get('#mobileMoreButton').classList.contains('selected'),false);
-  for (const [width, parent] of [[768,'header'], [1280,'header'], [1440,'sidebar-control']]) {
+  for (const [width, parent] of [[768,'header'], [1280,'header'], [1440,'header']]) {
     window.innerWidth = width;
-    window.dispatchEvent(new window.Event('resize'));
-    assert.equal(get('#desktopNotificationWrap').parentElement.className, parent);
+    qa.render();
+    assert.equal(get('#desktopNotificationWrap').parentElement.id, 'desktopSidebar');
   }
 });
 
@@ -219,6 +276,7 @@ test('sino liga o fechamento mensal à data correta e o vencimento ao Orçamento
 test('atualizador ordena as versões 0.x, beta e 1.0 estável', async t => {
   const { qa } = boot(t);
   assert.equal(qa.APP_VERSION, JSON.parse(read('version.json')).version);
+  assert.equal(qa.APP_VERSION,'1.0.0-beta.35');
   assert.ok(qa.compareVersions('1.0.0-beta.1', '0.39.43') > 0);
   assert.ok(qa.compareVersions('1.0.0-beta.2', '1.0.0-beta.1') > 0);
   assert.ok(qa.compareVersions('1.0.0-beta.10', '1.0.0-beta.2') > 0);
@@ -307,6 +365,8 @@ test('Central gera o relatório das quatro etapas e preserva a base ativa', { ti
   assert.equal(progress.querySelectorAll('progress[value="100"]').length,4);
   assert.match(progress.querySelector('.integrity-screen').textContent,/concluída/);
   assert.equal(window.localStorage.getItem(qa.STORE),raw);
+  assert.equal(qa.getState().page,'settings');
+  assert.equal(window.document.querySelector('[data-settings-panel=system]').hidden,false);
   assert.equal(downloads.length,1);
   const json = await downloads[0].text();
   const report = JSON.parse(json);
@@ -324,6 +384,7 @@ test('Central gera o relatório das quatro etapas e preserva a base ativa', { ti
   const locFailures=report.scan.locTests.filter(item=>item.status==='falha'||item.status==='erro');
   if(locFailures.length)t.diagnostic('Falhas LOC: '+JSON.stringify(locFailures.map(item=>({id:item.id,title:item.title,reason:item.reason,evidence:item.evidence}))));
   const suites = report.scan.testSuiteSummary.suites;
+  assert.equal(report.scan.additionalTestPlan.find(item=>item.id===56)?.status,'ok');
   for (const [name,suite] of Object.entries(suites)) {
     assert.equal((suite.statusCounts.falha||0)+(suite.statusCounts.erro||0),0,name);
   }
@@ -455,4 +516,34 @@ test('calendário de Hoje exibe só o dia e colore despesas', t => {
   assert.equal(cell.textContent,String(Number(date.slice(-2))));
   assert.equal(cell.dataset.expenseHeat,'5');
   assert.match(cell.getAttribute('aria-label'),/25,00/);
+});
+test('Calendário simplificado mantém ações, transfere agenda para Hoje e encaixa menu em telas grandes',t=>{
+  const today=new Date().toLocaleDateString('sv-SE');
+  const {qa,get,document}=boot(t,{width:1440,seed:{...stored(),tasks:[{id:'qa-today-task',title:'Consulta',date:today,time:'09:00',note:'Teste',done:false,color:'blue'}]}});
+  qa.go('calendar');
+  assert.equal(qa.getState().page,'home');
+  assert.ok(get('#homeFullCalendar [data-calendar-new-note]'));
+  assert.ok(get('#homeFullCalendar [data-calendar-new-task]'));
+  assert.equal(document.querySelector('#desktopNav [data-page="calendar"]'),null);
+  qa.go('home');
+  assert.match(get('#page-home .home-today-agenda').textContent,/Agenda do dia/);
+  assert.match(get('#page-home .home-today-agenda').textContent,/Consulta/);
+  for(const width of [768,1024,1366,1440]){
+    assert.ok(get('#desktopNav [data-page="budget"]'),`Finanças deve ser uma rota direta em ${width}px`);
+    assert.ok(get('#desktopNav [data-page="analysis"]'),`Análises deve ser uma rota direta em ${width}px`);
+    assert.equal(document.querySelector('#desktopNav .desktop-nav-group'),null);
+  }
+});
+test('formulário de compromisso salva horário e rejeita valores fora da faixa',async t=>{
+  const {qa,get}=boot(t);
+  qa.go('calendar');
+  const form=get('#calendarTaskForm'),date=qa.isoToday();
+  form.elements.title.value='Compromisso com horário';
+  form.elements.date.value=date;
+  form.elements.time.value='09:30';
+  await qa.submitCalendarTask({preventDefault(){},target:form});
+  const saved=qa.getDb().tasks.find(task=>task.title==='Compromisso com horário');
+  assert.equal(saved?.time,'09:30');
+  assert.ok(['00:00','09:30','23:59',''].every(qa.validTime));
+  assert.ok(['24:00','25:99','12:60','9:30','\\d\\d:\\d\\d'].every(value=>!qa.validTime(value)));
 });

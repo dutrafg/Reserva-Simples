@@ -97,17 +97,25 @@
     const raw=prf?.results?.first?toBytes(prf.results.first):await prfSecret(credentialId,salt);
     if(raw.length!==32)throw Error('PRF não compatível.');
     const iv=crypto.getRandomValues(new Uint8Array(12));
-    const encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv},await secretKey(raw),new TextEncoder().encode(password));
-    const record={format:'reserva-biometric-prf-v1',credentialId,salt,iv:b64(iv),data:b64(toBytes(encrypted))};
+    const format='reserva-biometric-prf-v2',additionalData=new TextEncoder().encode(JSON.stringify([format,id,credentialId]));
+    const encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData},await secretKey(raw),new TextEncoder().encode(password));
+    const record={format,credentialId,salt,iv:b64(iv),data:b64(toBytes(encrypted))};
     storage.setItem(biometricKey(id),JSON.stringify(record));
     return true;
   }
   async function unlock(storage,id){
     if(!supported()||!ID.test(id))throw Error('Biometria indisponível neste navegador.');
-    const record=JSON.parse(storage.getItem(biometricKey(id))||'null');
-    if(record?.format!=='reserva-biometric-prf-v1')throw Error('Nenhuma credencial biométrica cadastrada neste perfil.');
+    let record;try{record=JSON.parse(storage.getItem(biometricKey(id))||'null')}catch{throw Error('O cadastro biométrico está corrompido. Entre com sua senha e cadastre a biometria novamente.');}
+    if(!['reserva-biometric-prf-v1','reserva-biometric-prf-v2'].includes(record?.format))throw Error('Nenhuma credencial biométrica cadastrada neste perfil.');
     const raw=await prfSecret(record.credentialId,record.salt);
-    const bytes=await crypto.subtle.decrypt({name:'AES-GCM',iv:un64(record.iv)},await secretKey(raw),un64(record.data));
+    const key=await secretKey(raw),algorithm={name:'AES-GCM',iv:un64(record.iv)};
+    if(record.format==='reserva-biometric-prf-v2')algorithm.additionalData=new TextEncoder().encode(JSON.stringify([record.format,id,record.credentialId]));
+    const bytes=await crypto.subtle.decrypt(algorithm,key,un64(record.data));
+    if(record.format==='reserva-biometric-prf-v1'){
+      const format='reserva-biometric-prf-v2',iv=crypto.getRandomValues(new Uint8Array(12)),additionalData=new TextEncoder().encode(JSON.stringify([format,id,record.credentialId]));
+      const encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData},key,bytes);
+      try{storage.setItem(biometricKey(id),JSON.stringify({...record,format,iv:b64(iv),data:b64(toBytes(encrypted))}))}catch{/* A senha válida permite entrar mesmo se a migração não puder ser salva. */}
+    }
     return new TextDecoder().decode(bytes);
   }
   function disableBiometric(storage,id){storage.removeItem(biometricKey(id))}

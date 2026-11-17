@@ -1,3 +1,52 @@
+## 1.0.0-beta.35 — 2026-11-17
+
+- Corrige IDs duplicados na varredura após abrir Relatórios dentro de Análises.
+- Atualiza a matriz responsiva: dock até 760 px e navegação superior em tablet/desktop.
+- Mantém o título do módulo no cabeçalho adequado ao tablet.
+- Remove altura forçada dos cartões em Ajustes → Sistema.
+- Atualiza a referência de compatibilidade para main beta.9 e valida Calendário como função integrada em Hoje.
+- O JSON identifica os IDs duplicados e seus módulos, sem valores dos campos.
+- Publica as melhorias de interface e correções validadas nos Betas 10–34.
+
+## 1.0.0-beta.34 — 2026-11-17
+
+- CSS centralizado em `src/styles/app.css`, incorporado no build, com 340 declarações sobrescritas removidas.
+- Renderização de telas inativas reaproveitada; preservação de foco, seleção e rascunhos dos formulários não enviados.
+- Conteúdo incorporado em Finanças/Análises movido sem duplicar IDs.
+- Cofre v2 com AAD de formato e proprietário; leitura v1 mantida, cópia cifrada v1 preservada antes da primeira gravação migrada.
+- Biometria v2 com AAD de formato, perfil e credencial; migração após PRF válido.
+- Testes de adulteração, senha incorreta, migração, navegação e preservação de rascunhos.
+
+## 1.0.0-beta.14
+
+- Compromissos com horário passam a ser salvos corretamente; formulário, armazenamento e diagnóstico compartilham a mesma validação.
+- A Central de Integridade testa o envio real do formulário com horário e as faixas válidas/inválidas.
+- Finanças e Análises abrem como áreas diretas; as opções internas aparecem em cards no módulo, sem expandir a barra superior.
+- A Central valida os caminhos internos de Lançamentos, Investimentos, Metas e Relatórios dentro dessas áreas.
+
+## 1.0.0-beta.13
+
+- Menu de módulos no desktop abre em sobreposição, sem deslocar ou quebrar a barra de navegação.
+- Calendário prioriza a grade mensal em toda a página; tarefas e notas ficam disponíveis por ações junto a Agendar compromisso.
+- Agenda do dia aparece em Hoje e as ações do calendário mantêm o mesmo fluxo em smartphone, tablet e desktop.
+
+## 1.0.0-beta.12
+
+- Finanças passa de quatro para três grupos multifunção: gastos e orçamento, agenda e contas, previsões e decisões.
+- Despesas e contas previstas ficam em uma linha compacta no resumo do período.
+- Recorrências foram agrupadas com compromissos e vencimentos; comparações e simuladores ficam recolhidos em seus grupos.
+
+## 1.0.0-beta.11
+
+- Finanças agrupa Lançamentos, Orçamento, Investimentos e Metas na navegação.
+- Atalho de investimento abre o cadastro diretamente; Hoje remove um resumo duplicado de despesas.
+
+## 1.0.0-beta.10
+
+- Hoje ganha painel para desktop e tablet com quatro indicadores, lista de gastos por categoria e ações rápidas.
+- Navegação desktop passa para abas horizontais; celular mantém a navegação atual.
+- Busca nas categorias, limites e atalhos usam os dados e módulos existentes.
+
 ## 1.0.0-beta.9
 
 - Telemetria local em `diagnostics.js`, incluída no cache offline verificado.

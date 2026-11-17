@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "1.0.0-beta.9",
+  "version": "1.0.0-beta.35",
   "channel": "beta",
-  "updatedAt": "2026-11-17T02:20:00.000Z",
+  "updatedAt": "2026-11-17T19:54:37.719Z",
   "source": "same-origin PWA release",
-  "notes": "Núcleo financeiro otimizado; telemetria isolada em módulo próprio e funções antigas removidas."
+  "notes": "Publica a interface integrada; corrige relatório oculto duplicado na Central, referência do calendário em Hoje, navegação responsiva e altura dos cartões de Sistema. Inclui CSV, PDF e migração AAD."
 }

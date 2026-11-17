@@ -59,3 +59,20 @@ test('biometria exige WebAuthn PRF, sem fallback falso de autenticação',async(
  Accounts.disableBiometric(db,uid1);
  assert.equal(Accounts.biometricConfigured(db,uid1),false);
 });
+
+test('biometria corrompida oferece recuperação por senha sem SyntaxError bruto',async()=>{
+ const vm=require('node:vm'),fs=require('node:fs');const context={isSecureContext:true,PublicKeyCredential:function(){},crypto:require('node:crypto').webcrypto,navigator:{credentials:{create(){},get(){}}},module:{exports:{}}};vm.runInNewContext(fs.readFileSync(require.resolve('../accounts.js'),'utf8'),context);const db=storage();db.setItem('reserva.biometric.prf.'+uid1,'{quebrado');await assert.rejects(()=>context.module.exports.unlock(db,uid1),/corrompido.*senha/);
+});
+
+test('biometria migra registro antigo após PRF válido e vincula novos registros ao perfil',async()=>{
+ const vm=require('node:vm'),fs=require('node:fs'),crypto=require('node:crypto').webcrypto;
+ const raw=crypto.getRandomValues(new Uint8Array(32)),credential=new Uint8Array([1,2,3,4]);
+ const response={rawId:credential,getClientExtensionResults:()=>({prf:{enabled:true,results:{first:raw}}})};
+ const context={isSecureContext:true,PublicKeyCredential:function(){},crypto,TextEncoder,TextDecoder,Uint8Array,ArrayBuffer,btoa,atob,navigator:{credentials:{create:async()=>response,get:async()=>response}},module:{exports:{}}};vm.runInNewContext(fs.readFileSync(require.resolve('../accounts.js'),'utf8'),context);
+ const api=context.module.exports,db=storage(),salt=crypto.getRandomValues(new Uint8Array(32)),iv=crypto.getRandomValues(new Uint8Array(12)),key=await crypto.subtle.importKey('raw',raw,'AES-GCM',false,['encrypt','decrypt']);
+ const b64=x=>Buffer.from(x).toString('base64'),password='senha protegida biometria',cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(password));
+ db.setItem('reserva.biometric.prf.'+uid1,JSON.stringify({format:'reserva-biometric-prf-v1',credentialId:b64(credential),salt:b64(salt),iv:b64(iv),data:b64(cipher)}));assert.equal(await api.unlock(db,uid1),password);
+ const upgraded=db.getItem('reserva.biometric.prf.'+uid1);assert.equal(JSON.parse(upgraded).format,'reserva-biometric-prf-v2');assert.equal(await api.unlock(db,uid1),password);
+ db.setItem('reserva.biometric.prf.'+uid2,upgraded);await assert.rejects(()=>api.unlock(db,uid2));
+ await api.enroll(db,uid1,password);assert.equal(JSON.parse(db.getItem('reserva.biometric.prf.'+uid1)).format,'reserva-biometric-prf-v2');assert.equal(await api.unlock(db,uid1),password);
+});

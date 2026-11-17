@@ -13,8 +13,8 @@ const CALENDAR_TASK_COLORS={blue:'#1762c4',green:'#17834c',teal:'#0f8b8d',purple
 const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purple:'Roxo',red:'Vermelho',orange:'Laranja'};
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
-const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['budget','Orçamento','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='1.0.0-beta.9';
+const PAGES=[['home','Hoje','home'],['register','Registrar','plus'],['transactions','Lançamentos','wallet'],['budget','Finanças','wallet'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
+const APP_VERSION='1.0.0-beta.35';
 const APP_CACHE_NAME='reserva-simples-v'+APP_VERSION+'-pwa';
 const TELEMETRY_SCHEMA='reserva.telemetry.event.v1';
 const diagnosticFixtureStorages = new WeakSet();
@@ -37,6 +37,7 @@ const icon=name=>`<svg aria-hidden="true"><use href="#${name}"/></svg>`;
 const sum=a=>a.reduce((v,n)=>v+n,0);
 const empty=()=>({version:4,ownerId:null,profile:null,investments:[],records:[],jars:[],allocations:[],recurring:[],tasks:[],notes:[],institutions:[{id:'inter-default',name:'Banco Inter',type:'bank',cdiPercent:100,guaranteeFund:'fgc',conglomerate:'Banco Inter',otherCoveredBalance:0,isDefault:true}],prefs:{dark:!!window.matchMedia?.('(prefers-color-scheme: dark)').matches,balanceAnchorCents:null,balanceAnchorDate:'',emergencyMonths:6,categoryBudgets:{},billReminders:false,billReminderDays:1}});
 function validDate(s){if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return false;const [y,m,d]=s.split('-').map(Number);const dt=new Date(Date.UTC(y,m-1,d));return dt.getUTCFullYear()===y&&dt.getUTCMonth()===m-1&&dt.getUTCDate()===d}
+function validTime(value){return value===''||typeof value==='string'&&/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)}
 function normalizeTags(value){const input=Array.isArray(value)?value:String(value||'').split(/[;,]/);return [...new Set(input.map(x=>String(x||'').trim().replace(/^#+/,'').slice(0,30)).filter(Boolean).map(x=>x.slice(0,30)))].slice(0,8)}
 function verify(src){if(!src||![2,3,4].includes(src.version)||!Array.isArray(src.records)||!Array.isArray(src.jars)||!Array.isArray(src.allocations)||src.records.length>50000||src.jars.length>5000||src.allocations.length>50000||!Array.isArray(src.recurring||[])||(src.recurring||[]).length>5000||!Array.isArray(src.tasks||[])||(src.tasks||[]).length>10000||!Array.isArray(src.institutions??[])||(src.institutions??[]).length>5000)return null;
  const clean=empty();const ids=new Set();
@@ -45,7 +46,7 @@ function verify(src){if(!src||![2,3,4].includes(src.version)||!Array.isArray(src
  clean.institutions=[];const institutionIds=new Set();for(const x of src.institutions||[]){const pct=Number(x?.cdiPercent??100),fund=['fgc','fgcoop','none'].includes(x?.guaranteeFund)?x.guaranteeFund:(x?.type==='cooperative'?'fgcoop':'fgc'),other=Number.isSafeInteger(x?.otherCoveredBalance)&&x.otherCoveredBalance>=0?x.otherCoveredBalance:0;if(!x||!goodId(x.id)||typeof x.name!=='string'||!x.name.trim()||x.name.length>70||!['bank','cooperative'].includes(x.type)||!Number.isFinite(pct)||pct<=0||pct>500)return null;clean.institutions.push({id:x.id,name:x.name.trim(),type:x.type,cdiPercent:pct,guaranteeFund:fund,conglomerate:String(x.conglomerate||x.name).trim().slice(0,100),otherCoveredBalance:other,isDefault:!!x.isDefault});institutionIds.add(x.id)}if(!institutionIds.has('inter-default')){clean.institutions.unshift({id:'inter-default',name:'Banco Inter',type:'bank',cdiPercent:100,guaranteeFund:'fgc',conglomerate:'Banco Inter',otherCoveredBalance:0,isDefault:true});institutionIds.add('inter-default')}
  for(const x of src.jars){if(!x||!goodId(x.id)||typeof x.name!=='string'||!x.name.trim()||x.name.length>70||!Number.isSafeInteger(x.target)||x.target<=0||x.target>10000000000||!validDate(x.dueDate))return null;const name=x.name.trim(),legacyChallenge=x.challengeType==='save-10000-2027'||name==='Desafio R$ 10.000 — 2027'||name==='Desafio R$ 10.000',institutionId=institutionIds.has(x.institutionId)?x.institutionId:'inter-default';clean.jars.push({id:x.id,name:legacyChallenge?'Meta de R$ 10.000 — 2027':name,target:x.target,dueDate:x.dueDate,institutionId,archived:!!x.archived,paused:!!x.paused})}
  for(const x of src.recurring||[]){const kind=x?.kind==='income'?'income':'expense',source=x?.source==='salary'?'salary':'complement';if(!x||!goodId(x.id)||(kind==='expense'&&!CATS.includes(x.category))||!Number.isSafeInteger(x.amount)||x.amount<=0||x.amount>10000000000||!Number.isInteger(x.day)||x.day<1||x.day>31||!/^\d{4}-\d{2}$/.test(x.startMonth||'')||!validDate(x.startMonth+'-01')||(x.endMonth&&(!/^\d{4}-\d{2}$/.test(x.endMonth)||!validDate(x.endMonth+'-01')||x.endMonth<x.startMonth)))return null;clean.recurring.push({id:x.id,kind,source,category:kind==='expense'?x.category:'Outros',amount:x.amount,day:x.day,note:String(x.note||'').slice(0,140),startMonth:x.startMonth,endMonth:x.endMonth||null,paused:!!x.paused})}
- for(const x of src.tasks||[]){if(!x||!goodId(x.id)||typeof x.title!=='string'||!x.title.trim()||x.title.length>90||!validDate(x.date)||x.time&&!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(x.time)||String(x.note||'').length>180)return null;clean.tasks.push({id:x.id,title:x.title.trim(),date:x.date,time:x.time||'',note:String(x.note||'').trim(),color:CALENDAR_TASK_COLORS[x.color]?x.color:'blue',done:!!x.done})}
+ for(const x of src.tasks||[]){if(!x||!goodId(x.id)||typeof x.title!=='string'||!x.title.trim()||x.title.length>90||!validDate(x.date)||!validTime(x.time||'')||String(x.note||'').length>180)return null;clean.tasks.push({id:x.id,title:x.title.trim(),date:x.date,time:x.time||'',note:String(x.note||'').trim(),color:CALENDAR_TASK_COLORS[x.color]?x.color:'blue',done:!!x.done})}
  const jarIds=new Set(clean.jars.map(j=>j.id));
  for(const x of src.allocations){if(!x||!goodId(x.id)||!jarIds.has(x.jarId)||!Number.isSafeInteger(x.amount)||x.amount===0||Math.abs(x.amount)>10000000000||!validDate(x.date))return null;if(x.netReceived!=null&&(x.amount>=0||!Number.isSafeInteger(x.netReceived)||x.netReceived<=0))return null;
  clean.allocations.push({id:x.id,jarId:x.jarId,amount:x.amount,date:x.date,...(x.netReceived!=null?{netReceived:x.netReceived}:{}),note:/^desafio-2027-square-\d+$/.test(String(x.note||''))?'Depósito registrado na antiga cartela':String(x.note||'').slice(0,140)})}
@@ -83,7 +84,7 @@ function verify(src){if(!src||![2,3,4].includes(src.version)||!Array.isArray(src
      const legacySale=status==='sold'&&assetType==='livestock'&&!r.kind&&r.date===soldDate&&r.amount===saleAmount;
      return {date:r.date,amount:r.amount,kind:r.kind==='sale'||legacySale?'sale':'redemption',heads:Number.isSafeInteger(r.heads)&&r.heads>0?r.heads:legacySale?initialHeadCount:null,costBasisSold:Number.isSafeInteger(r.costBasisSold)&&r.costBasisSold>=0?r.costBasisSold:legacySale?x.cost+extraCosts:null};
    });
-   const remainingCostBasis=status==='sold'?0:(Number.isSafeInteger(x.remainingCostBasis)&&x.remainingCostBasis>=0&&x.remainingCostBasis<=10000000000?x.remainingCostBasis:x.cost+extraCosts+sum(expenses.map(e=>e.amount)));
+   const remainingCostBasis=status==='sold'?0:(Number.isSafeInteger(x.remainingCostBasis)&&x.remainingCostBasis>=0&&x.remainingCostBasis<=10000000000?x.remainingCostBasis:Math.max(0,x.cost+extraCosts+sum(expenses.map(e=>e.amount))-sum(normalizedRedemptions.map(r=>r.costBasisSold||0))));
    if(remainingCostBasis>10000000000||status==='sold'&&soldDate<x.date)return null;
    const cdiPercent=Number.isFinite(x.cdiPercent)&&x.cdiPercent>0&&x.cdiPercent<=500?Math.round(x.cdiPercent*100)/100:null;
    clean.investments.push({incomeRecordId:typeof x.incomeRecordId==='string'?x.incomeRecordId:null,id:x.id,name:x.name,institution:x.institution,product:x.product,cost:x.cost,balance:x.balance,date:x.date,checked:x.checked,cdiPercent,redemptions:normalizedRedemptions,existing:x.existing===true,goalId:clean.jars.some(j=>j.id===x.goalId)?x.goalId:null,assetType,livestockKind,headCount,initialHeadCount,extraCosts,expenses:expenses.map(e=>({id:String(e.id||uid()),date:e.date,category:e.category,amount:e.amount,note:String(e.note||'').slice(0,140),recordId:typeof e.recordId==='string'?e.recordId:null})),remainingCostBasis,status,soldDate,saleAmount});
@@ -91,7 +92,7 @@ function verify(src){if(!src||![2,3,4].includes(src.version)||!Array.isArray(src
  }
  const marketBudget=src.prefs?.marketBudget;
  clean.prefs.marketBudget=Number.isSafeInteger(marketBudget)&&marketBudget>0&&marketBudget<=10000000000?marketBudget:null;
- const categoryBudgets={};for(const [category,amount] of Object.entries(src.prefs?.categoryBudgets||{})){if(CATS.includes(category)&&category!=='Mercado'&&Number.isSafeInteger(amount)&&amount>0&&amount<=10000000000)categoryBudgets[category]=amount;else if(category==='Mercado'&&clean.prefs.marketBudget===null&&Number.isSafeInteger(amount)&&amount>0)clean.prefs.marketBudget=amount}clean.prefs.categoryBudgets=categoryBudgets;
+ const categoryBudgets={};for(const [category,amount] of Object.entries(src.prefs?.categoryBudgets||{})){if(CATS.includes(category)&&category!=='Mercado'&&Number.isSafeInteger(amount)&&amount>0&&amount<=10000000000)categoryBudgets[category]=amount;else if(category==='Mercado'&&clean.prefs.marketBudget===null&&Number.isSafeInteger(amount)&&amount>0&&amount<=10000000000)clean.prefs.marketBudget=amount}clean.prefs.categoryBudgets=categoryBudgets;
  clean.prefs.palette=['blue','petrol','plum','emerald','graphite','carbon'].includes(src.prefs?.palette)?src.prefs.palette:'blue';
  clean.prefs.budgetSound=src.prefs?.budgetSound===true;
  clean.prefs.billReminders=src.prefs?.billReminders===true;clean.prefs.billReminderDays=[0,1,3,7].includes(src.prefs?.billReminderDays)?src.prefs.billReminderDays:1;
@@ -112,28 +113,31 @@ async function deriveVaultKey(password, salt) {
   const material = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveKey']);
   return crypto.subtle.deriveKey({name:'PBKDF2', salt, iterations:600000, hash:'SHA-256'}, material, {name:'AES-GCM',length:256}, false, ['encrypt','decrypt']);
 }
-async function sealVault(data, key, salt) {
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encrypted = await crypto.subtle.encrypt({name:'AES-GCM',iv}, key, encoder.encode(JSON.stringify(data)));
-  return {format:'reserva-vault-1', salt, iv:bytesTo64(iv), data:bytesTo64(new Uint8Array(encrypted))};
+function isVaultFormat(format){return format==='reserva-vault-1'||format==='reserva-vault-2'}
+function vaultAdditionalData(envelope){return encoder.encode(JSON.stringify([envelope.format,envelope.ownerId||null]))}
+async function sealVault(data,key,salt){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const envelope={format:'reserva-vault-2',ownerId:data.ownerId||null,salt,iv:bytesTo64(iv)};
+  const encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:vaultAdditionalData(envelope)},key,encoder.encode(JSON.stringify(data)));
+  return {...envelope,data:bytesTo64(new Uint8Array(encrypted))};
 }
-function validateVaultEnvelope(envelope) {
-  if (!envelope || envelope.format !== 'reserva-vault-1' ||
-      typeof envelope.salt !== 'string' || typeof envelope.iv !== 'string' ||
-      typeof envelope.data !== 'string') throw Error('Envelope do cofre inválido');
-  const salt = from64(envelope.salt), iv = from64(envelope.iv), data = from64(envelope.data);
-  if (salt.length !== 16 || iv.length !== 12 || data.length < 16 ||
-      Object.keys(envelope).some(key => !['format','salt','iv','data'].includes(key)))
-    throw Error('Estrutura do cofre inválida');
+function validateVaultEnvelope(envelope){
+  if(!envelope||!isVaultFormat(envelope.format)||typeof envelope.salt!=='string'||typeof envelope.iv!=='string'||typeof envelope.data!=='string')throw Error('Envelope do cofre inválido');
+  const allowed=envelope.format==='reserva-vault-2'?['format','ownerId','salt','iv','data']:['format','salt','iv','data'];
+  if(envelope.format==='reserva-vault-2'&&envelope.ownerId!==null&&(typeof envelope.ownerId!=='string'||envelope.ownerId.length>120))throw Error('Proprietário do cofre inválido');
+  if(from64(envelope.salt).length!==16||from64(envelope.iv).length!==12||from64(envelope.data).length<16||Object.keys(envelope).some(key=>!allowed.includes(key)))throw Error('Estrutura do cofre inválida');
   return envelope;
 }
-async function openVault(envelope,key) {
+async function openVault(envelope,key){
   validateVaultEnvelope(envelope);
-  const clear = await crypto.subtle.decrypt({name:'AES-GCM',iv:from64(envelope.iv)},key,from64(envelope.data));
-  const result = verify(JSON.parse(new TextDecoder().decode(clear)));
-  if (!result) throw Error('Dados inválidos');
+  const algorithm={name:'AES-GCM',iv:from64(envelope.iv)};
+  if(envelope.format==='reserva-vault-2')algorithm.additionalData=vaultAdditionalData(envelope);
+  const clear=await crypto.subtle.decrypt(algorithm,key,from64(envelope.data));
+  const result=verify(JSON.parse(new TextDecoder().decode(clear)));
+  if(!result||envelope.format==='reserva-vault-2'&&(result.ownerId||null)!==envelope.ownerId)throw Error('Dados inválidos');
   return result;
 }
+
 function showVaultDialog(mode) {
   const dialog = $('#vaultDialog');
   dialog.dataset.mode = mode;
@@ -253,8 +257,8 @@ async function submitVault(event) {
     $('#vaultError').textContent = [STORE_CHANGED_MESSAGE,STORE_ARCHIVE_MESSAGE].includes(error?.message)?error.message:dialog.dataset.mode==='folder'?(error.userMessage || 'Não foi possível abrir ou gravar o backup. Verifique a senha e as permissões da pasta.'):setup?'Não foi possível ativar o cofre.':'Senha incorreta ou cofre inválido.';
   } finally { vaultBusy=false; }
 }
-function load(){let raw=null;try{raw=localStorage.getItem(STORE);loadedStoreRaw=raw;if(!raw){const fresh=empty();try{fresh.notes=validateCalendarNotes(JSON.parse(localStorage.getItem('reserva.calendarNotes')||'[]'))||[]}catch{}return fresh}const parsed=JSON.parse(raw);if(parsed&&parsed.notes===undefined&&parsed.format!=='reserva-vault-1'){try{parsed.notes=validateCalendarNotes(JSON.parse(localStorage.getItem('reserva.calendarNotes')||'[]'))||[]}catch{}}if(parsed?.format==='reserva-vault-1'){vault=parsed;return empty()}const clean=verify(parsed);if(clean)return clean;storageRecoveryRaw=raw}catch(e){try{raw=localStorage.getItem(STORE)}catch(ignore){}}if(raw){diagnostics.record('storage.recovery');storageRecoveryRaw=raw;try{recoveryArchived=false;for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key?.startsWith(`${STORE}-corrompido-`)&&localStorage.getItem(key)===raw){recoveryArchived=true;break}}if(!recoveryArchived){localStorage.setItem(`${STORE}-corrompido-${Date.now()}`,raw);recoveryArchived=true}}catch(e){recoveryArchived=false}}return empty()}
-let db=load();diagnostics.step('app.initialized', 'home');const todayAtStart=new Date();let state={page:preferredStartPage(),year:todayAtStart.getFullYear(),month:todayAtStart.getMonth(),modal:'',editJarId:null,editRecordId:null,editInstitutionId:null,editAllocationId:null,simGoal:'',simAmount:'200',txFilter:'all',txSearch:'',txTag:'',txSubcategory:'',txCategorySet:null,copyCandidates:[],modalTrigger:null,calendarDate:''};let toastTimer;
+function load(){let raw=null;try{raw=localStorage.getItem(STORE);loadedStoreRaw=raw;if(!raw){const fresh=empty();try{fresh.notes=validateCalendarNotes(JSON.parse(localStorage.getItem('reserva.calendarNotes')||'[]'))||[]}catch{}return fresh}const parsed=JSON.parse(raw);if(parsed&&parsed.notes===undefined&&!isVaultFormat(parsed.format)){try{parsed.notes=validateCalendarNotes(JSON.parse(localStorage.getItem('reserva.calendarNotes')||'[]'))||[]}catch{}}if(isVaultFormat(parsed?.format)){vault=parsed;return empty()}const clean=verify(parsed);if(clean)return clean;storageRecoveryRaw=raw}catch(e){try{raw=localStorage.getItem(STORE)}catch(ignore){}}if(raw){diagnostics.record('storage.recovery');storageRecoveryRaw=raw;try{recoveryArchived=false;for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key?.startsWith(`${STORE}-corrompido-`)&&localStorage.getItem(key)===raw){recoveryArchived=true;break}}if(!recoveryArchived){localStorage.setItem(`${STORE}-corrompido-${Date.now()}`,raw);recoveryArchived=true}}catch(e){recoveryArchived=false}}return empty()}
+let db=load();diagnostics.step('app.initialized', 'home');const todayAtStart=new Date();let state={page:preferredStartPage(),financeView:'overview',analysisView:'insights',registerView:'income',year:todayAtStart.getFullYear(),month:todayAtStart.getMonth(),modal:'',editJarId:null,editRecordId:null,editInstitutionId:null,editAllocationId:null,simGoal:'',simAmount:'200',txFilter:'all',txSearch:'',txTag:'',txSubcategory:'',txCategorySet:null,copyCandidates:[],modalTrigger:null,calendarDate:''};let toastTimer;
 let backupDirectory=null,backupConflict=false,backupTimer=null,persistenceStatus='Consultando a proteção de armazenamento…';const BACKUP_DB='reserva-simples-backup-handles'+(ACCOUNT?'-'+ACCOUNT.id:''),BACKUP_FILE='Reserva_Simples_backup.json';
 const backupPayload=()=>({...db,appVersion:APP_VERSION,savedAt:new Date().toISOString()});const canonicalData=value=>JSON.stringify(verify(value)||value);const hasSavedData=value=>!!(value&&(value.investments?.length||value.records?.length||value.jars?.length||value.allocations?.length||value.recurring?.length||value.tasks?.length||(value.institutions||[]).some(x=>!x.isDefault)));
 async function save({folderBackup=true,recover=false}={}){
@@ -271,6 +275,7 @@ async function save({folderBackup=true,recover=false}={}){
     if(ACCOUNT&&!diagnosticFixtureStorages.has(localStorage)&&(db.ownerId!==ACCOUNT.id||db.profile?.id!==ACCOUNT.id)){notify('Base não pertence ao perfil ativo. Gravação bloqueada.');return false}
     const candidate=vault?await sealVault(db,vaultKey,vault.salt):db;
     if(integrityContainmentLock&&!(recover&&storageRecoveryRaw&&recoveryArchived))return false;
+    if(vault?.format==='reserva-vault-1'&&candidate.format==='reserva-vault-2'){const legacyKey=STORE+'-pre-aad-v1';if(!localStorage.getItem(legacyKey))localStorage.setItem(legacyKey,JSON.stringify(vault));}
     if(!await writeStore(candidate)){notify(STORE_CHANGED_MESSAGE);return false}
     if(vault)vault=candidate;
     if(recover){storageRecoveryRaw=null;recoveryArchived=false;integrityContainmentLock=false}
@@ -377,19 +382,19 @@ async function mutate(callback) {
   diagnostics.step('mutation.started', state.page);
   let previous, committed = false;
   try {
-    previous = JSON.stringify(db);
+    previous = typeof structuredClone==='function'?structuredClone(db):JSON.parse(JSON.stringify(db));
     const oldAlert = groceryAlertLevel();
     const previousIncomeIds=new Set(db.records.filter(r=>r.kind==='income').map(r=>r.id));
     callback();
     const newIncome=db.records.filter(r=>r.kind==='income'&&!previousIncomeIds.has(r.id));
     if (!verify(db)) {
-      db = JSON.parse(previous);
+      db = previous;
       diagnostics.record('mutation.invalid', undefined, { module: state.page });
       notify('Não foi possível validar os dados. Nenhuma alteração foi salva. Confira valores, datas e saldo do cofrinho.');
       return false;
     }
     if (!await save()) {
-      db = JSON.parse(previous);
+      db = previous;
       return false;
     }
     committed = true;
@@ -399,7 +404,7 @@ async function mutate(callback) {
     if (db.prefs.budgetSound && alert > oldAlert) playBudgetSound(alert === 2);
     return true;
   } catch (error) {
-    if (!committed && previous) db = JSON.parse(previous);
+    if (!committed && previous) db = previous;
     diagnostics.record(committed ? 'mutation.refresh_failed' : 'mutation.failed', error, { module: state.page });
     notify(committed ? 'Dados salvos. Não foi possível atualizar a tela.' : 'A alteração não foi salva.');
     return committed;
@@ -592,7 +597,7 @@ const IPCA_CACHE='reserva-simples-ipca-sgs433';
 let ipcaState=(()=>{try{const x=JSON.parse(localStorage.getItem(IPCA_CACHE)||'{}');return{rates:Array.isArray(x.rates)?x.rates.filter(r=>/^\d{4}-\d{2}-\d{2}$/.test(r.date)&&Number.isFinite(r.value)):[],lastCheck:x.lastCheck||'',loading:false,error:''}}catch(e){return{rates:[],lastCheck:'',loading:false,error:''}}})();
 const latestIpca=()=>ipcaState.rates.slice().sort((a,b)=>a.date.localeCompare(b.date)).at(-1)||null;
 const currentIpcaAnnual=()=>{const rates=ipcaState.rates.slice().sort((a,b)=>a.date.localeCompare(b.date)).slice(-12);return rates.length<12?null:(rates.reduce((f,r)=>f*(1+r.value/100),1)-1)*100};
-async function updateIpca(force=false){if(ipcaState.loading||location.protocol==='file:')return;const checked=Date.parse(ipcaState.lastCheck||0);if(!force&&ipcaState.rates.length>=12&&Date.now()-checked<24*60*60*1000)return;ipcaState.loading=true;try{const response=await fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados/ultimos/12?formato=json',{cache:'no-store'});if(!response.ok)throw new Error('HTTP '+response.status);const rows=await response.json();if(!Array.isArray(rows)||!rows.length)throw new Error('IPCA indisponível');ipcaState.rates=rows.map(r=>({date:parseSgsDate(r.data),value:Number(String(r.valor).replace(',','.'))})).filter(r=>validDate(r.date)&&Number.isFinite(r.value)).sort((a,b)=>a.date.localeCompare(b.date));ipcaState.lastCheck=new Date().toISOString();localStorage.setItem(IPCA_CACHE,JSON.stringify({rates:ipcaState.rates,lastCheck:ipcaState.lastCheck}));ipcaState.error=''}catch(e){diagnostics.record('market.ipca_failed',e);ipcaState.error='IPCA não atualizou; usando o histórico salvo.'}finally{ipcaState.loading=false;refreshMarketViews()}}
+async function updateIpca(force=false){if(ipcaState.loading)return;if(location.protocol==='file:'){if(force)notify('A atualização do IPCA requer a versão publicada; o histórico salvo continua disponível.');return;}const checked=Date.parse(ipcaState.lastCheck||0);if(!force&&ipcaState.rates.length>=12&&Date.now()-checked<24*60*60*1000)return;ipcaState.loading=true;const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),15000);try{const response=await fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados/ultimos/12?formato=json',{cache:'no-store',signal:controller.signal});if(!response.ok)throw new Error('HTTP '+response.status);const rows=await response.json();if(!Array.isArray(rows)||!rows.length)throw new Error('IPCA indisponível');ipcaState.rates=rows.map(r=>({date:parseSgsDate(r.data),value:Number(String(r.valor).replace(',','.'))})).filter(r=>validDate(r.date)&&Number.isFinite(r.value)).sort((a,b)=>a.date.localeCompare(b.date));ipcaState.lastCheck=new Date().toISOString();localStorage.setItem(IPCA_CACHE,JSON.stringify({rates:ipcaState.rates,lastCheck:ipcaState.lastCheck}));ipcaState.error=''}catch(e){diagnostics.record('market.ipca_failed',e);ipcaState.error='IPCA não atualizou; usando o histórico salvo.'}finally{clearTimeout(timeout);ipcaState.loading=false;refreshMarketViews()}}
 const fundLabel=f=>f==='fgc'?'FGC':f==='fgcoop'?'FGCoop':'Sem monitoramento';
 function miniLine(values,label,axisLabels=['Início','30 dias','60 dias','90 dias']){const clean=values.filter(Number.isFinite);if(clean.length<2)return '<div class="empty-inline">O gráfico aparecerá com mais dados.</div>';const w=360,h=96,pad=12,min=Math.min(...clean,0),max=Math.max(...clean,0),range=max-min||1,points=clean.map((v,i)=>`${pad+i*(w-2*pad)/(clean.length-1)},${h-pad-(v-min)*(h-2*pad)/range}`).join(' '),zeroY=h-pad-(0-min)*(h-2*pad)/range;return `<div class="visual-chart"><svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(label)}"><line x1="${pad}" y1="${zeroY}" x2="${w-pad}" y2="${zeroY}" class="chart-zero"/><polyline points="${points}" class="chart-line"/><circle cx="${w-pad}" cy="${h-pad-(clean[clean.length-1]-min)*(h-2*pad)/range}" r="4" class="chart-point"/></svg><div class="visual-chart-labels">${axisLabels.map(x=>`<span>${esc(x)}</span>`).join('')}</div></div>`}
 function upcomingBillInstances(horizon=14,today=isoToday()){
@@ -678,44 +683,52 @@ function validateCalendarNotes(value){
   for(const note of value){
     if(!note||typeof note.id!=='string'||!note.id||note.id.length>120||ids.has(note.id)||!validDate(note.date)||typeof note.text!=='string'||!note.text.trim()||note.text.length>1000)return null;
     ids.add(note.id);
-    notes.push({id:note.id,date:note.date,text:note.text,pinned:note.pinned===true});
+    notes.push({id:note.id,date:note.date,text:note.text,pinned:note.pinned===true,color:Object.hasOwn(CALENDAR_TASK_COLORS,note.color)?note.color:'blue'});
   }
   return notes;
 }
 function calendarNotes(){return db.notes||[]}
-let calendarTab='agenda';
+let calendarTab='calendar';
 function syncCalendarTabs(){
-  const root=$('#page-calendar');
+  const root=$('#homeFullCalendar')||$('#page-calendar');
   root.dataset.calendarTab=calendarTab;
   root.querySelectorAll('[data-calendar-tab]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.calendarTab===calendarTab)));
+  root.querySelectorAll('.calendar-organizer-card').forEach(card=>{card.hidden=calendarTab==='calendar'||card.dataset.calendarPanel!==calendarTab});
 }
 function calendarOrganizer(date,tasks){
   const notes=calendarNotes().filter(note=>note.date===date).sort((a,b)=>Number(b.pinned)-Number(a.pinned));
-  return `<article class="card calendar-organizer-card"><div class="calendar-detail-head"><div><span class="calendar-detail-date">${dateBR(date)}</span><h3>Tarefas</h3></div><span class="tag soft">${tasks.length}</span></div><button class="btn" data-calendar-new-task data-task-kind="task">Nova tarefa</button>${[...tasks].sort((a,b)=>Number(a.done)-Number(b.done)).map(task=>`<div class="calendar-organizer-row"><strong>${esc(task.title)}</strong><small>${task.done?'Concluída':'Pendente'}${task.time?' · '+esc(task.time):''}</small>${task.note?'<p>'+esc(task.note)+'</p>':''}<div class="actions"><button class="btn small" data-task-edit="${esc(task.id)}">Editar ou reagendar</button><button class="btn small" data-task-toggle="${esc(task.id)}">${task.done?'Reabrir':'Concluir'}</button><button class="btn small negative" data-task-delete="${esc(task.id)}">Excluir</button></div></div>`).join('')||'<p>Sem tarefas neste dia.</p>'}</article>
-  <article class="card calendar-organizer-card"><div class="calendar-detail-head"><div><span class="calendar-detail-date">${dateBR(date)}</span><h3>Notas</h3></div><button type="button" class="btn small primary" data-calendar-new-note>Nova nota</button></div><dialog id="calendarNoteDialog" class="calendar-note-editor" aria-labelledby="calendarNoteTitle"><div class="card"><h3 id="calendarNoteTitle">Nova nota</h3><form id="calendarNoteForm" class="calendar-task-form"><input name="id" type="hidden"><label class="field">Nota<textarea name="text" maxlength="1000" required></textarea></label><label class="field">Data<input name="date" type="date" value="${date}" required></label><div class="actions"><button type="submit" class="btn primary">Salvar nota</button><button class="btn" type="button" data-close-calendar-note>Cancelar</button></div></form></div></dialog>${notes.map(note=>`<div class="calendar-organizer-row calendar-note-item"><strong>${note.pinned?'Fixada · ':''}${esc(note.text.length>150?note.text.slice(0,150)+'…':note.text)}</strong><div class="actions"><button class="btn small" data-note-action="edit" data-note-id="${esc(note.id)}">Editar ou mover</button><button class="btn small" data-note-action="pin" data-note-id="${esc(note.id)}">${note.pinned?'Desafixar':'Fixar'}</button><button class="btn small negative" data-note-action="delete" data-note-id="${esc(note.id)}">Excluir</button></div></div>`).join('')||'<div class="empty-inline">Sem notas nesta data.</div>'}</article>`;
+  return `<article class="card calendar-organizer-card" data-calendar-panel="tasks" hidden><div class="calendar-detail-head"><div><span class="calendar-detail-date">${dateBR(date)}</span><h3>Tarefas</h3></div><span class="tag soft">${tasks.length}</span></div><button class="btn" data-calendar-new-task data-task-kind="task">Nova tarefa</button>${[...tasks].sort((a,b)=>Number(a.done)-Number(b.done)).map(task=>`<div class="calendar-organizer-row"><strong>${esc(task.title)}</strong><small>${task.done?'Concluída':'Pendente'}${task.time?' · '+esc(task.time):''}</small>${task.note?'<p>'+esc(task.note)+'</p>':''}<div class="actions"><button class="btn small" data-task-edit="${esc(task.id)}">Editar ou reagendar</button><button class="btn small" data-task-toggle="${esc(task.id)}">${task.done?'Reabrir':'Concluir'}</button><button class="btn small negative" data-task-delete="${esc(task.id)}">Excluir</button></div></div>`).join('')||'<p>Sem tarefas neste dia.</p>'}</article>
+  <article class="card calendar-organizer-card" data-calendar-panel="notes" hidden><div class="calendar-detail-head"><div><span class="calendar-detail-date">${dateBR(date)}</span><h3>Notas</h3></div><button type="button" class="btn small primary" data-calendar-new-note>Nova nota</button></div>${notes.map(note=>`<div class="calendar-organizer-row calendar-note-item" style="border-left:4px solid ${calendarTaskColor(note.color||'blue')};padding-left:10px"><strong>${note.pinned?'Fixada · ':''}${esc(note.text.length>150?note.text.slice(0,150)+'…':note.text)}</strong><div class="actions"><button class="btn small" data-note-action="edit" data-note-id="${esc(note.id)}">Editar ou mover</button><button class="btn small" data-note-action="pin" data-note-id="${esc(note.id)}">${note.pinned?'Desafixar':'Fixar'}</button><button class="btn small negative" data-note-action="delete" data-note-id="${esc(note.id)}">Excluir</button></div></div>`).join('')||'<div class="empty-inline">Sem notas nesta data.</div>'}</article>`;
+}
+function ensureCalendarNoteEditor(){
+ let dialog=$('#calendarNoteDialog');if(dialog)return dialog;
+ document.body.insertAdjacentHTML('beforeend', `<dialog id="calendarNoteDialog" class="calendar-note-editor" aria-labelledby="calendarNoteTitle"><div class="card"><h3 id="calendarNoteTitle">Nova nota</h3><form id="calendarNoteForm" class="calendar-task-form"><input name="id" type="hidden"><label class="field">Nota<textarea name="text" maxlength="1000" required></textarea></label><label class="field">Data<input name="date" type="date" value="${state.calendarDate||isoToday()}" required></label><label class="field">Cor da nota<select name="color">${Object.keys(CALENDAR_TASK_COLORS).map(color=>`<option value="${color}">${CALENDAR_TASK_COLOR_LABELS[color]}</option>`).join('')}</select></label><div class="actions"><button type="submit" class="btn primary">Salvar nota</button><button class="btn" type="button" data-close-calendar-note>Cancelar</button></div></form></div></dialog>`);
+ dialog=$('#calendarNoteDialog');dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close()});return dialog;
 }
 async function saveCalendarNotes(notes){
-  if(await mutate(()=>{db.notes=notes})){calendar();return true}
+  if(await mutate(()=>{db.notes=notes})){$('#calendarNoteDialog')?.close();notify('Nota salva.');return true}
   return false;
 }
 document.addEventListener('submit',event=>{
   if(event.target.id!=='calendarNoteForm')return;
   event.preventDefault();
-  const {id,text,date}=event.target.elements;
+  const {id,text,date,color}=event.target.elements;
   const body=text.value.trim();
   if(!body||!validDate(date.value))return;
   const notes=calendarNotes(), previous=notes.find(note=>note.id===id.value);
-  saveCalendarNotes([...notes.filter(note=>note.id!==id.value),{id:previous?.id||uid(),text:body,date:date.value,pinned:previous?.pinned||false}]);
+  saveCalendarNotes([...notes.filter(note=>note.id!==id.value),{id:previous?.id||uid(),text:body,date:date.value,color:color.value,pinned:previous?.pinned||false}]);
 });
 document.addEventListener('click',event=>{
   const tab=event.target.closest('[data-calendar-tab]');
-  if(tab){calendarTab=tab.dataset.calendarTab;syncCalendarTabs();}
+  if(tab){calendarTab=calendarTab===tab.dataset.calendarTab?'calendar':tab.dataset.calendarTab;syncCalendarTabs();}
   if(event.target.closest('[data-close-calendar-note]'))$('#calendarNoteDialog')?.close();
   if(event.target.closest('[data-calendar-new-note]')){
+    const dialog=ensureCalendarNoteEditor();
     $('#calendarNoteTitle').textContent='Nova nota';
     $('#calendarNoteForm').reset();
     $('#calendarNoteForm').elements.id.value='';
-    $('#calendarNoteDialog').showModal();
+    $('#calendarNoteForm').elements.date.value=state.calendarDate||isoToday();
+    if(!$('#calendarNoteDialog').open)$('#calendarNoteDialog').showModal();
   }
   if(event.target.closest('[data-close-calendar-compose]'))$('#calendarComposeDialog')?.close();
   const createTask=event.target.closest('[data-calendar-new-task]');
@@ -728,10 +741,11 @@ document.addEventListener('click',event=>{
   const notes=calendarNotes(),note=notes.find(item=>item.id===button.dataset.noteId);
   if(!note)return;
   if(button.dataset.noteAction==='edit'){
+    ensureCalendarNoteEditor();
     const {id,text,date}=$('#calendarNoteForm').elements;
     $('#calendarNoteTitle').textContent='Editar nota';
-    $('#calendarNoteDialog').showModal();
-    id.value=note.id;text.value=note.text;date.value=note.date;text.focus();
+    if(!$('#calendarNoteDialog').open)$('#calendarNoteDialog').showModal();
+    id.value=note.id;text.value=note.text;date.value=note.date;$('#calendarNoteForm').elements.color.value=note.color||'blue';text.focus();
   }else if(button.dataset.noteAction==='pin'){
     saveCalendarNotes(notes.map(item=>item===note?{...item,pinned:!item.pinned}:item));
   }else if(confirm('Excluir esta nota?'))saveCalendarNotes(notes.filter(item=>item!==note));

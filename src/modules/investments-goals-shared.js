@@ -183,6 +183,8 @@ async function saveInvestment(event){
 $('#investmentForm').addEventListener('submit',saveInvestment);
 $('#investmentCancel').addEventListener('click',()=>{calendarInvestmentEditPending=false;$('#investmentDialog').close()});$('#investmentDialog').addEventListener('close',()=>{calendarInvestmentEditPending=false});
 document.addEventListener('click',async event=>{
+  const create=event.target.closest('[data-investment-new]');
+  if(create){openInvestment();return}
   const edit=event.target.closest('[data-investment-edit]');
   if(edit)openInvestment(edit.dataset.investmentEdit,edit.dataset.existing==='true');
   const remove=event.target.closest('[data-investment-delete]');

@@ -1,4 +1,4 @@
-# Reserva Simples — v1.0.0-beta.9
+# Reserva Simples — v1.0.0-beta.35
 
 Aplicativo financeiro local para registrar rendas, despesas e movimentações de metas de reserva.
 
@@ -110,3 +110,10 @@ Execute `npm ci --prefix qa`, `npm test --prefix qa` e `node qa/integrity-manife
 - `src/modules/` contém as partes das telas, em ordem explícita no construtor. `investments-goals-shared.js` reúne cálculos de metas e investimentos.
 - `diagnostics.js` contém telemetria local e `engines.js` os cálculos puros.
 - Depois de editar `src/`, execute `cd qa && npm run build` para gerar `app.js` e atualizar o manifesto. `npm test` confere ambos antes dos testes de comportamento.
+
+### Organização e compatibilidade desta versão
+
+- Calendário integrado ao Hoje; Finanças e Análises usam abas internas.
+- CSS em `src/styles/app.css`; `npm run build --prefix qa` incorpora CSS/JS e atualiza os hashes.
+- Cofres v1 continuam legíveis; novas gravações usam v2 com AAD. Uma cópia cifrada v1 é preservada antes da primeira migração. Backups v2 exigem esta versão ou posterior.
+- `node qa/build-standalone.cjs /caminho/Reserva.html` gera o HTML portátil sem `eval`.
