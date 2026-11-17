@@ -1,8 +1,8 @@
 {
   "application": "Reserva Simples",
-  "version": "1.0.0-beta.7",
+  "version": "1.0.0-beta.8",
   "channel": "beta",
-  "updatedAt": "2026-11-16T19:15:31.809Z",
+  "updatedAt": "2026-11-17T02:20:00.000Z",
   "source": "same-origin PWA release",
-  "notes": "Calendário de Hoje mostra apenas o dia e usa cores de gasto mais distintas."
+  "notes": "Comparações explicam as mudanças do período; metas exibem ritmo e marcos de aporte."
 }
