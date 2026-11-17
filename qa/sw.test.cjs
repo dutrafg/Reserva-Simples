@@ -75,7 +75,7 @@ function worker({ corrupt, missing } = {}) {
   };
 }
 
-test('instala sete arquivos verificados e abre o aplicativo e os assets offline', async () => {
+test('instala oito arquivos verificados e abre o aplicativo e os assets offline', async () => {
   const sw = worker();
   await sw.send('install');
   await sw.send('activate');

@@ -14,10 +14,11 @@
     const dt = new Date(Date.UTC(y, m + delta, 1));
     return { year: dt.getUTCFullYear(), month: dt.getUTCMonth() };
   };
-  const nth = (a, n) => a.slice().sort((x, y) => x - y)[n];
   const median = xs => {
     if (!xs.length) return null;
-    const n = xs.length; return Math.round(n % 2 ? nth(xs, (n - 1) / 2) : (nth(xs, n / 2 - 1) + nth(xs, n / 2)) / 2);
+    const sorted = xs.slice().sort((x, y) => x - y);
+    const middle = Math.floor(sorted.length / 2);
+    return Math.round(sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2);
   };
   const dateAtOffset = (date, days) => {
     const utc = new Date(date + 'T00:00:00Z');
@@ -66,16 +67,34 @@
   ]);
   const monthData = (db, y, m) => {
     const key = period(y, m);
-    const rows = (db.records || []).filter(x => asPeriod(x.date) === key);
-    const income = sum(rows.filter(x => x.kind === 'income').map(x => x.amount));
-    const expenses = sum(rows.filter(x => x.kind === 'expense').map(x => x.amount));
-    const salary = sum(rows.filter(x => x.kind === 'income' && x.source === 'salary').map(x => x.amount));
-    const allocations=(db.allocations||[]).filter(x=>asPeriod(x.date)===key);const deposits=sum(allocations.filter(x=>x.amount>0).map(x=>x.amount));const withdrawals=sum(allocations.filter(x=>x.amount<0).map(x=>x.netReceived??-x.amount));const saved=deposits-withdrawals;
-    const invested = sum((db.investments || []).filter(x => !x.existing && asPeriod(x.date) === key).map(x => x.cost));
-    const redeemed = sum((db.investments || []).flatMap(x => x.redemptions ?? []).filter(r => asPeriod(r.date) === key).map(r => r.amount));
+    let income = 0, expenses = 0, salary = 0, deposits = 0, withdrawals = 0;
+    let invested = 0, redeemed = 0, recordedIncome = false, recordedExpenses = false;
+    for (const record of db.records || []) {
+      if (asPeriod(record.date) !== key) continue;
+      if (record.kind === 'income') {
+        income += record.amount;
+        recordedIncome = true;
+        if (record.source === 'salary') salary += record.amount;
+      } else if (record.kind === 'expense') {
+        expenses += record.amount;
+        recordedExpenses = true;
+      }
+    }
+    for (const movement of db.allocations || []) {
+      if (asPeriod(movement.date) !== key) continue;
+      if (movement.amount > 0) deposits += movement.amount;
+      else if (movement.amount < 0) withdrawals += movement.netReceived ?? -movement.amount;
+    }
+    for (const position of db.investments || []) {
+      if (!position.existing && asPeriod(position.date) === key) invested += position.cost;
+      for (const redemption of position.redemptions || []) {
+        if (asPeriod(redemption.date) === key) redeemed += redemption.amount;
+      }
+    }
+    const saved = deposits - withdrawals;
     return { invested, redeemed, key, year: y, month: m, income, expenses, salary, complement: income - salary,
       deposits, withdrawals, saved, minimum: Math.round(income * 0.1), available: income - expenses - saved - invested + redeemed,
-      recordedIncome: rows.some(x => x.kind === 'income'), recordedExpenses: rows.some(x => x.kind === 'expense') };
+      recordedIncome, recordedExpenses };
   };
   const history = (db, y, m, count = 6) => Array.from({ length: count }, (_, i) => {
     const dt = addMonths(y, m, i - count + 1);
@@ -101,19 +120,28 @@
     const key = period(y, m);
     const prev = addMonths(y, m, -1);
     const prevKey = period(prev.year, prev.month);
-    const prevRows = (db.records || []).filter(x => x.kind === 'expense' && asPeriod(x.date) === prevKey);
-    const rows = (db.records || []).filter(x => x.kind === 'expense' && asPeriod(x.date) === key);
-    const group = items => items.reduce((acc, x) => { acc[x.category] = (acc[x.category] || 0) + x.amount; return acc; }, {});
-    const now = group(rows), before = group(prevRows);
-    const total = sum(Object.values(now));
-    const items = Object.keys(now).map(name => {
-      const value = now[name], previous = before[name] || 0;
+    const now = new Map(), before = new Map();
+    let total = 0, previousTotal = 0, hasPrevious = false;
+    for (const record of db.records || []) {
+      if (record.kind !== 'expense') continue;
+      const current = asPeriod(record.date);
+      if (current === key) {
+        now.set(record.category, (now.get(record.category) || 0) + record.amount);
+        total += record.amount;
+      } else if (current === prevKey) {
+        before.set(record.category, (before.get(record.category) || 0) + record.amount);
+        previousTotal += record.amount;
+        hasPrevious = true;
+      }
+    }
+    const items = [...now].map(([name, value]) => {
+      const previous = before.get(name) || 0;
       const change = value - previous;
       return { name, amount: value, share: total > 0 ? value / total * 100 : 0,
         previous, change, rateChange: previous > 0 ? change / previous * 100 : null,
-        growthAlert: prevRows.length > 0 && previous > 0 && change >= 5000 && change / previous >= 0.25 };
+        growthAlert: hasPrevious && previous > 0 && change >= 5000 && change / previous >= 0.25 };
     }).sort((a, b) => b.amount - a.amount);
-    return { items, total, previousTotal: sum(prevRows.map(x => x.amount)), hasPrevious: prevRows.length > 0,
+    return { items, total, previousTotal, hasPrevious,
       biggestRise: items.filter(x => x.growthAlert).sort((a, b) => b.change - a.change)[0] || null,
       savingExample: items.length ? Math.round(items[0].amount * 0.10) : 0 };
   }

@@ -14,168 +14,11 @@ const CALENDAR_TASK_COLOR_LABELS={blue:'Azul',green:'Verde',teal:'Turquesa',purp
 const calendarTaskColor=color=>CALENDAR_TASK_COLORS[color]||CALENDAR_TASK_COLORS.blue;
 const CAT_COLORS=['#3488f5','#f4a56c','#6d6ce8','#659ed4','#d98ba9','#879db5','#74bbdf','#e6a26d','#a3a6d7','#b392db','#d78f86','#5babc3','#c5b26b','#a8bbc9','#9b7b46','#8c9bab'];
 const PAGES=[['home','Hoje','home'],['transactions','Lançamentos','wallet'],['budget','Orçamento','wallet'],['calendar','Calendário','calendar'],['goals','Metas','target'],['investments','Investimentos','piggy'],['analysis','Insights','chart'],['reports','Relatórios','report'],['settings','Ajustes','settings']];
-const APP_VERSION='1.0.0-beta.8';
+const APP_VERSION='1.0.0-beta.9';
 const APP_CACHE_NAME='reserva-simples-v'+APP_VERSION+'-pwa';
 const TELEMETRY_SCHEMA='reserva.telemetry.event.v1';
 const diagnosticFixtureStorages = new WeakSet();
-const diagnostics = (() => {
-  const key = userKey('reserva.diagnostics.v1');
-  const sessionKey = key + '.active';
-  const eventLimit = 1000;
-  const retentionDays = 30;
-  const retentionMs = retentionDays * 86400000;
-  const trailLimit = 30;
-  const trailKey = key + '.trail';
-  const sessionId = (() => {
-    try { return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36)+'-'+Math.random().toString(36).slice(2); }
-    catch { return Date.now().toString(36)+'-'+Math.random().toString(36).slice(2); }
-  })();
-  function safeText(value, maxBytes = 240) {
-    let text = String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim()
-      .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[REDACTED_EMAIL]')
-      .replace(/\bBearer\s+[^\s,;]+/gi, 'Bearer [REDACTED]')
-      .replace(/([?&](?:access_token|token|secret|password|api_key|authorization|cookie)=)[^&\s]+/gi, '$1[REDACTED]')
-      .replace(/\b\d{3}[. -]?\d{3}[. -]?\d{3}[- .]?\d{2}\b/g, '[REDACTED_ID]')
-      .replace(/\b\d{2}[. -]?\d{3}[. -]?\d{3}[/. -]?\d{4}[- .]?\d{2}\b/g, '[REDACTED_ID]')
-      .replace(/\b(?:\+?55\s?)?(?:\(?\d{2}\)?\s?)9?\d{4}[-. ]?\d{4}\b/g, '[REDACTED_PHONE]')
-      .replace(/\b(?:\d[ -]?){13,19}\b/g, '[REDACTED_NUMBER]');
-    while (new TextEncoder().encode(text).length > maxBytes) text = text.slice(0, Math.max(0, text.length - 8));
-    return text;
-  }
-  const severity = (code, status) => ['alerta','falha','erro'].includes(String(status).toLowerCase()) ? 'WARN' :
-    /(?:\.failed|\.error|\.invalid|^javascript\.|^session\.interrupted)/i.test(code) ? 'ERROR' : 'INFO';
-  let module;
-  let trail = [];
-  let events = [];
-  let storageAvailable = true;
-  let storageEstimate = { usedBytes: null, quotaBytes: null };
-  try {
-    const saved = JSON.parse(localStorage.getItem(key) || '[]');
-    if (Array.isArray(saved)) events = saved.slice(-eventLimit);
-  } catch { storageAvailable = false; }
-  function pruneEvents() {
-    const cutoff=Date.now()-retentionMs;
-    events=events.filter(event=>{const time=Date.parse(event.ts||event.at||'');return Number.isFinite(time)&&time>cutoff;}).slice(-eventLimit);
-  }
-  pruneEvents();
-
-  try {
-    const saved = JSON.parse(sessionStorage.getItem(trailKey) || '[]');
-    if (Array.isArray(saved)) trail = saved.slice(-trailLimit);
-  } catch {}
-
-  function step(action, page = module) {
-    if (PAGES.some(([id]) => id === page)) module = page;
-    trail.push({ at: new Date().toISOString(), action, module });
-    if (trail.length > trailLimit) trail.shift();
-    try { sessionStorage.setItem(trailKey, JSON.stringify(trail)); } catch {}
-  }
-
-  function environment() {
-    const nav = navigator;
-    const brands = nav.userAgentData?.brands?.map(item => ({
-      brand: item.brand.slice(0, 32), version: item.version.split('.')[0]
-    })) || [];
-    const conn = nav.connection || nav.mozConnection || nav.webkitConnection;
-    const mem = performance.memory;
-    const hints = nav.userAgentData;
-    const cap = window.Capacitor;
-    const perf = performance.getEntriesByType?.('navigation')?.[0];
-    let native = null;
-    try { if (cap?.isNativePlatform?.()) native = cap.getPlatform?.() || 'native'; } catch {}
-    return {
-      module, online: nav.onLine,
-      mode: native || (location.protocol === 'file:' ? 'html' : window.matchMedia?.('(display-mode: standalone)').matches ? 'standalone' : 'browser'),
-      browser: { userAgent: nav.userAgent || 'unknown', brands, platform: hints?.platform || nav.platform || 'unknown', platformVersion: hints?.platformVersion || null, model: hints?.model || null, architecture: hints?.architecture || null, bitness: hints?.bitness || null, mobile: hints?.mobile ?? null, language: nav.language || 'unknown' },
-      device: { memoryGb: nav.deviceMemory || null, logicalCpuCores: nav.hardwareConcurrency || null, pixelRatio: window.devicePixelRatio || 1, screen: { width: screen.width, height: screen.height, availableWidth: screen.availWidth, availableHeight: screen.availHeight, colorDepth: screen.colorDepth, orientation: screen.orientation?.type || 'unknown' }, viewport: { width: window.innerWidth, height: window.innerHeight } },
-      connection: conn ? { type: conn.type || 'unknown', effectiveType: conn.effectiveType || 'unknown', downlinkMbps: Number.isFinite(conn.downlink) ? conn.downlink : null, rttMs: Number.isFinite(conn.rtt) ? conn.rtt : null, saveData: Boolean(conn.saveData) } : null,
-      memory: mem ? { jsHeapUsedBytes: mem.usedJSHeapSize, jsHeapTotalBytes: mem.totalJSHeapSize, jsHeapLimitBytes: mem.jsHeapSizeLimit } : null,
-      storage: { ...storageEstimate, available: storageAvailable },
-      runtime: { visibility: document.visibilityState || 'unknown', focused: document.hasFocus?.() ?? null, secureContext: window.isSecureContext, cookieEnabled: nav.cookieEnabled, serviceWorkerSupported: 'serviceWorker' in nav, serviceWorkerState: nav.serviceWorker?.controller?.state || 'uncontrolled', capacitorPlatform: native, pageLoadMs: Number.isFinite(perf?.loadEventEnd) ? Math.round(perf.loadEventEnd) : null, domReadyMs: Number.isFinite(perf?.domContentLoadedEventEnd) ? Math.round(perf.domContentLoadedEventEnd) : null }
-    };
-  }
-
-  async function refreshStorageEstimate() {
-    try {
-      const estimate = await navigator.storage?.estimate?.();
-      storageEstimate = {
-        usedBytes: Number.isFinite(estimate?.usage) ? estimate.usage : null,
-        quotaBytes: Number.isFinite(estimate?.quota) ? estimate.quota : null
-      };
-    } catch {}
-  }
-  refreshStorageEstimate();
-
-  function record(code, error, context = {}) {
-    if (diagnosticFixtureStorages.has(window.localStorage)) return;
-    pruneEvents();
-    const at = new Date().toISOString();
-    const type = ['Error','TypeError','ReferenceError','SyntaxError','RangeError',
-      'QuotaExceededError','SecurityError','NetworkError','AbortError','NotAllowedError']
-      .includes(error?.name) ? error.name : undefined;
-    const safeContext = {...context};
-    if (safeContext.reason !== undefined) safeContext.reason = safeText(safeContext.reason);
-    if (safeContext.error_message !== undefined) safeContext.error_message = safeText(safeContext.error_message);
-    if (error?.message && safeContext.error_message === undefined) safeContext.error_message = safeText(error.message);
-    const status = safeContext.status;
-    events.push({ event_id: (() => { try { return crypto.randomUUID(); } catch { return Date.now().toString(36)+'-'+Math.random().toString(36).slice(2); } })(),
-      ts:at, level:severity(code,status), service:'reserva-simples-pwa', env:window.matchMedia?.('(display-mode: standalone)').matches?'standalone':'browser',
-      schema_version:TELEMETRY_SCHEMA, session_id:sessionId, msg:safeText(code,96), at, version:APP_VERSION, code, type, module, online:navigator.onLine,
-      ...safeContext, ...(code === 'session.started' ? {} : { trail: trail.slice(-10) }) });
-    if (error?.stack && code.startsWith('javascript.')) {
-      events[events.length - 1].stack = String(error.stack).split('\n').slice(1, 8)
-        .map(line => line.replace(/https?:\/\/[^/\s)]+[^\s)]*/g, '[app]').replace(/file:\/\/[^\s)]*/g, '[local]'))
-        .join('\n').slice(0, 1200);
-    }
-    if (events.length > eventLimit) events.shift();
-    try {
-      localStorage.setItem(key, JSON.stringify(events));
-      storageAvailable = true;
-    } catch { storageAvailable = false; }
-  }
-  addEventListener('error', event => {
-    if (event.target !== window && !event.message) {
-      record('resource.failed', undefined, { element: ['SCRIPT','LINK','IMG'].includes(event.target?.tagName) ? event.target.tagName : 'other' });
-      return;
-    }
-    record('javascript.error', event.error, { line: event.lineno || undefined, column: event.colno || undefined });
-  }, true);
-  addEventListener('unhandledrejection', event => record('javascript.rejection', event.reason));
-  function markActive() {
-    try { sessionStorage.setItem(sessionKey, '1'); } catch {}
-  }
-  try {
-    if (sessionStorage.getItem(sessionKey)) record('session.interrupted');
-  } catch {}
-  markActive();
-  addEventListener('pageshow', markActive);
-  addEventListener('pagehide', () => {
-    try { sessionStorage.removeItem(sessionKey); } catch {}
-  });
-  record('session.started');
-  return {
-    record,
-    step,
-    report: () => ({
-      format: 2,
-      version: APP_VERSION,
-      exportedAt: new Date().toISOString(),
-      storageAvailable,
-      eventLimit,
-      retentionDays,
-      environment: environment(),
-      recentActions: trail.slice(),
-      events: events.slice()
-    }),
-    clear() {
-      events = [];
-      trail = [];
-      try { sessionStorage.removeItem(trailKey); } catch {}
-      try { localStorage.removeItem(key); storageAvailable = true; }
-      catch { storageAvailable = false; }
-    }
-  };
-})();
+const diagnostics=window.ReservaDiagnostics.create({userKey,APP_VERSION,TELEMETRY_SCHEMA,PAGES,diagnosticFixtureStorages});
 const updateInfo={lastCheck:localStorage.getItem('reserva.update.checkedAt')||'',latest:APP_VERSION,available:false,status:'Aguardando verificação',state:'waiting',notes:''};
 try {
   const pendingVersion=localStorage.getItem('reserva.update.pendingVersion');
@@ -583,7 +426,6 @@ async function storeBackupHandle(handle){const d=await openBackupDb();await new 
 async function getBackupHandle(){const d=await openBackupDb();const value=await new Promise((resolve,reject)=>{const req=d.transaction('handles').objectStore('handles').get('directory');req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error)});d.close();return value}
 async function removeBackupHandle(){const d=await openBackupDb();await new Promise((resolve,reject)=>{const tx=d.transaction('handles','readwrite');tx.objectStore('handles').delete('directory');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});d.close()}
 async function hasFolderPermission(request=false){if(!backupDirectory)return false;try{let p=await backupDirectory.queryPermission({mode:'readwrite'});if(p!=='granted'&&request)p=await backupDirectory.requestPermission({mode:'readwrite'});return p==='granted'}catch(e){return false}}
-async function folderFile(create=false){return backupDirectory.getFileHandle(BACKUP_FILE,{create})}
 function scheduleFolderBackup(){if(!backupDirectory||backupConflict)return;clearTimeout(backupTimer);backupTimer=setTimeout(()=>writeFolderBackup(false),900)}
 const ENCRYPTED_FOLDER_FILE = ACCOUNT?'Reserva_Simples_cifrado_'+ACCOUNT.id+'.json':'Reserva_Simples_cifrado.json';
 function requestFolderPassword(title, confirmPassword, action) {
@@ -728,7 +570,6 @@ const sgsDate=value=>`${value.slice(8,10)}/${value.slice(5,7)}/${value.slice(0,4
 const latestCdi=()=>cdiState.rates.slice().sort((a,b)=>a.date.localeCompare(b.date)).at(-1)||null;
 const currentCdiAnnual=()=>{const r=latestCdi();return r?((Math.pow(1+r.value/100,252)-1)*100):null};
 function cdiStatusText(){if(cdiState.loading)return 'Atualizando taxa CDI…';const last=latestCdi();if(cdiState.feedback)return cdiState.feedback+(last?' · CDI publicado até '+cdiDateBR(last.date):'')+(!cdiState.error&&cdiState.lastCheck?' · Consulta em '+new Date(cdiState.lastCheck).toLocaleString('pt-BR'):'');if(last)return `CDI atualizado até ${cdiDateBR(last.date)}${cdiState.error?' · usando histórico salvo':''}`;return cdiState.error?'CDI indisponível. Saldo exibido sem rendimento estimado.':'Buscando a taxa CDI oficial…'}
-function cdiDateString(date){return `${date.slice(8,10)}/${date.slice(5,7)}/${date.slice(0,4)}`}
 function cdiBounds(rates,pct=100){const dates=rates.map(x=>x.date),prefix=[1];for(const r of rates)prefix.push(prefix[prefix.length-1]*(1+r.value*pct/10000));const upper=(x)=>{let a=0,b=dates.length;while(a<b){const m=(a+b)>>1;if(dates[m]<=x)a=m+1;else b=m}return a};return{dates,prefix,factor:(after,through)=>{const a=upper(after),b=upper(through);return b>a?prefix[b]/prefix[a]:1}}}
 function investmentCdiPercent(item){if(Number.isFinite(item.cdiPercent)&&item.cdiPercent>0)return item.cdiPercent;const text=`${item.name} ${item.product} ${item.institution}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');return item.assetType!=='livestock'&&text.includes('inter')&&text.includes('porquinho')?100:null}
 function estimateCdbInvestment(item,asOf=isoToday()){
@@ -1195,18 +1036,6 @@ function recentTable(records,kind){const rows=records.filter(r=>r.kind===kind).s
 function horizontalCategories(rows){const cats=new Map();for(const x of rows.filter(r=>r.kind==='expense'))cats.set(x.category,(cats.get(x.category)||0)+x.amount);return [...cats].sort((a,b)=>b[1]-a[1])}
 function donutHTML(rows){const cats=horizontalCategories(rows);const total=sum(cats.map(x=>x[1]));if(!total)return '<div class="empty"><strong>Sem despesas registradas</strong>O gráfico aparecerá quando você registrar seus gastos.</div>';let acc=0;const stops=cats.map(([name,amt])=>{const start=acc;acc+=amt/total*100;return `${CAT_COLORS[CATS.indexOf(name)]||'#acbdc0'} ${start}% ${acc}%`}).join(',');return `<div class="donut-row"><div class="donut" style="background:conic-gradient(${stops})"><b><small>Gastos do mês</small>${money(total)}</b></div><div class="legend-list">${cats.slice(0,5).map(([name,amt])=>`<div class="category-item"><span><i class="color" style="background:${CAT_COLORS[CATS.indexOf(name)]||'#8c9bab'}"></i>${esc(name)}</span><strong>${percent(amt/total*100)}</strong></div>`).join('')}</div></div>`}
 function yearChart(){const arr=yearly(state.year);const mx=Math.max(1,...arr.flatMap(a=>[a.income,a.expenses,Math.max(0,a.saved)]));const series=[['income','Renda','#3488f5'],['expense','Despesas','#e9a26e'],['saving','Reserva','#7a75e7']];const bars=arr.map((v,i)=>`<div class="chart-month" title="${MONTHS[i]}: renda ${money(v.income)}, despesas ${money(v.expenses)}, guardado ${money(v.saved)}"><div class="chart-bars">${series.map(([cl],ix)=>{const n=[v.income,v.expenses,Math.max(0,v.saved)][ix];return `<i class="${cl}" style="height:${Math.max(1,n/mx*100)}%"></i>`}).join('')}</div><small>${MONTHS[i].slice(0,3)}</small></div>`).join('');return `<div class="chart-wrap" role="img" aria-label="Comparação mensal entre renda, despesas e reserva em ${state.year}">${bars}</div><div class="legend">${series.map(([_,label,color])=>`<span><i class="dot" style="background:${color}"></i>${label}</span>`).join('')}</div>`}
-function upcomingBills() {
-  const today = isoToday();
-  const period = today.slice(0,7);
-  const lastDay = new Date(Number(period.slice(0,4)),Number(period.slice(5)),0).getDate();
-  const bills = db.recurring.filter(t => !t.paused && t.kind !== 'income' &&
-    t.startMonth <= period && (!t.endMonth || t.endMonth >= period) &&
-    !db.records.some(r => r.recurringId === t.id && (r.recurringMonth || r.date.slice(0,7)) === period))
-    .map(t => ({...t, due: period+'-'+String(Math.min(lastDay,t.day)).padStart(2,'0')}))
-    .sort((a,b) => a.due.localeCompare(b.due)).slice(0,5);
-  return `<article class="card"><h2>Contas pendentes deste mês</h2>${bills.length ? bills.map(t =>
-    `<p>${dateBR(t.due)} · ${esc(t.note || t.category)} · ${money(t.amount)}${t.due<today?' · vencida':''} <button class="btn small" data-edit-recurring="${esc(t.id)}">Editar previsão</button></p>`).join('') : '<p>Sem contas recorrentes pendentes.</p>'}</article>`;
-}
 function marketBudgetCard(monthData) {
   const budget=db.prefs.marketBudget;
   const spent=sum(monthData.records.filter(r=>r.kind==='expense'&&r.category==='Mercado').map(r=>r.amount));
@@ -1278,22 +1107,6 @@ document.addEventListener('click',async event=>{
   if(await mutate(()=>{const budgets={...(db.prefs.categoryBudgets||{})};delete budgets[category];db.prefs.categoryBudgets=budgets}))notify(`Limite de ${category} removido.`);
 });
 
-function homeOverview(m) {
- const investments=db.investments,categories=horizontalCategories(m.records).slice(0,3);
- const committed=m.income?Math.max(0,(m.income-m.balance)/m.income*100):null;
- const portfolio=sum(investments.map(x=>x.balance)),linked=sum(investments.filter(x=>db.jars.some(j=>j.id===x.goalId&&!j.archived)).map(x=>x.balance));
- const redemptions=m.withdrawals+m.redeemed,expenseCount=m.records.filter(r=>r.kind==='expense').length;
- const detail=items=>'<div class="overview-detail-lines">'+items.map(x=>'<span>'+x+'</span>').join('')+'</div>';
- const card=(label,value,details)=>'<article class="card overview-card"><h3>'+label+'</h3><strong>'+value+'</strong>'+detail(details)+'</article>';
- const expenseList=categories.length?'<div class="overview-category-list">'+categories.map(([name,amount])=>'<span><b>'+esc(name)+'</b><strong>'+money(amount)+'</strong><small>'+(m.expenses?percent(amount/m.expenses*100):percent(0))+'</small></span>').join('')+'</div>':'<span>Sem despesas registradas neste mês.</span>';
- return '<section aria-labelledby="overviewTitle"><h2 id="overviewTitle">Visão geral · '+esc(monthLabel())+'</h2><div class="overview-grid">'
- +card('Saldo disponível',money(m.balance),['Salário: '+money(m.salary),'Complementos: '+money(m.complement),'Despesas pagas: −'+money(m.expenses),'Cofrinhos líquidos: '+money(m.saved),'Investimentos líquidos: '+money(m.invested-m.redeemed)])
- +card('Renda comprometida',committed===null?'Sem renda registrada':percent(committed),['Renda recebida: '+money(m.income),'Despesas: '+money(m.expenses),'Cofrinhos: '+money(m.saved),'Investimentos líquidos: '+money(m.invested-m.redeemed),'Disponível após compromissos: '+money(m.balance)])
- +card('Carteira de investimentos',money(portfolio),[investments.length+' aplicação(ões) ativa(s)','Vinculado a metas: '+money(linked),'Aportes deste mês: '+money(m.invested),'Resgates deste mês: '+money(m.redeemed)])
- +card('Reserva deste mês',money(m.deposits+m.invested-redemptions),['Aportes em cofrinhos: '+money(m.deposits),'Investido neste mês: '+money(m.invested),'Resgates: −'+money(redemptions),'Renda destinada à reserva: '+(m.income?percent((m.deposits+m.invested-redemptions)/m.income*100):'Sem renda registrada')])
- +card('Despesas do mês',money(m.expenses),['Lançamentos de despesa: '+expenseCount,expenseList])
- +'</div></section>';
-}
 function openCalendarDayOverlay(){const detail=$('#page-calendar .calendar-detail');if(!detail)return;let dialog=$('#calendarDayDialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='calendarDayDialog';dialog.className='calendar-day-dialog';dialog.setAttribute('aria-label','Agenda do dia');dialog.innerHTML='<div class="calendar-day-dialog-top"><strong>Agenda do dia</strong><button type="button" data-close-calendar-day>Fechar</button></div><div id="calendarDayDialogContent" class="calendar-day-dialog-content"></div>';dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close()});document.body.append(dialog)}const content=$('#calendarDayDialogContent');if(content)content.innerHTML=detail.innerHTML;if(!dialog.open)dialog.showModal()}
 function homeCalendarPreview(){
   const today=isoToday(), key=mkey(state.year,state.month);
@@ -1330,43 +1143,6 @@ function categorySpendCard(m){
   ?(rows.length?'<div class="home-category-layout"><div class="home-category-donut" style="--spend-chart:conic-gradient('+slices+')"><div><small>Total de gastos</small><strong>'+money(total)+'</strong></div></div><div class="home-category-legend">'+rows.slice(0,5).map(([name,value],i)=>'<button type="button" class="home-category-row" data-home-category="'+esc(name)+'"><i style="--category-color:'+colors[i]+'"></i><span>'+esc(name)+'</span><strong>'+percent(value/total*100)+'</strong><small>'+money(value)+'</small></button>').join('')+(rows.length>5?'<button type="button" class="home-category-row" data-home-category="__all" data-home-category-list="'+encodeURIComponent(JSON.stringify(rows.slice(5).map(([name])=>name)))+'"><i style="--category-color:#8c9bab"></i><span>Outras categorias</span><strong>'+percent(rows.slice(5).reduce((n,x)=>n+x[1],0)/total*100)+'</strong><small>'+money(rows.slice(5).reduce((n,x)=>n+x[1],0))+'</small></button>':'')+'</div></div>':'<div class="empty-inline">Registre despesas para ver a distribuição por categoria.</div>')
   :(rows.length||previous.length?'<div class="home-category-trend">'+[...new Set([...rows.map(x=>x[0]),...previous.map(x=>x[0])])].map(name=>({name,current:rows.find(x=>x[0]===name)?.[1]||0,previous:before.get(name)||0})).sort((a,b)=>Math.abs(b.current-b.previous)-Math.abs(a.current-a.previous)).slice(0,6).map(x=>{const diff=x.current-x.previous,pct=x.previous?diff/x.previous*100:null;return '<button type="button" class="home-category-trend-row" data-home-category="'+esc(x.name)+'"><span><b>'+esc(x.name)+'</b><small>'+money(x.current)+' agora · '+money(x.previous)+' antes</small></span><strong class="'+(diff>0?'trend-up':diff<0?'trend-down':'')+'">'+(diff>0?'↑ ':diff<0?'↓ ':'= ')+(pct===null?(diff?'sem base':percent(0)):percent(Math.abs(pct)))+'</strong></button>'}).join('')+'</div>':'<div class="empty-inline">Ainda não há despesas para comparar com o mês anterior.</div>');
  return '<article id="budgetSpendingCard" class="card home-category-card"><div class="home-category-head"><div><h2>Gastos por categoria</h2><p>'+esc(monthLabel())+' · '+(mode==='distribution'?'distribuição do mês':'comparação com o mês anterior')+'</p></div><div class="home-category-toggle" role="group" aria-label="Visualização dos gastos"><button type="button" data-home-chart-mode="distribution" class="'+(mode==='distribution'?'selected':'')+'" aria-label="Distribuição dos gastos" title="Distribuição">◔</button><button type="button" data-home-chart-mode="comparison" class="'+(mode==='comparison'?'selected':'')+'" aria-label="Comparar com o mês anterior" title="Comparar evolução">↗</button></div></div>'+body+'</article>'
-}
-function attachTodayCardActions(){
- const root=$('#page-home');if(!root)return;const cards=[...root.querySelectorAll('.today-card,.market-budget,.overview-card,.home-agenda-card,.home-forecast-card,.today-stat,.today-reserve,.today-lower>.card,.home-category-card,.home-desktop-summary-grid>.card')];
- const mk=(label,action,ic,extra={})=>({label,action,ic,...extra});
- cards.forEach(card=>{if(card.querySelector(':scope > .home-compact-actions'))return;const title=card.querySelector('h2,h3,.today-stat-label')?.textContent?.trim()||'Resumo',text=title.toLocaleLowerCase('pt-BR');let actions;
- if(card.matches('.today-card')) actions=[mk('Ver receitas','detail','income',{filter:'income'}),mk('Ver despesas','detail','expense',{filter:'expense'}),mk('Nova renda','new','income',{kind:'income'}),mk('Nova despesa','new','expense',{kind:'expense'}),mk('Abrir agenda','calendar','calendar'),mk('Ocultar valores','privacy','eye')];
- else if(card.matches('.home-category-card')) actions=[mk('Ver despesas','detail','search',{route:'transactions',filter:'expense'}),mk('Lançar gasto','new','plus',{kind:'expense'}),mk('Abrir insights','insights','chart'),mk('Comparar meses','chartMode','chart',{mode:'comparison'}),mk('Ver distribuição','chartMode','chart',{mode:'distribution'}),mk('Exportar CSV','csv','report')];
- else if(card.matches('.market-budget')) actions=[mk('Ver gastos','detail','search',{route:'transactions',filter:'expense'}),mk('Novo gasto','new','plus',{kind:'expense'}),mk('Criar conta fixa','new','refresh',{kind:'recurring'}),mk('Ajustar cota','editBudget','settings'),mk('Comparar gastos','insights','chart'),mk('Abrir agenda','calendar','calendar')];
- else if(card.matches('.home-agenda-card')){const next=db.tasks.filter(t=>!t.done&&t.date>=isoToday()).sort((a,b)=>a.date.localeCompare(b.date)||(a.time||'').localeCompare(b.time||''))[0];actions=[mk('Agendar compromisso','new','plus',{kind:'task'}),mk('Abrir calendário','calendar','calendar'),mk('Ver próximos','calendar','calendar'),mk('Ver lançamentos','detail','wallet',{route:'transactions',filter:'all'}),mk('Planejar vencimentos','new','refresh',{kind:'recurring'}),mk('Abrir insights','insights','chart'),mk('Agenda de hoje','calendar','calendar',{date:isoToday()}),mk('Criar tarefa amanhã','new','plus',{kind:'task',dayOffset:1}),mk('Concluir próximo','completeTask','chart',{taskId:next?.id,disabled:!next}),mk('Editar próximo','editTask','settings',{taskId:next?.id,disabled:!next}),mk('Excluir próximo','deleteTask','report',{taskId:next?.id,disabled:!next})];if(next)actions[2].date=next.date}
- else if(card.matches('.home-forecast-card')) actions=[mk('Ver receitas','detail','income',{route:'transactions',filter:'income'}),mk('Ver despesas','detail','expense',{route:'transactions',filter:'expense'}),mk('Adicionar renda','new','plus',{kind:'income'}),mk('Adicionar despesa','new','plus',{kind:'expense'}),mk('Ver recorrências','new','refresh',{kind:'recurring'}),mk('Abrir calendário','calendar','calendar'),mk('Configurar saldo base','planning','wallet'),mk('Ver investimentos','module','piggy',{route:'investments'}),mk('Ver metas','module','target',{route:'goals'}),mk('Abrir relatórios','report','report'),mk('Ocultar valores','privacy','eye')];
- else if(/vencimento/.test(text)) actions=[mk('Ver despesas','detail','search',{route:'transactions',filter:'expense'}),mk('Nova conta recorrente','new','refresh',{kind:'recurring'}),mk('Adicionar despesa','new','plus',{kind:'expense'}),mk('Abrir agenda','calendar','calendar'),mk('Ver projeção','insights','chart'),mk('Exportar CSV','csv','report')];
- else if(/dica/.test(text)) actions=[mk('Abrir insights','insights','chart'),mk('Ver despesas','detail','search',{route:'transactions',filter:'expense'}),mk('Ver receitas','detail','income',{route:'transactions',filter:'income'}),mk('Adicionar despesa','new','plus',{kind:'expense'}),mk('Abrir agenda','calendar','calendar'),mk('Exportar CSV','csv','report')];
- else if(/reserva deste mês|progresso das metas/.test(text)) actions=[mk('Ver metas','module','target',{route:'goals'}),mk('Guardar valor','depositPicker','plus'),mk('Ver investimentos','module','piggy',{route:'investments'}),mk('Ver despesas','detail','search',{route:'transactions',filter:'expense'}),mk('Abrir insights','insights','chart'),mk('Abrir calendário','calendar','calendar'),mk('Nova meta','new','target',{kind:'jar'}),mk('Relatórios','report','report'),mk('Configurar saldo','planning','wallet'),mk('Ocultar valores','privacy','eye'),mk('Atualizar card','refreshHome','refresh')];
- else if(card.matches('.overview-card')){const route=card.querySelector('[data-page]')?.dataset.page||'analysis';if(/invest|carteira|investido/.test(text))actions=[mk('Abrir carteira','module','piggy',{route:'investments'}),mk('Adicionar investimento','new','plus',{kind:'investments'}),mk('Ver lançamentos','detail','search',{route:'transactions',filter:'all'}),mk('Abrir agenda','calendar','calendar'),mk('Ver insights','insights','chart'),mk('Exportar CSV','csv','report'),mk('Ver metas','module','target',{route:'goals'}),mk('Relatórios','report','report'),mk('Ver progresso','module','target',{route:'goals'}),mk('Ocultar valores','privacy','eye'),mk('Atualizar card','refreshHome','refresh')];else if(/reserva deste mês/.test(text))actions=[mk('Ver cofrinhos','module','target',{route:'goals'}),mk('Guardar valor','depositPicker','plus'),mk('Ver carteira','module','piggy',{route:'investments'}),mk('Ver aportes','detail','search',{route:'transactions',filter:'all'}),mk('Ver resgates','module','piggy',{route:'investments'}),mk('Nova meta','new','target',{kind:'jar'}),mk('Nova aplicação','new','plus',{kind:'investments'}),mk('Abrir agenda','calendar','calendar'),mk('Relatório','report','report'),mk('Abrir insights','insights','chart'),mk('Ocultar valores','privacy','eye')];else if(/gasto|despesa/.test(text))actions=[mk('Ver despesas','detail','search',{route:'transactions',filter:'expense'}),mk('Novo gasto','new','plus',{kind:'expense'}),mk('Comparar categorias','insights','chart'),mk('Abrir calendário','calendar','calendar'),mk('Relatório','report','report'),mk('Exportar CSV','csv','report'),mk('Nova conta fixa','new','refresh',{kind:'recurring'}),mk('Ver metas','module','target',{route:'goals'}),mk('Ocultar valores','privacy','eye'),mk('Insights','insights','chart'),mk('Atualizar card','refreshHome','refresh')];else if(/renda comprometida/.test(text))actions=[mk('Ver resumo','module','chart',{route}),mk('Ver receitas','detail','income',{route:'transactions',filter:'income'}),mk('Ver despesas','detail','expense',{route:'transactions',filter:'expense'}),mk('Nova renda','new','plus',{kind:'income'}),mk('Nova despesa','new','plus',{kind:'expense'}),mk('Abrir agenda','calendar','calendar'),mk('Abrir relatórios','report','report'),mk('Configurar saldo base','planning','wallet'),mk('Ver projeção','insights','chart'),mk('Ocultar valores','privacy','eye'),mk('Atualizar card','refreshHome','refresh')];else actions=[mk('Ver resumo','module','chart',{route}),mk('Ver receitas','detail','income',{route:'transactions',filter:'income'}),mk('Ver despesas','detail','expense',{route:'transactions',filter:'expense'}),mk('Nova renda','new','plus',{kind:'income'}),mk('Nova despesa','new','plus',{kind:'expense'}),mk('Abrir agenda','calendar','calendar'),mk('Gerar relatório PDF','report','report'),mk('Configurar saldo base','planning','wallet'),mk('Mês','period','calendar',{period:'month'}),mk('Ocultar valores','privacy','eye'),mk('Atualizar card','refreshHome','refresh')];}
- else if(card.matches('.today-stat,.today-reserve')) actions=[mk('Abrir metas','module','target',{route:'goals'}),mk('Guardar valor','new','plus',{kind:'add'}),mk('Resgatar valor','new','wallet',{kind:'withdraw'}),mk('Abrir investimentos','module','piggy',{route:'investments'}),mk('Ver despesas','detail','search',{route:'transactions',filter:'expense'}),mk('Abrir calendário','calendar','calendar')];
- else actions=[mk('Ver detalhes','detail','search',{route:'transactions',filter:'all'}),mk('Adicionar renda','new','plus',{kind:'income'}),mk('Adicionar despesa','new','plus',{kind:'expense'}),mk('Abrir agenda','calendar','calendar'),mk('Ver insights','insights','chart'),mk('Exportar CSV','csv','report')];
-
- const rule=[
-  [/reserva deste mês/i,'Guardar valor',/aportes|resgates|cofrinhos|investimentos|carteira/i],
-  [/progresso das metas/i,'Ver metas',/nova meta|guardar valor/i],
-  [/próximos compromissos/i,'Agendar compromisso',/agenda de hoje|editar|concluir|excluir/i],
-  [/previsto/i,'Ver projeção',/recorrências|saldo base/i],
-  [/despesas do mês/i,'Ver despesas',/categorias|conta fixa/i]
- ].find(([pattern])=>pattern.test(title));
- if(rule?.[1]==='Ver projeção')actions.unshift(mk('Ver projeção','insights','chart'));
- const existing=[...card.querySelectorAll(':scope > button[data-page], :scope > .card-title button[data-page]')];
- const duplicate=a=>existing.some(button=>button.textContent.trim()===a.label);
- const usable=actions.filter(a=>!a.disabled&&!duplicate(a));
- const primary=usable.find(a=>a.label===rule?.[1])||(!existing.length?usable.find(a=>!['privacy','csv','report','refreshHome'].includes(a.action)):null);
- const secondary=usable.filter(a=>a!==primary&&(rule?rule[2].test(a.label):['detail','insights','chartMode','planning','depositPicker'].includes(a.action))).slice(0,4);
- const button=a=>'<button type="button" data-home-action="'+a.action+'" '+(a.route?'data-route="'+a.route+'" ':'')+(a.filter?'data-filter="'+a.filter+'" ':'')+(a.kind?'data-kind="'+a.kind+'" ':'')+(a.mode?'data-mode="'+a.mode+'" ':'')+(a.period?'data-period="'+a.period+'" ':'')+(a.date?'data-date="'+a.date+'" ':'')+(a.dayOffset!==undefined?'data-day-offset="'+a.dayOffset+'" ':'')+(a.taskId?'data-task-id="'+a.taskId+'" ':'')+(a.disabled?'disabled ':'')+'title="'+a.label+'" aria-label="'+a.label+'"><span>'+icon(a.ic)+'</span><small>'+a.label+'</small></button>';
- const tools=document.createElement('div');
- tools.className='home-compact-actions';
- tools.innerHTML=(primary?button(primary):'')+(secondary.length?'<details><summary>Mais ações</summary><div class="home-secondary-actions">'+secondary.map(button).join('')+'</div></details>':'');
- if(tools.innerHTML)card.append(tools);
-
- })
 }
 function homeForecastCard(){const today=isoToday(),key=mkey(state.year,state.month),records=db.records.filter(r=>r.date.slice(0,7)===key),pastIncome=sum(records.filter(r=>r.kind==='income'&&r.date<=today).map(r=>r.amount)),pastExpense=sum(records.filter(r=>r.kind==='expense'&&r.date<=today).map(r=>r.amount)),futureIncome=sum(records.filter(r=>r.kind==='income'&&r.date>today).map(r=>r.amount)),futureExpense=sum(records.filter(r=>r.kind==='expense'&&r.date>today).map(r=>r.amount));let recurringIncome=0,recurringExpense=0;for(const t of db.recurring.filter(x=>!x.paused&&x.startMonth<=key&&(!x.endMonth||x.endMonth>=key))){const d=Math.min(t.day,new Date(state.year,state.month+1,0).getDate()),date=key+'-'+String(d).padStart(2,'0');if(date<=today)continue;const exists=db.records.some(r=>r.recurringId===t.id&&(r.recurringMonth||r.date.slice(0,7))===key);if(exists)continue;if(t.kind==='income')recurringIncome+=t.amount;else recurringExpense+=t.amount}const projectedIncome=pastIncome+futureIncome+recurringIncome,projectedExpense=pastExpense+futureExpense+recurringExpense,max=Math.max(projectedIncome,projectedExpense,1),bar=(label,actual,projected,color)=>`<div class="forecast-row"><div><span>${label}</span><b>${money(actual)} <small>realizado</small></b><b>${money(projected)} <small>previsto</small></b></div><div class="forecast-track"><i style="width:${Math.min(100,projected/max*100)}%;background:${color}"></i><em style="width:${Math.min(100,actual/max*100)}%"></em></div></div>`;return `<article class="card home-forecast-card"><div class="card-head"><div><h2>Previsto × realizado</h2><p>${esc(monthLabel())} · inclui lançamentos futuros e recorrências ainda não lançadas</p></div></div>${bar('Receitas',pastIncome,projectedIncome,'var(--success)')}${bar('Despesas',pastExpense,projectedExpense,'var(--danger)')}<p class="help">Estimativa baseada somente nos registros e recorrências cadastrados.</p></article>`}
 function homePeriodMetrics(){
@@ -1496,18 +1272,6 @@ function reserveMonthCard(m,extraClass=''){
  const detail='Cofrinhos: '+money(m.deposits)+' · Carteira: '+money(m.invested)+(redemptions?' · Resgates: '+money(redemptions):'')+' · '+share;
  return '<article class="today-stat '+extraClass+'"><span class="today-stat-label">'+icon('piggy')+'Reserva deste mês</span><strong>'+money(total)+'</strong><small>'+detail+'</small></article>';
 }
-function marketBudgetOverviewCard(monthData,embedded=false){
- const budget=db.prefs.marketBudget,spent=sum(monthData.records.filter(r=>r.kind==='expense'&&r.category==='Mercado').map(r=>r.amount));
- const remaining=budget?Math.max(0,budget-spent):0,ratio=budget?Math.min(100,spent/budget*100):0;
- const status=!budget?'Sem cota definida':spent>budget?'Cota ultrapassada':spent===budget?'Cota atingida':ratio>=75?'Atenção ao limite':'Dentro da cota';
- return `${embedded?'<div class="market-budget-content">':'<article class="card market-budget home-quarter-card">'}<h3>Cota de Mercado</h3><strong>${money(spent)}</strong><small>Gastos em ${esc(monthLabel())}</small>
- ${budget?`<p>${spent>budget?'Acima da cota':'Restante'}: <b>${money(spent>budget?spent-budget:remaining)}</b> · ${percent(ratio)} usada</p><div class="budget-progress-track"><span style="width:${ratio}%;background:${ratio>=100?'var(--danger)':ratio>=75?'var(--warning)':'var(--primary)'}"></span></div>`:'<p>Defina um limite mensal para acompanhar os gastos.</p>'}
- <details class="market-budget-editor"><summary>${budget?'Ajustar cota':'Definir cota'}</summary><form data-market-budget-form><label class="field">Cota mensal (R$)<input name="budget" type="number" min="0.01" max="100000000" step="0.01" placeholder="Sem limite" value="${hideValues||!budget?'':(budget/100).toFixed(2)}"></label><button class="btn" type="submit">Salvar cota</button>${budget?'<button class="btn" type="submit" value="clear">Remover cota</button>':''}</form></details>${embedded?'</div>':'</article>'}`;
-}
-function homeDesktopSummaryCards(m,topTip){
- return '<article class="card tip-card home-quarter-card">'+cardTitle('Uma dica para você','Baseada nos lançamentos registrados')+'<p>'+esc(topTip)+'</p></article>'+reserveMonthCard(m,'home-quarter-card')+goalProgressSummary('home-quarter-card',false);
-}
-
 function portfolioSummary(){
   const items=db.investments;
   return `<article class="card"><h3>Carteira de investimentos</h3><p>${items.length} aplicação(ões) · Saldo líquido informado: <strong>${money(sum(items.map(x=>x.balance)))}</strong></p><p>Vinculado a metas ativas: ${money(sum(items.filter(x=>db.jars.some(j=>j.id===x.goalId&&!j.archived)).map(x=>x.balance)))}</p><button class="btn" data-page="investments">Abrir investimentos</button></article>`;
@@ -4117,7 +3881,6 @@ else{const amount=toCents($('#amount').value),date=$('#date').value,note=$('#not
 const netReceived = receivedInput ? toCents(receivedInput) : null;
 if(receivedInput && (!Number.isSafeInteger(netReceived)||netReceived<=0)){notify('Informe um valor líquido recebido válido.');return}
 const previousAllocation=db.allocations.find(a=>a.id===state.editAllocationId);record={id:previousAllocation?.id||uid(),jarId:jar.id,amount:signed,date,note,...(netReceived!==null?{netReceived}:{})};const remaining=previousAllocation?db.allocations.filter(a=>a.id!==previousAllocation.id):db.allocations,proposed=[...remaining,record],invalidDate=firstNegativeJarDate(jar.id,proposed);if(invalidDate){notify(`Essa alteração deixaria o saldo do cofrinho negativo em ${dateBR(invalidDate)}.`);return}if(state.editAllocationId&&!confirm('Confirma salvar? Isso mudará os valores registrados no cofrinho e poderá alterar saldos e relatórios.'))return;state.year=Number(date.slice(0,4));state.month=Number(date.slice(5,7))-1;if(!await mutate(()=>db.allocations=proposed))return}}closeModal(true);notify(monthBefore===mkey(state.year,state.month)?'Salvo com sucesso.':`Salvo em ${monthLabel()}.`)}
-async function copyPreviousExpenses(){let y=state.year,m=state.month-1;if(m<0){m=11;y--}const previous=getMonth(y,m).records.filter(r=>r.kind==='expense'&&!r.recurringId);if(!previous.length){notify('O mês anterior não tem despesas para copiar.');return}const targetKey=mkey(state.year,state.month);const hasSame=x=>db.records.some(r=>r.kind==='expense'&&r.date===x.date&&r.category===x.category&&r.note===x.note&&r.amount===x.amount);const copy=previous.map(x=>{const day=Number(x.date.slice(8));const lastDay=new Date(state.year,state.month+1,0).getDate();return {...x,id:uid(),recurringId:null,date:targetKey+'-'+String(Math.min(day,lastDay)).padStart(2,'0')}}).filter(x=>!hasSame(x));if(!copy.length){notify('Todas as despesas do mês anterior já foram copiadas.');return}if(!confirm(`Copiar ${copy.length} ${copy.length===1?'despesa':'despesas'} de ${MONTHS[m]} para ${monthLabel()}? Você poderá editar os valores.`))return;if(await mutate(()=>db.records.push(...copy)))notify(`${copy.length} despesas copiadas. Ajuste os valores em Editar.`)}
 async function deleteRecord(id){const x=db.records.find(r=>r.id===id);if(!x)return;const asset=x.investmentId?db.investments.find(v=>v.id===x.investmentId):null;if(asset&&(asset.redemptions||[]).some(r=>r.kind==='sale')){notify('Este gasto do lote já compõe vendas registradas e não pode ser excluído.');return}if(!confirm(`Excluir ${money(x.amount)} de ${dateBR(x.date)}?`))return;if(await mutate(()=>{if(asset){const expense=asset.expenses?.find(e=>e.id===x.investmentExpenseId);if(expense){asset.remainingCostBasis=Math.max(0,asset.remainingCostBasis-expense.amount);asset.expenses=asset.expenses.filter(e=>e.id!==expense.id)}}db.records=db.records.filter(r=>r.id!==id)}))notify('Lançamento excluído.')}
 function firstNegativeJarDate(jarId,allocations){let balance=0;for(const item of allocations.filter(x=>x.jarId===jarId).sort(byAllocationDate)){balance+=item.amount;if(balance<0)return item.date}return null}
 async function deleteAllocation(id){const a=db.allocations.find(r=>r.id===id);if(!a)return;const remaining=db.allocations.filter(x=>x.id!==id),invalidDate=firstNegativeJarDate(a.jarId,remaining);if(invalidDate){notify(`Não é possível excluir: o saldo ficaria negativo em ${dateBR(invalidDate)}.`);return}if(!confirm('Excluir esta movimentação do cofrinho?'))return;if(await mutate(()=>db.allocations=remaining))notify('Movimentação excluída.')}
@@ -4290,7 +4053,7 @@ async function integrityBank() {
     return raw === localStorage.getItem(STORE) ? 'aprovada' : 'pendente';
   } catch {return 'alerta';}
 }
-const releaseFiles=['./index.html','./app.js','./accounts.js','./engines.js','./manifest.webmanifest','./version.json','./sw.js'];
+const releaseFiles=['./index.html','./app.js','./diagnostics.js','./accounts.js','./engines.js','./manifest.webmanifest','./version.json','./sw.js'];
 const releaseManifestPath='./integrity-manifest.json';
 function validReleaseManifest(manifest){
   return manifest?.format===1&&manifest.version===APP_VERSION&&manifest.assets&&

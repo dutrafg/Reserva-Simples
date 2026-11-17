@@ -1,3 +1,10 @@
+## 1.0.0-beta.9
+
+- Telemetria local em `diagnostics.js`, incluída no cache offline verificado.
+- Cálculos financeiros com menos passagens pelos registros.
+- Funções de telas antigas sem chamadas removidas.
+- Código fonte dividido em `src/core/` e `src/modules/`, com geração verificável de `app.js`.
+
 ## v1.0.0-beta.3
 
 - Primeiro acesso oferece **Continuar sem cadastro**; modo visitante preserva registros locais e permite criar perfil cifrado posteriormente.

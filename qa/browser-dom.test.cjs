@@ -90,6 +90,7 @@ function boot(testContext, { width = 1440, coarse = false, seed, query = '', noA
   });
   window.eval(read('engines.js'));
   window.eval(read('accounts.js'));
+  window.eval(read('diagnostics.js'));
   window.eval(appSource);
   const { document, qa } = window;
   const get = selector => {
@@ -275,7 +276,7 @@ test('Central verifica os arquivos e só repara conteúdo da mesma versão', asy
     })
   };
   const trace = await qa.integrityAssets();
-  assert.equal(trace.length, 8);
+  assert.equal(trace.length, 9);
   assert.equal(trace.find(item => item.check === './app.js').status, 'alerta');
   window.fetch = async url => new Response(filename(url)==='app.js'?'arquivo de outra versão':files.get(filename(url)));
   const rejected = await qa.integrityAssets(true);
@@ -285,7 +286,7 @@ test('Central verifica os arquivos e só repara conteúdo da mesma versão', asy
   cache.delete('integrity-manifest.json');
   const restored = await qa.integrityAssets(true);
   assert.equal(restored.filter(item => item.status === 'corrigida').length, 2);
-  assert.equal((await qa.integrityAssets()).filter(item => item.status === 'aprovada').length, 8);
+  assert.equal((await qa.integrityAssets()).filter(item => item.status === 'aprovada').length, 9);
 });
 
 test('Central gera o relatório das quatro etapas e preserva a base ativa', { timeout: 60_000 }, async t => {
@@ -329,7 +330,7 @@ test('Central gera o relatório das quatro etapas e preserva a base ativa', { ti
   assert.equal(integrated.failures,0);
   assert.equal(report.scan.modules.find(module => module.module === 'home').checks.find(item => item.name === 'Matriz responsiva de navegação').status,'não_suportado');
   assert.equal(report.diagnosticContract.coverage.modules.length,9);
-  assert.equal(report.diagnosticContract.coverage.releaseFiles.length,7);
+  assert.equal(report.diagnosticContract.coverage.releaseFiles.length,8);
   assert.equal(report.diagnosticContract.brokenSignatures.length,0);
   assert.equal(json.includes('Registro da fixture'),false);
 });

@@ -1,7 +1,7 @@
-const VERSION = '1.0.0-beta.8';
+const VERSION = '1.0.0-beta.9';
 const CACHE = 'reserva-simples-v' + VERSION + '-pwa';
 const INTEGRITY_MANIFEST = './integrity-manifest.json';
-const CHECKED_FILES = ['./index.html', './app.js', './accounts.js', './engines.js', './manifest.webmanifest', './version.json', './sw.js'];
+const CHECKED_FILES = ['./index.html', './app.js', './diagnostics.js', './accounts.js', './engines.js', './manifest.webmanifest', './version.json', './sw.js'];
 const CORE_FILES = [...CHECKED_FILES, INTEGRITY_MANIFEST];
 const OPTIONAL_FILES = ['./', './icon.svg', './icon-192.png', './icon-512.png'];
 const FILES = [...CORE_FILES, ...OPTIONAL_FILES];

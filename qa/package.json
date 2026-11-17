@@ -1,6 +1,7 @@
 {
   "name": "reserva-simples-qa",
   "private": true,
-  "scripts": { "test": "node --test *.test.cjs" },
+  "scripts": { "test": "node build-app.cjs --check && node integrity-manifest.cjs --check && node --test *.test.cjs",
+    "build": "node build-app.cjs && node integrity-manifest.cjs" },
   "devDependencies": { "jsdom": "26.1.0" }
 }

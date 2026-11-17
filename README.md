@@ -1,4 +1,4 @@
-# Reserva Simples — v1.0.0-beta.8
+# Reserva Simples — v1.0.0-beta.9
 
 Aplicativo financeiro local para registrar rendas, despesas e movimentações de metas de reserva.
 
@@ -103,3 +103,10 @@ Execute `npm ci --prefix qa`, `npm test --prefix qa` e `node qa/integrity-manife
 - O modo visitante não abre nem utiliza bancos de perfis cadastrados. Se a base antiga tiver um cofre, ele continua exigindo sua senha; ignorar o cadastro não desbloqueia o cofre.
 - Em **Ajustes**, a opção **Criar perfil protegido** permite vincular registros anteriores, preservando a cópia original. A migração de cofre antigo exige a senha existente.
 - No smartphone, **Ajustes** fica somente na engrenagem do cabeçalho, não duplicado em **Mais módulos**. A Central de Integridade verifica o acesso direto a esse módulo.
+
+## Organização do código fonte
+
+- `src/core/` reúne inicialização, armazenamento, navegação e integrações compartilhadas.
+- `src/modules/` contém as partes das telas, em ordem explícita no construtor. `investments-goals-shared.js` reúne cálculos de metas e investimentos.
+- `diagnostics.js` contém telemetria local e `engines.js` os cálculos puros.
+- Depois de editar `src/`, execute `cd qa && npm run build` para gerar `app.js` e atualizar o manifesto. `npm test` confere ambos antes dos testes de comportamento.
