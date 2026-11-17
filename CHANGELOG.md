@@ -1,3 +1,9 @@
+## 1.0.0-beta.10
+
+- Hoje ganha painel para desktop e tablet com quatro indicadores, lista de gastos por categoria e ações rápidas.
+- Navegação desktop passa para abas horizontais; celular mantém a navegação atual.
+- Busca nas categorias, limites e atalhos usam os dados e módulos existentes.
+
 ## 1.0.0-beta.9
 
 - Telemetria local em `diagnostics.js`, incluída no cache offline verificado.

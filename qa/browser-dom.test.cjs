@@ -125,6 +125,24 @@ test('abre os nove módulos e mantém somente uma tela ativa, sem IDs duplicados
   assert.equal(qa.integrityInterface().find(item => item.check === 'interface.budget').status, 'alerta');
 });
 
+test('painel de Hoje apresenta quatro indicadores e abre a categoria nos lançamentos', t => {
+  const today = new Date();
+  const date = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-10';
+  const { window, document, qa, get } = boot(t, {seed:{...stored(),records:[expense('market-workspace',date,12345)]}});
+  qa.go('home');
+  assert.equal(document.querySelectorAll('.workspace-metric').length, 4);
+  const search = get('[data-workspace-search]');
+  search.value = 'farmácia';
+  search.dispatchEvent(new window.Event('input', {bubbles:true}));
+  assert.equal(get('[data-home-category="Mercado"]').hidden, true);
+  search.value = 'mercado';
+  search.dispatchEvent(new window.Event('input', {bubbles:true}));
+  assert.equal(get('[data-home-category="Mercado"]').hidden, false);
+  get('[data-home-category="Mercado"]').click();
+  assert.equal(qa.getState().page, 'transactions');
+  assert.deepEqual(Array.from(qa.getState().txCategorySet), ['Mercado']);
+});
+
 test('Orçamento no celular e menu Mais com atalhos de tablet', t => {
   const { window, qa, get } = boot(t, { width: 390, coarse: true });
   assert.equal(get('#mobileNav').children.length, 5);

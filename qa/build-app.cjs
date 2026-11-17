@@ -6,6 +6,7 @@ const parts = [
   'src/core/bootstrap.js',
   'src/modules/calendar.js',
   'src/modules/budget.js',
+  'src/modules/home-workspace.js',
   'src/modules/home.js',
   'src/modules/transactions.js',
   'src/modules/investments-goals-shared.js',
